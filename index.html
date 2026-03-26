@@ -3405,15 +3405,28 @@ Browser: ${diagnostic.browser}
 -----------------------------------------
 (No email content is included in this report)`;
 
-        const mailto = `mailto:jbuchan.dev@gmail.com?subject=${encodeURIComponent('Inbox Intelligence — Error Report')}&body=${encodeURIComponent(reportBody)}`;
-        window.open(mailto);
+        // Copy to clipboard, then open Gmail compose in browser
+        navigator.clipboard.writeText(reportBody).then(() => {
+          // Open Gmail compose in browser (not local mail app)
+          const gmailCompose = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent('jbuchan.dev@gmail.com')}&su=${encodeURIComponent('Inbox Intelligence — Error Report')}&body=${encodeURIComponent(reportBody)}`;
+          window.open(gmailCompose, '_blank');
 
-        btn.textContent = 'Report sent';
-        btn.disabled = true;
-        btn.style.color = 'var(--accent-blue)';
-        btn.style.borderColor = 'rgba(78,205,196,0.3)';
+          btn.textContent = 'Report copied & Gmail opened';
+          btn.disabled = true;
+          btn.style.color = 'var(--accent-blue)';
+          btn.style.borderColor = 'rgba(78,205,196,0.3)';
+        }).catch(() => {
+          // Clipboard failed — still open Gmail compose
+          const gmailCompose = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent('jbuchan.dev@gmail.com')}&su=${encodeURIComponent('Inbox Intelligence — Error Report')}&body=${encodeURIComponent(reportBody)}`;
+          window.open(gmailCompose, '_blank');
+
+          btn.textContent = 'Gmail opened — send the report';
+          btn.disabled = true;
+          btn.style.color = 'var(--accent-blue)';
+          btn.style.borderColor = 'rgba(78,205,196,0.3)';
+        });
       } catch (e) {
-        btn.textContent = 'Could not send';
+        btn.textContent = 'Could not generate report';
         btn.disabled = true;
       }
     }
