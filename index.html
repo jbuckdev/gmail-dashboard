@@ -3195,7 +3195,9 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
       }
     }
 
-    /* Sync sidebar scroll zone height with left column */
+    /* Sync sidebar scroll zone with left column.
+       If sidebar content fits within the available space → no internal scroll, page scrolls normally.
+       If sidebar content overflows → internal scroll activates. */
     function initSidebarSync() {
       const leftCol = document.getElementById('email-sections');
       const scrollZone = document.getElementById('sidebar-scroll-zone');
@@ -3204,21 +3206,26 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
       function syncHeight() {
         const leftHeight = leftCol.offsetHeight;
         const viewportH = window.innerHeight - 48;
-        // Use the larger of: left column height or viewport
-        // This way the sidebar grows with expanded sections
-        // but never shorter than what fits on screen
-        const targetH = Math.max(viewportH, leftHeight);
-        scrollZone.style.maxHeight = targetH + 'px';
+        const sidebarContentH = scrollZone.scrollHeight;
+        const availableH = Math.max(viewportH, leftHeight);
+
+        scrollZone.style.maxHeight = availableH + 'px';
+
+        // If content fits — disable internal scroll so page scrolls normally
+        if (sidebarContentH <= availableH) {
+          scrollZone.style.overflowY = 'visible';
+          scrollZone.style.overscrollBehavior = 'auto';
+        } else {
+          // Content overflows — enable internal scroll
+          scrollZone.style.overflowY = 'auto';
+          scrollZone.style.overscrollBehavior = 'contain';
+        }
       }
 
-      // Watch for left column resizing (sections expanding/collapsing)
       const observer = new ResizeObserver(syncHeight);
       observer.observe(leftCol);
-
-      // Also sync on window resize
+      observer.observe(scrollZone);
       window.addEventListener('resize', syncHeight);
-
-      // Initial sync
       syncHeight();
     }
 
