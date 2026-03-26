@@ -1271,6 +1271,75 @@
     .btn-danger:hover { background: var(--accent-coral-dim); }
 
     /* ============================================
+       PRIVACY MODE TOGGLE
+       ============================================ */
+    .privacy-toggle {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .privacy-option {
+      flex: 1;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 18px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      text-align: left;
+    }
+    .privacy-option:hover { border-color: var(--border-active); }
+    .privacy-option.selected {
+      border-color: var(--accent-blue);
+      background: var(--accent-blue-dim);
+    }
+
+    .privacy-option-title {
+      font-weight: 600;
+      font-size: 0.95em;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .privacy-option-desc {
+      font-size: 0.8em;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .privacy-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .privacy-dot.dot-full { background: var(--accent-blue); }
+    .privacy-dot.dot-private { background: var(--accent-amber); }
+
+    .privacy-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75em;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .privacy-badge.badge-full {
+      background: var(--accent-blue-dim);
+      color: var(--accent-blue);
+    }
+    .privacy-badge.badge-private {
+      background: var(--accent-amber-dim);
+      color: var(--accent-amber);
+    }
+
+    /* ============================================
        TRUST FOOTER
        ============================================ */
     .footer {
@@ -1391,6 +1460,7 @@
           <div class="topbar-left">
             <div class="topbar-logo">&#9993;</div>
             <span class="topbar-title">Inbox Intelligence</span>
+            <span class="privacy-badge badge-private" id="privacy-badge" style="display:none">Private Mode</span>
           </div>
           <div class="topbar-right">
             <button class="topbar-btn" onclick="refreshDashboard()">Refresh</button>
@@ -1590,6 +1660,21 @@
         </div>
 
         <div class="pref-card">
+          <h2>Privacy &amp; Analysis</h2>
+          <p>Choose how your emails are analyzed. You can switch anytime.</p>
+          <div class="privacy-toggle" id="privacy-toggle">
+            <div class="privacy-option" data-mode="full" onclick="setPrivacyMode('full')">
+              <div class="privacy-option-title"><span class="privacy-dot dot-full"></span> Full Analysis</div>
+              <div class="privacy-option-desc">AI reads your emails for the best sorting and written summaries. Email content is sent to Anthropic's AI service (kept up to 30 days for safety, never used for training).</div>
+            </div>
+            <div class="privacy-option" data-mode="private" onclick="setPrivacyMode('private')">
+              <div class="privacy-option-title"><span class="privacy-dot dot-private"></span> Private Mode</div>
+              <div class="privacy-option-desc">Everything stays on this computer. No email data leaves your browser. Sorting uses built-in rules — less precise but fully private.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pref-card" id="pref-claude-key-card">
           <h2>Claude API Key</h2>
           <p>Change your Claude key. The current key will be replaced.</p>
           <div class="pref-add-row">
@@ -1636,6 +1721,7 @@
     const getClaudeKey = () => localStorage.getItem('emailDashClaudeKey') || '';
     const getVipSenders = () => getPrefs().vipSenders || [];
     const getBlockedSenders = () => getPrefs().blockedSenders || [];
+    const isPrivateMode = () => getPrefs().privacyMode === 'private';
 
     /* ============================================
        SCREENS
@@ -1825,6 +1911,12 @@
       const unclassified = emails.filter(e => !e.ruleClassified);
       if (!unclassified.length) return;
 
+      // Private Mode: no AI calls — fallback to defaults
+      if (isPrivateMode()) {
+        for (const e of unclassified) { e.category='read'; e.priority=3; e.summary=e.snippet.substring(0,100); }
+        return;
+      }
+
       const claudeKey = getClaudeKey();
       if (!claudeKey) {
         for (const e of unclassified) { e.category='read'; e.priority=3; e.summary=e.snippet.substring(0,100); }
@@ -1927,6 +2019,12 @@ ${emailList}` }]
       // Second: AI topic extraction for remaining emails without topics
       const needTopics = emails.filter(e => !e.topic);
       if (!needTopics.length) return;
+
+      // Private Mode: no AI calls — remaining get "Other"
+      if (isPrivateMode()) {
+        for (const e of needTopics) e.topic = 'Other';
+        return;
+      }
 
       const claudeKey = getClaudeKey();
       if (!claudeKey) {
@@ -2342,9 +2440,15 @@ ${emailList}` }]
         return;
       }
 
+      // Private Mode or no key: use template briefing
+      if (isPrivateMode()) {
+        body.innerHTML = renderTemplateBriefing(emails);
+        return;
+      }
+
       const claudeKey = getClaudeKey();
       if (!claudeKey) {
-        body.innerHTML = renderFallbackBriefing(emails);
+        body.innerHTML = renderTemplateBriefing(emails);
         return;
       }
 
@@ -2495,36 +2599,103 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
         body.innerHTML = html;
       } catch (err) {
         console.error('Briefing error:', err);
-        body.innerHTML = renderFallbackBriefing(emails);
+        body.innerHTML = renderTemplateBriefing(emails);
       }
     }
 
-    function renderFallbackBriefing(emails) {
-      const reply = emails.filter(e => e.category === 'reply');
-      const read = emails.filter(e => e.category === 'read');
+    function renderTemplateBriefing(emails) {
+      const reply = emails.filter(e => e.category === 'reply').sort((a,b) => b.priority - a.priority);
+      const read = emails.filter(e => e.category === 'read').sort((a,b) => b.date - a.date);
+      const fyi = emails.filter(e => e.category === 'fyi');
+      const skip = emails.filter(e => e.category === 'skip');
       const rl = currentTimeRange === 1 ? 'today' : currentTimeRange === 7 ? 'this week' : 'this month';
+      const gmailLink = id => `https://mail.google.com/mail/u/0/#inbox/${id}`;
+      const emailLi = (e, cls) => {
+        return `<li class="${cls}"><a href="${gmailLink(e.id)}" target="_blank" rel="noopener" class="briefing-link">&#9993;</a><strong>${esc(e.fromName)}</strong> &mdash; ${esc(e.subject)}</li>`;
+      };
 
-      let html = `<p>You received <strong>${emails.length} emails</strong> ${rl}.`;
-      if (reply.length) html += ` <strong>${reply.length}</strong> need your reply.`;
+      // Opening summary paragraph
+      let html = '<p>';
+      html += `You received <strong>${emails.length} emails</strong> ${rl}. `;
+      if (reply.length) html += `<strong>${reply.length}</strong> need${reply.length === 1 ? 's' : ''} your reply. `;
+      if (read.length) html += `<strong>${read.length}</strong> worth reading. `;
+      if (fyi.length + skip.length) html += `${fyi.length + skip.length} you can skip.`;
       html += '</p>';
 
-      if (reply.length) {
-        html += '<div class="briefing-section-title">Action Items</div><ul>';
-        html += reply.slice(0, 5).map(e => {
-          const url = `https://mail.google.com/mail/u/0/#inbox/${e.id}`;
-          return `<li class="b-urgent"><a href="${url}" target="_blank" rel="noopener" class="briefing-link">&#9993;</a><strong>${esc(e.fromName)}</strong> &mdash; ${esc(e.subject)}</li>`;
-        }).join('');
-        html += '</ul>';
+      // Privacy mode indicator
+      if (isPrivateMode()) {
+        html += '<p style="font-size:0.82em;color:var(--accent-amber);margin-top:4px">Private Mode &mdash; your emails stay on this device. Sorting uses built-in rules.</p>';
       }
 
-      if (read.length) {
-        html += '<div class="briefing-section-title">Worth Your Attention</div><ul>';
-        html += read.slice(0, 5).map(e => {
-          const url = `https://mail.google.com/mail/u/0/#inbox/${e.id}`;
-          return `<li class="b-info"><a href="${url}" target="_blank" rel="noopener" class="briefing-link">&#9993;</a><strong>${esc(e.fromName)}</strong> &mdash; ${esc(e.subject)}</li>`;
-        }).join('');
-        html += '</ul>';
+      // Action items
+      if (reply.length) {
+        html += '<div class="briefing-section-title">Needs Your Attention</div>';
+        html += '<ul>' + reply.map(e => emailLi(e, 'b-urgent')).join('') + '</ul>';
       }
+
+      // Worth reading — grouped by topic
+      if (read.length) {
+        html += '<div class="briefing-section-title">Worth Reading</div>';
+
+        // Group by topic
+        const topicGroups = {};
+        for (const e of read) {
+          const t = e.topic || 'Other';
+          if (!topicGroups[t]) topicGroups[t] = [];
+          topicGroups[t].push(e);
+        }
+        const sortedTopics = Object.entries(topicGroups).sort((a,b) => b[1].length - a[1].length);
+
+        for (const [topic, topicEmails] of sortedTopics) {
+          if (sortedTopics.length > 1 && topicEmails.length > 0) {
+            html += `<p style="margin-top:12px;margin-bottom:4px;font-size:0.85em;color:var(--text-muted);font-weight:600">${esc(topic)}</p>`;
+          }
+          // Show top 3 per topic if many topics, otherwise show all
+          const showCount = sortedTopics.length > 3 ? 3 : topicEmails.length;
+          html += '<ul>' + topicEmails.slice(0, showCount).map(e => emailLi(e, 'b-info')).join('');
+          if (topicEmails.length > showCount) {
+            html += `<li class="b-fyi" style="color:var(--text-muted);font-style:italic">+ ${topicEmails.length - showCount} more in ${esc(topic)}</li>`;
+          }
+          html += '</ul>';
+        }
+      }
+
+      // Quick stats
+      html += '<div class="briefing-section-title">Quick Stats</div><ul>';
+
+      // Top sender
+      const senderCounts = {};
+      for (const e of emails) senderCounts[e.fromName] = (senderCounts[e.fromName] || 0) + 1;
+      const topSender = Object.entries(senderCounts).sort((a,b) => b[1] - a[1])[0];
+      if (topSender) {
+        html += `<li class="b-stat">Most active sender: <strong>${esc(topSender[0])}</strong> (${topSender[1]} emails)</li>`;
+      }
+
+      // Skipped breakdown
+      const newsletterCount = fyi.length;
+      const promoCount = skip.filter(e => e.labels.includes('CATEGORY_PROMOTIONS')).length;
+      const socialCount = skip.filter(e => e.labels.includes('CATEGORY_SOCIAL')).length;
+      const otherSkip = skip.length - promoCount - socialCount;
+      let skippedParts = [];
+      if (newsletterCount) skippedParts.push(`${newsletterCount} newsletters`);
+      if (promoCount) skippedParts.push(`${promoCount} promotions`);
+      if (socialCount) skippedParts.push(`${socialCount} social`);
+      if (otherSkip > 0) skippedParts.push(`${otherSkip} other`);
+      if (skippedParts.length) {
+        html += `<li class="b-stat">Filtered out: ${skippedParts.join(', ')}</li>`;
+      }
+
+      // Topic diversity for weekly/monthly
+      if (currentTimeRange >= 7) {
+        const topicCounts = {};
+        for (const e of emails) topicCounts[e.topic || 'Other'] = (topicCounts[e.topic || 'Other'] || 0) + 1;
+        const topTopic = Object.entries(topicCounts).sort((a,b) => b[1] - a[1])[0];
+        if (topTopic) {
+          html += `<li class="b-stat">Dominant topic: <strong>${esc(topTopic[0])}</strong> (${topTopic[1]} emails)</li>`;
+        }
+      }
+
+      html += '</ul>';
 
       return html;
     }
@@ -2807,6 +2978,10 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
       renderBlockList();
       renderSizeBtns();
       renderRangeBtnsPref();
+      renderPrivacyToggle();
+      // Show/hide Claude key card based on mode
+      const keyCard = document.getElementById('pref-claude-key-card');
+      if (keyCard) keyCard.style.display = isPrivateMode() ? 'none' : '';
     }
 
     function showDashboard() { showScreen('dashboard'); }
@@ -2869,6 +3044,36 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
       document.querySelectorAll('#range-btns-pref button').forEach(b => {
         b.classList.toggle('active', parseInt(b.dataset.range) === current);
       });
+    }
+
+    function setPrivacyMode(mode) {
+      const p = getPrefs();
+      p.privacyMode = mode;
+      savePrefs(p);
+      renderPrivacyToggle();
+      updatePrivacyBadge();
+      // Show/hide Claude key card
+      const keyCard = document.getElementById('pref-claude-key-card');
+      if (keyCard) keyCard.style.display = mode === 'private' ? 'none' : '';
+    }
+
+    function renderPrivacyToggle() {
+      const mode = getPrefs().privacyMode || 'full';
+      document.querySelectorAll('#privacy-toggle .privacy-option').forEach(el => {
+        el.classList.toggle('selected', el.dataset.mode === mode);
+      });
+    }
+
+    function updatePrivacyBadge() {
+      const badge = document.getElementById('privacy-badge');
+      if (!badge) return;
+      if (isPrivateMode()) {
+        badge.style.display = '';
+        badge.className = 'privacy-badge badge-private';
+        badge.textContent = 'Private Mode';
+      } else {
+        badge.style.display = 'none';
+      }
     }
 
     function updateClaudeKey() {
@@ -2957,7 +3162,15 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
       if (p.textSize === 'large') document.body.classList.add('font-large');
       if (p.textSize === 'xl') document.body.classList.add('font-xl');
 
-      if (getClaudeKey()) markStep1Done();
+      // Privacy mode: skip Claude key step in onboarding if private
+      if (isPrivateMode()) {
+        markStep1Done(); // no key needed, enable Google sign-in directly
+        document.getElementById('step-claude').style.display = 'none';
+      } else if (getClaudeKey()) {
+        markStep1Done();
+      }
+
+      updatePrivacyBadge();
 
       if (typeof google !== 'undefined' && google.accounts) {
         initGoogleAuth();
