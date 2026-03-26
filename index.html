@@ -3711,36 +3711,68 @@ Browser: ${diagnostic.browser}
     }
 
     function addCleaningListeners() {
+      // Intercept all clicks on email items to prevent navigation
+      document.addEventListener('click', onCleanClick, true); // capture phase
       document.addEventListener('mousedown', onCleanMouseDown);
       document.addEventListener('mousemove', onCleanMouseMove);
       document.addEventListener('mouseup', onCleanMouseUp);
     }
 
     function removeCleaningListeners() {
+      document.removeEventListener('click', onCleanClick, true);
       document.removeEventListener('mousedown', onCleanMouseDown);
       document.removeEventListener('mousemove', onCleanMouseMove);
       document.removeEventListener('mouseup', onCleanMouseUp);
     }
+
+    // Capture-phase click handler — prevents anchor navigation in cleaning mode
+    function onCleanClick(e) {
+      if (!cleaningMode) return;
+      const item = e.target.closest('.email-item');
+      if (item) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+
+    let dragMoved = false; // track if mouse moved during drag
 
     function onCleanMouseDown(e) {
       const item = e.target.closest('.email-item');
       if (!item || !cleaningMode) return;
       e.preventDefault();
       isDragging = true;
-      // If clicking an already-selected item, we're deselecting. Otherwise selecting.
+      dragMoved = false;
       dragSelecting = !item.classList.contains('selected');
-      toggleEmailSelection(item);
+      // Don't toggle yet — wait for mouseup to distinguish click from drag
+      item._cleanTarget = true;
     }
 
     function onCleanMouseMove(e) {
       if (!isDragging || !cleaningMode) return;
+      dragMoved = true;
+
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const item = el ? el.closest('.email-item') : null;
       if (item) {
-        if (dragSelecting && !item.classList.contains('selected')) {
-          toggleEmailSelection(item, true);
-        } else if (!dragSelecting && item.classList.contains('selected')) {
-          toggleEmailSelection(item, false);
+        // During drag, also select/deselect the originating item if not done yet
+        const origin = document.querySelector('.email-item[data-clean-origin]');
+        if (!origin) {
+          const origItem = document.querySelector('._cleanTarget') ||
+            document.querySelector('.email-item._cleanTarget');
+          // Select the first item on first move
+          document.querySelectorAll('.email-item').forEach(el => {
+            if (el._cleanTarget) {
+              setEmailSelected(el, dragSelecting);
+              el._cleanTarget = false;
+            }
+          });
+        }
+
+        if (dragSelecting) {
+          setEmailSelected(item, true);
+        } else {
+          setEmailSelected(item, false);
         }
       }
 
@@ -3753,35 +3785,36 @@ Browser: ${diagnostic.browser}
       }
     }
 
-    function onCleanMouseUp() {
+    function onCleanMouseUp(e) {
+      if (!cleaningMode) return;
+
+      // If no drag happened, this was a single click — toggle the item
+      if (isDragging && !dragMoved) {
+        const item = e.target.closest('.email-item');
+        if (item) {
+          setEmailSelected(item, dragSelecting);
+        }
+      }
+
+      // Clean up
+      document.querySelectorAll('.email-item').forEach(el => { el._cleanTarget = false; });
       isDragging = false;
+      dragMoved = false;
     }
 
-    function toggleEmailSelection(itemEl, forceState) {
-      // Get email ID from the href
-      const link = itemEl.getAttribute('href') || itemEl.querySelector('a')?.getAttribute('href') || '';
+    function setEmailSelected(itemEl, selected) {
+      const link = itemEl.getAttribute('href') || '';
       const idMatch = link.match(/#inbox\/(.+)$/);
       if (!idMatch) return;
       const emailId = idMatch[1];
 
-      const shouldSelect = forceState !== undefined ? forceState : !itemEl.classList.contains('selected');
-
-      if (shouldSelect) {
+      if (selected) {
         selectedEmails.add(emailId);
         itemEl.classList.add('selected');
       } else {
         selectedEmails.delete(emailId);
         itemEl.classList.remove('selected');
       }
-
-      // In cleaning mode, prevent navigation
-      if (cleaningMode) {
-        itemEl.onclick = (e) => {
-          e.preventDefault();
-          toggleEmailSelection(itemEl);
-        };
-      }
-
       updateActionBar();
     }
 
@@ -3826,7 +3859,7 @@ Browser: ${diagnostic.browser}
       const body = document.getElementById(bodyId);
       if (!body) return;
       const items = body.querySelectorAll('.email-item');
-      items.forEach(item => toggleEmailSelection(item, true));
+      items.forEach(item => setEmailSelected(item, true));
     }
 
     /* ============================================
