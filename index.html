@@ -1284,6 +1284,246 @@
     }
 
     /* ============================================
+       CLEANING MODE
+       ============================================ */
+    .cleaning-banner {
+      display: none;
+      background: linear-gradient(135deg, rgba(255,107,107,0.08), rgba(255,107,107,0.03));
+      border: 1px solid rgba(255,107,107,0.2);
+      border-radius: var(--radius-md);
+      padding: 14px 20px;
+      margin-bottom: 20px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .cleaning-banner.active { display: flex; }
+    .cleaning-banner-text {
+      font-size: 0.9em;
+      color: var(--accent-coral);
+      font-weight: 500;
+    }
+    .cleaning-banner-exit {
+      background: transparent;
+      border: 1px solid var(--accent-coral);
+      color: var(--accent-coral);
+      padding: 6px 16px;
+      min-height: 36px;
+      font-size: 0.82em;
+      border-radius: 20px;
+    }
+    .cleaning-banner-exit:hover { background: var(--accent-coral-dim); }
+
+    .topbar-clean.active-clean {
+      background: var(--accent-coral);
+      color: var(--bg-deep);
+      border-color: var(--accent-coral);
+    }
+
+    /* Email items in cleaning mode */
+    body.cleaning-mode .email-item {
+      cursor: pointer;
+      position: relative;
+      padding-left: 48px;
+    }
+    body.cleaning-mode .email-item::before {
+      content: '';
+      position: absolute;
+      left: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 2px solid var(--border-active);
+      background: transparent;
+      transition: all var(--transition-fast);
+    }
+    body.cleaning-mode .email-item.selected {
+      background: rgba(255,107,107,0.06);
+    }
+    body.cleaning-mode .email-item.selected::before {
+      background: var(--accent-coral);
+      border-color: var(--accent-coral);
+    }
+    body.cleaning-mode .email-item.selected::after {
+      content: '\2713';
+      position: absolute;
+      left: 21px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* Prevent navigation in cleaning mode */
+    body.cleaning-mode .email-item { pointer-events: auto; }
+
+    /* Select All row */
+    .select-all-row {
+      display: none;
+      padding: 10px 24px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.82em;
+    }
+    body.cleaning-mode .section-skip .select-all-row,
+    body.cleaning-mode .section-fyi .select-all-row {
+      display: flex;
+    }
+    .select-all-btn {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 5px 14px;
+      min-height: 30px;
+      font-size: 0.9em;
+      border-radius: 16px;
+    }
+    .select-all-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+    .selected-badge {
+      color: var(--accent-coral);
+      font-weight: 600;
+    }
+
+    /* Floating action bar */
+    .clean-action-bar {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 12px 20px;
+      box-shadow: var(--shadow-lg), 0 0 40px rgba(0,0,0,0.3);
+      z-index: 50;
+      align-items: center;
+      gap: 16px;
+      animation: slideUp 0.3s ease;
+    }
+    .clean-action-bar.visible { display: flex; }
+    .clean-count {
+      font-size: 0.9em;
+      font-weight: 600;
+      color: var(--accent-coral);
+      white-space: nowrap;
+    }
+    .clean-btn-trash {
+      background: var(--accent-coral);
+      color: white;
+      font-weight: 600;
+      padding: 10px 20px;
+      min-height: 40px;
+      font-size: 0.88em;
+      border-radius: 20px;
+    }
+    .clean-btn-trash:hover { filter: brightness(1.1); }
+    .clean-btn-archive {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 10px 16px;
+      min-height: 40px;
+      font-size: 0.88em;
+      border-radius: 20px;
+    }
+    .clean-btn-archive:hover { background: var(--bg-card-hover); }
+    .clean-btn-cancel {
+      background: none;
+      color: var(--text-muted);
+      padding: 10px 12px;
+      min-height: 40px;
+      font-size: 0.85em;
+    }
+    .clean-btn-cancel:hover { color: var(--text-primary); }
+
+    /* Toast notification */
+    .toast {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-surface);
+      border: 1px solid rgba(78,205,196,0.3);
+      border-radius: var(--radius-lg);
+      padding: 14px 20px;
+      box-shadow: var(--shadow-lg);
+      z-index: 60;
+      align-items: center;
+      gap: 14px;
+      animation: slideUp 0.3s ease;
+    }
+    .toast.visible { display: flex; }
+    .toast-text { font-size: 0.9em; color: var(--text-primary); }
+    .toast-undo {
+      background: var(--accent-blue);
+      color: var(--bg-deep);
+      font-weight: 600;
+      padding: 6px 16px;
+      min-height: 32px;
+      font-size: 0.85em;
+      border-radius: 16px;
+    }
+    .toast-undo:hover { filter: brightness(1.1); }
+
+    /* Confirmation overlay */
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      z-index: 55;
+      align-items: center;
+      justify-content: center;
+    }
+    .confirm-overlay.visible { display: flex; }
+    .confirm-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 28px 32px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+      box-shadow: var(--shadow-lg);
+    }
+    .confirm-box h3 {
+      font-family: var(--font-display);
+      font-size: 1.2em;
+      margin-bottom: 8px;
+    }
+    .confirm-box p {
+      font-size: 0.9em;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+    }
+    .confirm-actions { display: flex; gap: 10px; justify-content: center; }
+    .confirm-yes {
+      background: var(--accent-coral);
+      color: white;
+      font-weight: 600;
+      padding: 10px 24px;
+      min-height: 44px;
+      border-radius: 22px;
+    }
+    .confirm-yes:hover { filter: brightness(1.1); }
+    .confirm-yes:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+    .confirm-no {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 10px 24px;
+      min-height: 44px;
+      border-radius: 22px;
+    }
+
+    /* ============================================
        TRUST FOOTER
        ============================================ */
     .footer {
@@ -1408,6 +1648,7 @@
           </div>
           <div class="topbar-right">
             <button class="topbar-btn" onclick="refreshDashboard()">Refresh</button>
+            <button class="topbar-btn topbar-clean" id="clean-btn" onclick="toggleCleaningMode()">Clean</button>
             <button class="topbar-btn" onclick="showHelp()">Help</button>
             <button class="topbar-btn" onclick="showPreferences()">Preferences</button>
           </div>
@@ -1443,6 +1684,12 @@
             </div>
             <span class="hero-updated" id="last-updated"></span>
           </div>
+        </div>
+
+        <!-- Cleaning Mode Banner -->
+        <div class="cleaning-banner" id="cleaning-banner">
+          <span class="cleaning-banner-text">Cleaning Mode — click emails to select, then trash or archive them</span>
+          <button class="cleaning-banner-exit" onclick="toggleCleaningMode()">Exit</button>
         </div>
 
         <!-- AI Briefing -->
@@ -1554,6 +1801,32 @@
 
         <div class="footer">
           Your emails stay in Gmail. This page reads them temporarily, then forgets everything when you close the tab.
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating action bar for cleaning mode -->
+    <div class="clean-action-bar" id="clean-action-bar">
+      <span class="clean-count" id="clean-count">0 selected</span>
+      <button class="clean-btn-trash" onclick="cleanAction('trash')">Move to Trash</button>
+      <button class="clean-btn-archive" onclick="cleanAction('archive')">Archive</button>
+      <button class="clean-btn-cancel" onclick="clearSelection()">Clear</button>
+    </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast">
+      <span class="toast-text" id="toast-text"></span>
+      <button class="toast-undo" id="toast-undo" onclick="undoClean()">Undo</button>
+    </div>
+
+    <!-- Confirmation dialog -->
+    <div class="confirm-overlay" id="confirm-overlay" onclick="closeConfirm()">
+      <div class="confirm-box" onclick="event.stopPropagation()">
+        <h3 id="confirm-title">Are you sure?</h3>
+        <p id="confirm-text"></p>
+        <div class="confirm-actions">
+          <button class="confirm-yes" id="confirm-yes">Confirm</button>
+          <button class="confirm-no" onclick="closeConfirm()">Cancel</button>
         </div>
       </div>
     </div>
@@ -1724,7 +1997,8 @@
        CONFIG
        ============================================ */
     const GOOGLE_CLIENT_ID = '663216675668-u9bnqasnncvurnl2ce47l0do2lvsod0k.apps.googleusercontent.com';
-    const GMAIL_SCOPES = 'https://www.googleapis.com/auth/gmail.readonly';
+    const GMAIL_SCOPES_READONLY = 'https://www.googleapis.com/auth/gmail.readonly';
+    const GMAIL_SCOPES_MODIFY = 'https://www.googleapis.com/auth/gmail.modify';
 
     /* ============================================
        STATE
@@ -1732,6 +2006,9 @@
     let accessToken = null;
     let currentTimeRange = 1;
     let allEmails = [];
+    let hasModifyScope = false;
+    let cleaningMode = false;
+    let selectedEmails = new Set(); // set of email IDs
     let activeFilter = null; // for stat card filtering
 
     /* ============================================
@@ -1786,7 +2063,7 @@
     function initGoogleAuth() {
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
-        scope: GMAIL_SCOPES,
+        scope: GMAIL_SCOPES_READONLY,
         callback: handleAuthResponse,
       });
     }
@@ -3370,6 +3647,383 @@ Browser: ${diagnostic.browser}
       }
     }
     function showDashboardAndRefresh() { refreshDashboard(); }
+
+    /* ============================================
+       CLEANING MODE
+       ============================================ */
+    let lastUndoData = null;
+    let undoTimeout = null;
+    let isDragging = false;
+    let dragSelecting = true; // true = selecting, false = deselecting
+
+    async function toggleCleaningMode() {
+      if (!cleaningMode) {
+        // Entering cleaning mode — check if we need modify scope
+        if (!hasModifyScope) {
+          // Request upgraded scope
+          const modifyClient = google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_CLIENT_ID,
+            scope: GMAIL_SCOPES_MODIFY,
+            callback: (response) => {
+              if (response.error) {
+                alert('Could not get permission to modify emails. Cleaning mode requires this.');
+                return;
+              }
+              accessToken = response.access_token;
+              hasModifyScope = true;
+              activateCleaningMode();
+            },
+          });
+          modifyClient.requestAccessToken();
+          return;
+        }
+        activateCleaningMode();
+      } else {
+        deactivateCleaningMode();
+      }
+    }
+
+    function activateCleaningMode() {
+      cleaningMode = true;
+      selectedEmails.clear();
+      document.body.classList.add('cleaning-mode');
+      document.getElementById('cleaning-banner').classList.add('active');
+      document.getElementById('clean-btn').classList.add('active-clean');
+      document.getElementById('clean-btn').textContent = 'Exit Clean';
+      updateActionBar();
+      addCleaningListeners();
+      injectSelectAllRows();
+    }
+
+    function deactivateCleaningMode() {
+      cleaningMode = false;
+      selectedEmails.clear();
+      document.body.classList.remove('cleaning-mode');
+      document.getElementById('cleaning-banner').classList.remove('active');
+      document.getElementById('clean-btn').classList.remove('active-clean');
+      document.getElementById('clean-btn').textContent = 'Clean';
+      document.getElementById('clean-action-bar').classList.remove('visible');
+      removeCleaningListeners();
+      // Remove selection highlights
+      document.querySelectorAll('.email-item.selected').forEach(el => el.classList.remove('selected'));
+      // Remove select-all rows
+      document.querySelectorAll('.select-all-row').forEach(el => el.remove());
+    }
+
+    function addCleaningListeners() {
+      document.addEventListener('mousedown', onCleanMouseDown);
+      document.addEventListener('mousemove', onCleanMouseMove);
+      document.addEventListener('mouseup', onCleanMouseUp);
+    }
+
+    function removeCleaningListeners() {
+      document.removeEventListener('mousedown', onCleanMouseDown);
+      document.removeEventListener('mousemove', onCleanMouseMove);
+      document.removeEventListener('mouseup', onCleanMouseUp);
+    }
+
+    function onCleanMouseDown(e) {
+      const item = e.target.closest('.email-item');
+      if (!item || !cleaningMode) return;
+      e.preventDefault();
+      isDragging = true;
+      // If clicking an already-selected item, we're deselecting. Otherwise selecting.
+      dragSelecting = !item.classList.contains('selected');
+      toggleEmailSelection(item);
+    }
+
+    function onCleanMouseMove(e) {
+      if (!isDragging || !cleaningMode) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const item = el ? el.closest('.email-item') : null;
+      if (item) {
+        if (dragSelecting && !item.classList.contains('selected')) {
+          toggleEmailSelection(item, true);
+        } else if (!dragSelecting && item.classList.contains('selected')) {
+          toggleEmailSelection(item, false);
+        }
+      }
+
+      // Auto-scroll when near edges
+      const threshold = 60;
+      if (e.clientY < threshold) {
+        window.scrollBy(0, -10);
+      } else if (e.clientY > window.innerHeight - threshold) {
+        window.scrollBy(0, 10);
+      }
+    }
+
+    function onCleanMouseUp() {
+      isDragging = false;
+    }
+
+    function toggleEmailSelection(itemEl, forceState) {
+      // Get email ID from the href
+      const link = itemEl.getAttribute('href') || itemEl.querySelector('a')?.getAttribute('href') || '';
+      const idMatch = link.match(/#inbox\/(.+)$/);
+      if (!idMatch) return;
+      const emailId = idMatch[1];
+
+      const shouldSelect = forceState !== undefined ? forceState : !itemEl.classList.contains('selected');
+
+      if (shouldSelect) {
+        selectedEmails.add(emailId);
+        itemEl.classList.add('selected');
+      } else {
+        selectedEmails.delete(emailId);
+        itemEl.classList.remove('selected');
+      }
+
+      // In cleaning mode, prevent navigation
+      if (cleaningMode) {
+        itemEl.onclick = (e) => {
+          e.preventDefault();
+          toggleEmailSelection(itemEl);
+        };
+      }
+
+      updateActionBar();
+    }
+
+    function updateActionBar() {
+      const bar = document.getElementById('clean-action-bar');
+      const count = selectedEmails.size;
+      if (count > 0 && cleaningMode) {
+        bar.classList.add('visible');
+        document.getElementById('clean-count').textContent = `${count} selected`;
+      } else {
+        bar.classList.remove('visible');
+      }
+    }
+
+    function clearSelection() {
+      selectedEmails.clear();
+      document.querySelectorAll('.email-item.selected').forEach(el => el.classList.remove('selected'));
+      updateActionBar();
+    }
+
+    function injectSelectAllRows() {
+      // Add Select All row to FYI and Skip sections
+      const sections = [
+        { bodyId: 'fyi-emails', label: 'FYI' },
+        { bodyId: 'skip-emails', label: 'Safe to Skip' },
+      ];
+      for (const sec of sections) {
+        const body = document.getElementById(sec.bodyId);
+        if (!body) continue;
+        const existing = body.querySelector('.select-all-row');
+        if (existing) continue;
+        const items = body.querySelectorAll('.email-item');
+        if (!items.length) continue;
+        const row = document.createElement('div');
+        row.className = 'select-all-row';
+        row.innerHTML = `<span class="selected-badge" data-section="${sec.bodyId}"></span><button class="select-all-btn" onclick="selectAllInSection('${sec.bodyId}')">Select all ${items.length}</button>`;
+        body.insertBefore(row, body.firstChild);
+      }
+    }
+
+    function selectAllInSection(bodyId) {
+      const body = document.getElementById(bodyId);
+      if (!body) return;
+      const items = body.querySelectorAll('.email-item');
+      items.forEach(item => toggleEmailSelection(item, true));
+    }
+
+    /* ============================================
+       CLEANING ACTIONS (Gmail API)
+       ============================================ */
+    async function cleanAction(action) {
+      const count = selectedEmails.size;
+      if (!count) return;
+
+      // Confirmation for large batches
+      if (count >= 10) {
+        const confirmed = await showConfirm(
+          action === 'trash' ? 'Move to Trash?' : 'Archive?',
+          `${count} email${count !== 1 ? 's' : ''} will be ${action === 'trash' ? 'moved to Trash (recoverable for 30 days)' : 'archived (removed from inbox, still searchable)'}.`,
+          count >= 50
+        );
+        if (!confirmed) return;
+      }
+
+      const ids = [...selectedEmails];
+      const actionLabel = action === 'trash' ? 'trashed' : 'archived';
+
+      try {
+        // Batch modify in groups of 50 (Gmail API limit)
+        for (let i = 0; i < ids.length; i += 50) {
+          const batch = ids.slice(i, i + 50);
+          if (action === 'trash') {
+            // Trash each message
+            await Promise.all(batch.map(id =>
+              fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${accessToken}` }
+              })
+            ));
+          } else {
+            // Archive — remove INBOX label
+            await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                ids: batch,
+                removeLabelIds: ['INBOX']
+              })
+            });
+          }
+        }
+
+        // Store undo data
+        lastUndoData = { action, ids };
+
+        // Remove from UI with animation
+        for (const id of ids) {
+          const el = document.querySelector(`.email-item[href*="${id}"], .email-item[onclick*="${id}"]`);
+          if (el) {
+            el.style.transition = 'opacity 0.3s, max-height 0.3s, padding 0.3s, margin 0.3s';
+            el.style.opacity = '0';
+            el.style.maxHeight = '0';
+            el.style.padding = '0 24px';
+            el.style.overflow = 'hidden';
+            setTimeout(() => el.remove(), 300);
+          }
+        }
+
+        // Remove from allEmails
+        allEmails = allEmails.filter(e => !ids.includes(e.id));
+
+        // Clear selection
+        selectedEmails.clear();
+        updateActionBar();
+
+        // Show toast with undo
+        showToast(`${ids.length} email${ids.length !== 1 ? 's' : ''} ${actionLabel}`, true);
+
+        // Update counts
+        setTimeout(() => {
+          updateSectionCounts();
+        }, 350);
+
+      } catch (err) {
+        console.error('Clean action error:', err);
+        showToast(`Could not ${action} emails. Check your connection.`, false);
+      }
+    }
+
+    async function undoClean() {
+      if (!lastUndoData) return;
+      const { action, ids } = lastUndoData;
+
+      try {
+        if (action === 'trash') {
+          await Promise.all(ids.map(id =>
+            fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/untrash`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${accessToken}` }
+            })
+          ));
+        } else {
+          await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              ids,
+              addLabelIds: ['INBOX']
+            })
+          });
+        }
+
+        lastUndoData = null;
+        hideToast();
+        showToast('Undone — emails restored', false);
+
+        // Refresh to get them back in the UI
+        setTimeout(() => refreshDashboard(), 1500);
+      } catch (err) {
+        console.error('Undo error:', err);
+        showToast('Could not undo. Check Gmail Trash to recover.', false);
+      }
+    }
+
+    function updateSectionCounts() {
+      const reply = allEmails.filter(e => e.category === 'reply');
+      const read = allEmails.filter(e => e.category === 'read');
+      const fyi = allEmails.filter(e => e.category === 'fyi');
+      const skip = allEmails.filter(e => e.category === 'skip');
+      document.getElementById('stat-reply-num').textContent = reply.length;
+      document.getElementById('stat-read-num').textContent = read.length;
+      document.getElementById('stat-fyi-num').textContent = fyi.length;
+      document.getElementById('stat-skip-num').textContent = skip.length;
+      document.getElementById('reply-count').textContent = reply.length;
+      document.getElementById('read-count').textContent = read.length;
+      document.getElementById('fyi-count').textContent = fyi.length;
+      document.getElementById('skip-count').textContent = skip.length;
+    }
+
+    /* ============================================
+       TOAST & CONFIRM
+       ============================================ */
+    function showToast(text, showUndo) {
+      clearTimeout(undoTimeout);
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = text;
+      document.getElementById('toast-undo').style.display = showUndo ? '' : 'none';
+      toast.classList.add('visible');
+      // Auto-hide after 10 seconds
+      undoTimeout = setTimeout(() => {
+        hideToast();
+        lastUndoData = null;
+      }, 10000);
+    }
+
+    function hideToast() {
+      document.getElementById('toast').classList.remove('visible');
+    }
+
+    function showConfirm(title, text, countdown) {
+      return new Promise(resolve => {
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-text').textContent = text;
+        const btn = document.getElementById('confirm-yes');
+        const overlay = document.getElementById('confirm-overlay');
+
+        if (countdown) {
+          btn.disabled = true;
+          let sec = 3;
+          btn.textContent = `Wait ${sec}s...`;
+          const interval = setInterval(() => {
+            sec--;
+            if (sec <= 0) {
+              clearInterval(interval);
+              btn.disabled = false;
+              btn.textContent = 'Confirm';
+            } else {
+              btn.textContent = `Wait ${sec}s...`;
+            }
+          }, 1000);
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Confirm';
+        }
+
+        overlay.classList.add('visible');
+
+        btn.onclick = () => { overlay.classList.remove('visible'); resolve(true); };
+        window._confirmReject = () => { overlay.classList.remove('visible'); resolve(false); };
+      });
+    }
+
+    function closeConfirm() {
+      document.getElementById('confirm-overlay').classList.remove('visible');
+      if (window._confirmReject) window._confirmReject();
+    }
 
     function renderVipList() {
       document.getElementById('vip-list').innerHTML = getVipSenders().map(s =>
