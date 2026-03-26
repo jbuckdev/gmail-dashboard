@@ -2617,32 +2617,20 @@ ${emailList}` }]
         return;
       }
 
-      body.innerHTML = '<div class="briefing-loading">Reading your important emails...</div>';
-
-      // Build context for the AI
+      // Separate important emails (AI-classified) from noise (rule-classified)
       const reply = emails.filter(e => e.category === 'reply');
       const read = emails.filter(e => e.category === 'read');
       const fyi = emails.filter(e => e.category === 'fyi');
       const skip = emails.filter(e => e.category === 'skip');
+      const important = [...reply, ...read].filter(e => !e.isNoreply);
 
-      // Split emails into "personal" (fetch full body) vs "automated" (snippet only)
-      const isPersonalEmail = e =>
-        !e.hasUnsubscribe && !e.isBulk &&
-        !e.from.includes('noreply') && !e.from.includes('no-reply') &&
-        !e.from.includes('mailer-daemon') &&
-        !e.labels.includes('CATEGORY_PROMOTIONS') &&
-        !e.labels.includes('CATEGORY_SOCIAL');
+      // Fetch full body for important emails so the briefing can summarize CONTENT
+      body.innerHTML = `<div class="briefing-loading">Reading ${important.length} important emails...</div>`;
 
-      const personalEmails = [...reply, ...read.filter(isPersonalEmail)];
-      const automatedReads = read.filter(e => !isPersonalEmail(e));
-
-      body.innerHTML = `<div class="briefing-loading">Reading ${personalEmails.length} important emails...</div>`;
-
-      // Fetch full body for personal emails (people talking to Larry)
       const emailBodies = [];
-      for (let i = 0; i < personalEmails.length; i += 10) {
-        const batch = personalEmails.slice(i, i + 10);
-        body.innerHTML = `<div class="briefing-loading">Reading emails... ${Math.min(i + 10, personalEmails.length)} of ${personalEmails.length}</div>`;
+      for (let i = 0; i < important.length; i += 10) {
+        const batch = important.slice(i, i + 10);
+        body.innerHTML = `<div class="briefing-loading">Reading emails... ${Math.min(i + 10, important.length)} of ${important.length}</div>`;
         const bodies = await Promise.all(
           batch.map(e => gmailFetch(`messages/${e.id}?format=full`).catch(() => null))
         );
@@ -2656,50 +2644,36 @@ ${emailList}` }]
             id: batch[j].id,
             from: batch[j].fromName,
             subject: batch[j].subject,
+            topic: batch[j].topic || 'General',
             category: batch[j].category,
-            type: 'personal',
+            aiSummary: batch[j].summary || '',
+            actionItem: batch[j].actionItem || '',
             body: bodyText.substring(0, 3000)
           });
         }
       }
 
-      // Automated/newsletter reads — snippet only, no full fetch
-      for (const e of automatedReads) {
-        emailBodies.push({
-          id: e.id,
-          from: e.fromName,
-          subject: e.subject,
-          category: e.category,
-          type: 'automated',
-          body: e.snippet.substring(0, 150)
-        });
-      }
-
       body.innerHTML = '<div class="briefing-loading">Writing your briefing...</div>';
 
-      // Top senders
-      const senderCounts = {};
-      for (const e of emails) senderCounts[e.fromName] = (senderCounts[e.fromName] || 0) + 1;
-      const topSenders = Object.entries(senderCounts).sort((a,b) => b[1] - a[1]).slice(0, 8)
+      // Build rich context for the briefing prompt
+      const topicCounts = {};
+      for (const e of emails) topicCounts[e.topic || 'General'] = (topicCounts[e.topic || 'General'] || 0) + 1;
+      const topTopics = Object.entries(topicCounts).sort((a,b) => b[1] - a[1]).slice(0, 10)
         .map(([name, count]) => `${name} (${count})`).join(', ');
 
-      // Topic counts
-      const topicCounts = {};
-      for (const e of emails) topicCounts[e.topic || 'Other'] = (topicCounts[e.topic || 'Other'] || 0) + 1;
-      const topTopics = Object.entries(topicCounts).sort((a,b) => b[1] - a[1]).slice(0, 8)
-        .map(([name, count]) => `${name}: ${count}`).join(', ');
-
-      // Format email content for the prompt — personal emails get full detail, automated get a mention
-      const personalContent = emailBodies.filter(e => e.type === 'personal').map(e =>
-        `[REF:${e.id}] [${e.category === 'reply' ? 'NEEDS REPLY' : 'FYI'}] From: ${e.from}\nSubject: ${e.subject}\nFull message:\n${e.body}`
-      ).join('\n---\n');
-
-      const automatedContent = emailBodies.filter(e => e.type === 'automated').map(e =>
-        `[REF:${e.id}] From: ${e.from} | ${e.subject} | Preview: ${e.body}`
-      ).join('\n');
-
-      const emailContent = personalContent +
-        (automatedContent ? `\n\n--- NEWSLETTERS & AUTOMATED (snippet only, mention briefly if relevant) ---\n${automatedContent}` : '');
+      // Group email bodies by topic for narrative coherence
+      const byTopic = {};
+      for (const e of emailBodies) {
+        if (!byTopic[e.topic]) byTopic[e.topic] = [];
+        byTopic[e.topic].push(e);
+      }
+      const emailContent = Object.entries(byTopic).map(([topic, topicEmails]) => {
+        const section = `=== TOPIC: ${topic} (${topicEmails.length} emails) ===\n` +
+          topicEmails.map(e =>
+            `[REF:${e.id}] [${e.category === 'reply' ? 'NEEDS REPLY' : 'INFORMATIONAL'}] From: ${e.from}\nSubject: ${e.subject}\nContent:\n${e.body}`
+          ).join('\n---\n');
+        return section;
+      }).join('\n\n');
 
       const rangeLabel = currentTimeRange === 1 ? 'today' : currentTimeRange === 7 ? 'this week' : 'this month';
       const rangeType = currentTimeRange === 1 ? 'daily' : currentTimeRange === 7 ? 'weekly' : 'monthly';
@@ -2716,35 +2690,46 @@ ${emailList}` }]
           body: JSON.stringify({
             model: 'claude-haiku-4-5-20241022',
             max_tokens: 2000,
-            messages: [{ role: 'user', content: `You are a sharp executive assistant briefing a busy CEO who runs a company and is active in community projects. Write a ${rangeType} briefing summarizing what people told him ${rangeLabel}. Be concise, warm, direct. No AI jargon.
+            messages: [{ role: 'user', content: `You are writing a ${rangeType} email briefing for a CEO. Your job is to READ the emails below and tell him what people said — in your own words, as flowing prose.
 
-This is NOT a list of email subjects. This is a NARRATIVE SUMMARY of what people communicated — what they asked for, what they reported, what decisions are pending, what updates were shared. Write it the way a great assistant would verbally brief their boss.
+CRITICAL RULES:
+- DO NOT list email subjects. DO NOT write "Subject: ..." or "From: ... — Subject: ..."
+- DO NOT create a bulleted list of emails. That is useless to him.
+- INSTEAD: Read the actual email content and SUMMARIZE what each person communicated, asked for, or reported.
+- Write in paragraphs, like a trusted assistant verbally briefing their boss over coffee.
+- Group related topics together into coherent narrative paragraphs.
+- Use bullet points ONLY for a short list of specific action items at the end (things he needs to DO).
+- Every person or email you mention should have a [REF:id] tag so it becomes a clickable link.
 
-Stats: ${emails.length} emails total. ${reply.length} need reply, ${read.length} worth reading, ${skip.length + fyi.length} skippable.
-Top senders: ${topSenders}
-Topics: ${topTopics}
+EXAMPLE OF WHAT NOT TO DO:
+"John Smith emailed about the elevator project. Jane Doe sent an update about Q2 planning."
+(This is just listing emails with slightly different words. Useless.)
 
-Here are the important emails with their actual content:
+EXAMPLE OF WHAT TO DO:
+"The elevator inspection passed — [REF:abc]<strong>John Smith</strong> confirmed the contractor can begin phase 2 next Monday, but he needs your sign-off on the revised $48K budget before they can order materials. Meanwhile, [REF:def]<strong>Jane from DataCore</strong> shared that the Q2 migration is running two days behind schedule due to a data validation issue their team is working through. She doesn't need anything from you yet but wanted you in the loop."
+
+See the difference? You're telling him WHAT HAPPENED, not listing WHO EMAILED.
+
+Stats: ${emails.length} emails ${rangeLabel}. ${reply.length} need reply, ${read.length} worth reading, ${skip.length + fyi.length} filtered out.
+Active topics: ${topTopics}
+
+Here are the emails grouped by topic, with their full content:
+
 ${emailContent}
 
-Format as HTML. Mix narrative paragraphs with bullet points naturally — use paragraphs to set context and tell the story, bullet points only for specific action items or quick-reference lists.
-
-Available HTML:
-- <p> for narrative paragraphs
+Format as HTML:
+- <p> for narrative paragraphs (this should be MOST of the briefing)
 - <div class="briefing-section-title"> for section headers
-- <ul> and <li class="b-urgent/b-info/b-fyi/b-stat"> for bullet items
-- <strong> for emphasis
-
-LINKING: Each email has a [REF:id]. When you reference a specific email, place its [REF:id] tag right before the relevant text. In paragraphs: [REF:abc123]<strong>Name</strong> said... In bullets: <li class="b-urgent">[REF:abc123] <strong>Name</strong> needs...</li>
-These become clickable links to the actual email. Include them wherever you mention a specific message.
+- <ul>/<li class="b-urgent"> ONLY for action items at the end
+- <strong> to highlight names and key facts
+- [REF:id] tags before every person/email reference (converted to clickable links)
 
 Structure:
-1. Opening paragraph: 2-3 sentences capturing the big picture of ${rangeLabel}. What was the overall tone? Busy? Calm? Any themes?
-2. "Needs Your Attention" — narrative paragraph(s) about what people are waiting on from him. Who needs what, and why. Use bullet points only if there are 3+ distinct action items.
-3. "What You Should Know" — paragraph summarizing key updates, news, and information people shared. Group related items into a flowing narrative, not a list.
-4. ${currentTimeRange >= 7 ? '"The Week/Month at a Glance" — patterns, trends, busiest areas' : '"Quick Note" — one interesting observation or heads-up'}
+1. <p> Opening: 2-3 sentences — the big picture. What was the tone of ${rangeLabel}? What themes emerged? Set the scene.
+2. <div class="briefing-section-title">What People Told You</div> — 2-4 paragraphs summarizing the substance of what was communicated, grouped by topic. This is the heart of the briefing. Tell him what he needs to know WITHOUT making him read the emails.
+3. <div class="briefing-section-title">Action Items</div> — ONLY if there are emails needing a reply. Short bullet list: who needs what, specifically.${currentTimeRange >= 7 ? '\n4. <div class="briefing-section-title">Patterns</div> — <p> paragraph noting trends, busiest topics, notable senders.' : ''}
 
-Write 200-400 words. Sound human — like a trusted assistant who actually read everything.` }]
+Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real person who read everything and is now telling you about it.` }]
           })
         });
 
