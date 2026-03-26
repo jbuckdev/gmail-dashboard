@@ -1472,7 +1472,7 @@
           </div>
           <div class="topbar-right">
             <button class="topbar-btn" onclick="refreshDashboard()">Refresh</button>
-            <button class="topbar-btn" onclick="window.print()">Print</button>
+            <button class="topbar-btn" onclick="showHelp()">Help</button>
             <button class="topbar-btn" onclick="showPreferences()">Preferences</button>
           </div>
         </div>
@@ -1701,7 +1701,90 @@
       </div>
     </div>
 
-    <!-- Modal removed — drill-down is now in-place in sidebar -->
+    <!-- ==========================================
+         HELP / TROUBLESHOOTING
+         ========================================== -->
+    <div id="help" class="screen">
+      <div class="prefs-container">
+        <div class="prefs-header">
+          <h1>Help &amp; Troubleshooting</h1>
+          <button class="topbar-btn" onclick="showDashboard()">Back</button>
+        </div>
+
+        <div class="pref-card">
+          <h2>How This Works</h2>
+          <p style="margin-bottom:0">This page reads your emails directly from Gmail, sorts them by importance, and writes a summary of what people told you. Here is what happens behind the scenes:</p>
+          <ul style="list-style:none;padding:0;margin-top:12px">
+            <li style="padding:10px 0;border-bottom:1px solid var(--border)"><strong style="color:var(--accent-blue)">1.</strong> You sign in with Google, which gives this page temporary, read-only access to your email. It cannot send, move, or delete anything.</li>
+            <li style="padding:10px 0;border-bottom:1px solid var(--border)"><strong style="color:var(--accent-blue)">2.</strong> Your emails are read right here in your browser. Obvious noise (newsletters, promotions, auto-replies) is filtered out instantly using built-in rules.</li>
+            <li style="padding:10px 0;border-bottom:1px solid var(--border)"><strong style="color:var(--accent-blue)">3.</strong> The remaining emails are sent to Claude (by Anthropic) for analysis. Claude reads the content and decides what is important, assigns topics, and writes your briefing.</li>
+            <li style="padding:10px 0"><strong style="color:var(--accent-blue)">4.</strong> When you close this tab, everything is forgotten. Nothing is saved to any server or database.</li>
+          </ul>
+        </div>
+
+        <div class="pref-card">
+          <h2>Common Issues</h2>
+
+          <div style="margin-bottom:20px">
+            <p style="font-weight:600;color:var(--text-primary);margin-bottom:4px">"Written briefing unavailable"</p>
+            <p style="font-size:0.88em">This usually means one of these things:</p>
+            <ul style="list-style:none;padding:0;margin-top:8px;font-size:0.88em">
+              <li style="padding:6px 0;padding-left:16px;position:relative"><span style="position:absolute;left:0;color:var(--accent-amber)">&#9679;</span> <strong>Not enough important emails</strong> &mdash; If your inbox is mostly newsletters and notifications, there is not enough substance for a written summary. This is normal during quiet periods.</li>
+              <li style="padding:6px 0;padding-left:16px;position:relative"><span style="position:absolute;left:0;color:var(--accent-amber)">&#9679;</span> <strong>Claude key issue</strong> &mdash; Your key may be expired or invalid. Go to Preferences and paste a new one. You can generate a key at <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>.</li>
+              <li style="padding:6px 0;padding-left:16px;position:relative"><span style="position:absolute;left:0;color:var(--accent-amber)">&#9679;</span> <strong>No credits</strong> &mdash; Your Claude account may need a payment method or credits added. Check your balance at <a href="https://console.anthropic.com/settings/billing" target="_blank">console.anthropic.com/billing</a>. Normal usage costs less than $1 per month.</li>
+            </ul>
+          </div>
+
+          <div style="margin-bottom:20px">
+            <p style="font-weight:600;color:var(--text-primary);margin-bottom:4px">"Google sign-in expired"</p>
+            <p style="font-size:0.88em">Google sign-in sessions last about one hour. If you leave the page open for a while and then refresh, you may need to sign in again. Just reload the page and click "Sign in with Google." Your preferences and Claude key are saved &mdash; you will not need to set those up again.</p>
+          </div>
+
+          <div style="margin-bottom:20px">
+            <p style="font-weight:600;color:var(--text-primary);margin-bottom:4px">Emails are in the wrong category</p>
+            <p style="font-size:0.88em">The sorting is not perfect. If important people are being buried, add them to <strong>My Important Contacts</strong> in Preferences. If a sender keeps showing up that you do not care about, add them to <strong>Senders I Never Need to See</strong>. These lists are the most powerful way to improve your results.</p>
+          </div>
+
+          <div style="margin-bottom:20px">
+            <p style="font-weight:600;color:var(--text-primary);margin-bottom:4px">Dashboard is loading slowly</p>
+            <p style="font-size:0.88em">The monthly view reads more emails and takes longer. Try the daily or weekly view for faster results. A slow internet connection can also cause delays &mdash; each email requires a quick call to Gmail and to Claude.</p>
+          </div>
+
+          <div>
+            <p style="font-weight:600;color:var(--text-primary);margin-bottom:4px">Text is too small</p>
+            <p style="font-size:0.88em">Go to Preferences and use the <strong>Text Size</strong> buttons to switch between Normal, Large, and Extra Large.</p>
+          </div>
+        </div>
+
+        <div class="pref-card">
+          <h2>Your Privacy</h2>
+          <p style="margin-bottom:12px">Your emails are your business. Here is exactly where your data goes:</p>
+          <ul style="list-style:none;padding:0;font-size:0.88em">
+            <li style="padding:8px 0;border-bottom:1px solid var(--border)"><strong>Your browser</strong> &mdash; All email data lives here temporarily while the page is open. When you close the tab, it is gone.</li>
+            <li style="padding:8px 0;border-bottom:1px solid var(--border)"><strong>Google</strong> &mdash; Your emails are already stored by Google. This page reads them through the same connection Gmail uses. Nothing new is stored.</li>
+            <li style="padding:8px 0;border-bottom:1px solid var(--border)"><strong>Anthropic (Claude)</strong> &mdash; Email content from real people (not newsletters) is sent to Claude for analysis. Anthropic may retain this data for up to 30 days for safety monitoring, then permanently deletes it. It is never used to train AI.</li>
+            <li style="padding:8px 0;border-bottom:1px solid var(--border)"><strong>This website</strong> &mdash; The page itself is hosted on GitHub. GitHub never sees your email data &mdash; it only serves the page code.</li>
+            <li style="padding:8px 0"><strong>Private Mode</strong> &mdash; If you switch to Private Mode in Preferences, nothing leaves your browser at all. No email data is sent to Claude. Sorting is less precise but fully private.</li>
+          </ul>
+        </div>
+
+        <div class="pref-card">
+          <h2>Quick Reference</h2>
+          <ul style="list-style:none;padding:0;font-size:0.88em">
+            <li style="padding:8px 0;border-bottom:1px solid var(--border)"><strong>Needs Your Reply</strong> &mdash; Someone is waiting for you to respond, approve, or decide something.</li>
+            <li style="padding:8px 0;border-bottom:1px solid var(--border)"><strong>Worth Reading</strong> &mdash; Important updates, reports, or information. No action needed, but you should know about it.</li>
+            <li style="padding:8px 0;border-bottom:1px solid var(--border)"><strong>FYI</strong> &mdash; Newsletters or notifications that might be mildly interesting. Quick glance at most.</li>
+            <li style="padding:8px 0;border-bottom:1px solid var(--border)"><strong>Safe to Skip</strong> &mdash; Promotions, social notifications, auto-replies, and other noise. You are not missing anything.</li>
+            <li style="padding:8px 0;border-bottom:1px solid var(--border)"><strong>Email Landscape</strong> &mdash; The bubble map on the right shows topics in your inbox. Bigger bubble means more emails about that topic. Click any bubble to explore.</li>
+            <li style="padding:8px 0"><strong>Briefing</strong> &mdash; The written summary below "Good morning" tells you what people said in their emails, in plain English. Click any name to open that email in Gmail.</li>
+          </ul>
+        </div>
+
+        <div style="margin-top:24px">
+          <button class="btn-back-dash" onclick="showDashboard()">Back to Dashboard</button>
+        </div>
+      </div>
+    </div>
 
   </div>
 
@@ -3272,6 +3355,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     }
 
     function showDashboard() { showScreen('dashboard'); }
+    function showHelp() { showScreen('help'); }
     function showDashboardAndRefresh() { refreshDashboard(); }
 
     function renderVipList() {
