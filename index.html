@@ -3883,20 +3883,30 @@ Browser: ${diagnostic.browser}
       const actionLabel = action === 'trash' ? 'trashed' : 'archived';
 
       try {
+        let failCount = 0;
+
         // Batch modify in groups of 50 (Gmail API limit)
         for (let i = 0; i < ids.length; i += 50) {
           const batch = ids.slice(i, i + 50);
           if (action === 'trash') {
-            // Trash each message
-            await Promise.all(batch.map(id =>
+            // Trash each message — check responses
+            const results = await Promise.all(batch.map(id =>
               fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${accessToken}` }
-              })
+              }).then(r => {
+                if (!r.ok) { console.error(`Trash failed for ${id}: ${r.status}`); failCount++; }
+                return r;
+              }).catch(err => { console.error(`Trash error for ${id}:`, err); failCount++; return null; })
             ));
+
+            // If ALL failed, likely a scope issue
+            if (failCount === batch.length) {
+              throw new Error(results[0] ? `API returned ${results[0].status}` : 'All requests failed');
+            }
           } else {
             // Archive — remove INBOX label
-            await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
+            const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
               method: 'POST',
               headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -3907,6 +3917,9 @@ Browser: ${diagnostic.browser}
                 removeLabelIds: ['INBOX']
               })
             });
+            if (!resp.ok) {
+              throw new Error(`Archive failed: ${resp.status}`);
+            }
           }
         }
 
@@ -3943,7 +3956,13 @@ Browser: ${diagnostic.browser}
 
       } catch (err) {
         console.error('Clean action error:', err);
-        showToast(`Could not ${action} emails. Check your connection.`, false);
+        const errDetail = err.message || '';
+        if (errDetail.includes('403') || errDetail.includes('401')) {
+          showToast('Permission issue — try exiting Clean mode and clicking Clean again to re-authorize.', false);
+          hasModifyScope = false; // force re-auth next time
+        } else {
+          showToast(`Could not ${action} emails. ${errDetail || 'Check your connection.'}`, false);
+        }
       }
     }
 
