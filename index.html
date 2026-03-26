@@ -643,22 +643,24 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+    }
+
+    /* Top zone: Email Landscape + Top Senders — sticky, scrolls independently */
+    .sidebar-scroll-zone {
       position: sticky;
       top: 24px;
       max-height: calc(100vh - 48px);
       overflow-y: auto;
       overflow-x: hidden;
-      overscroll-behavior: contain; /* prevent scroll-through to main page */
+      overscroll-behavior: contain;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
 
-    .sidebar::-webkit-scrollbar { width: 5px; }
-    .sidebar::-webkit-scrollbar-track { background: transparent; }
-    .sidebar::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
-
-    /* When drilled, the sidebar becomes a single-card layout */
-    .sidebar.drilled {
-      overflow: hidden; /* the drill panel handles its own scroll */
-    }
+    .sidebar-scroll-zone::-webkit-scrollbar { width: 5px; }
+    .sidebar-scroll-zone::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-scroll-zone::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
 
     .viz-card {
       background: var(--bg-surface);
@@ -670,15 +672,7 @@
       flex-shrink: 0;
     }
 
-    /* When drilled, the bubble card scrolls internally */
-    .sidebar.drilled #bubble-card {
-      max-height: calc(100vh - 80px);
-      overflow-y: auto;
-      overscroll-behavior: contain;
-    }
-    .sidebar.drilled #bubble-card::-webkit-scrollbar { width: 5px; }
-    .sidebar.drilled #bubble-card::-webkit-scrollbar-track { background: transparent; }
-    .sidebar.drilled #bubble-card::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
+    /* When drilled, scroll zone handles the bubble card + drill panel */
 
     /* Hide other sidebar cards when drill-down is active */
     .sidebar.drilled .viz-card.hideable { display: none; }
@@ -1571,33 +1565,35 @@
 
           <!-- RIGHT: Sidebar Visualizations -->
           <div class="sidebar" id="sidebar">
-            <!-- Topic Bubbles — always visible -->
-            <div class="viz-card" id="bubble-card">
-              <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
-              <div class="bubble-breadcrumb" id="bubble-breadcrumb"></div>
-              <div class="bubble-map" id="bubble-map"></div>
-              <div class="drill-panel" id="drill-panel">
-                <div class="drill-panel-header">
-                  <span class="drill-panel-title" id="drill-panel-title">Emails</span>
-                  <span class="drill-panel-count" id="drill-panel-count"></span>
+            <!-- SCROLL ZONE: Email Landscape + Top Senders — scrolls independently -->
+            <div class="sidebar-scroll-zone" id="sidebar-scroll-zone">
+              <!-- Topic Bubbles -->
+              <div class="viz-card" id="bubble-card">
+                <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
+                <div class="bubble-breadcrumb" id="bubble-breadcrumb"></div>
+                <div class="bubble-map" id="bubble-map"></div>
+                <div class="drill-panel" id="drill-panel">
+                  <div class="drill-panel-header">
+                    <span class="drill-panel-title" id="drill-panel-title">Emails</span>
+                    <span class="drill-panel-count" id="drill-panel-count"></span>
+                  </div>
+                  <div id="drill-panel-emails"></div>
                 </div>
-                <div id="drill-panel-emails"></div>
+              </div>
+
+              <!-- Top Senders -->
+              <div class="viz-card hideable">
+                <div class="viz-title">Top Senders</div>
+                <div id="top-senders"></div>
               </div>
             </div>
 
-            <!-- Top Senders -->
-            <div class="viz-card hideable">
-              <div class="viz-title">Top Senders</div>
-              <div id="top-senders"></div>
-            </div>
-
-            <!-- Volume Chart -->
+            <!-- MAIN-PAGE SCROLL: Volume + Breakdown — scroll with the page -->
             <div class="viz-card hideable">
               <div class="viz-title">Volume</div>
               <div class="volume-chart" id="volume-chart"></div>
             </div>
 
-            <!-- Category Breakdown -->
             <div class="viz-card hideable">
               <div class="viz-title">Breakdown</div>
               <div class="cat-breakdown" id="cat-breakdown"></div>
