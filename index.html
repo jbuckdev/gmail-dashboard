@@ -2237,7 +2237,7 @@
               'anthropic-dangerous-direct-browser-access': 'true',
             },
             body: JSON.stringify({
-              model: 'claude-haiku-4-5-20241022',
+              model: 'claude-haiku-4-5-20251001',
               max_tokens: 2000,
               messages: [{ role: 'user', content: `You are classifying emails for a busy CEO who runs a medical data analytics company and manages community projects (condo board, building maintenance, etc). He gets a mix of business, healthcare industry, community governance, legal, financial, and personal email.
 
@@ -2814,7 +2814,7 @@ ${emailList}` }]
             'anthropic-dangerous-direct-browser-access': 'true',
           },
           body: JSON.stringify({
-            model: 'claude-haiku-4-5-20241022',
+            model: 'claude-haiku-4-5-20251001',
             max_tokens: 2000,
             messages: [{ role: 'user', content: `You are writing a ${rangeType} email briefing for a CEO. Your job is to READ the emails below and tell him what people said — in your own words, as flowing prose.
 
@@ -2916,6 +2916,10 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
         } else if (errMsg.includes('timeout') || errMsg.includes('aborted')) {
           title = 'Took too long';
           explanation = 'The briefing took too long to generate, likely due to a large number of emails. Try the daily view for a faster result.';
+        } else if (errMsg.includes('404')) {
+          title = 'Service configuration issue';
+          explanation = 'The AI model could not be found. This is a technical issue on our end — please send a report so we can fix it.';
+          userCanFix = false;
         } else if (errMsg.includes('403')) {
           title = 'Access denied';
           explanation = 'Your Claude key may not have the right permissions. Try generating a new key at console.anthropic.com.';
