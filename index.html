@@ -2758,8 +2758,24 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
         body.innerHTML = html;
       } catch (err) {
         console.error('Briefing error:', err);
-        // Show template as fallback but indicate the AI briefing failed
-        body.innerHTML = `<p style="color:var(--accent-amber);font-size:0.85em;margin-bottom:12px">Narrative briefing unavailable (${esc(err.message || 'unknown error')}). Showing summary instead.</p>` + renderTemplateBriefing(emails);
+        // Friendly error explanation based on what went wrong
+        const errMsg = (err.message || '').toLowerCase();
+        let explanation = '';
+        if (errMsg.includes('401') || errMsg.includes('auth')) {
+          explanation = 'Your Claude key may be invalid or expired. You can update it in Preferences.';
+        } else if (errMsg.includes('429') || errMsg.includes('rate')) {
+          explanation = 'Too many requests right now. Try refreshing in a minute.';
+        } else if (errMsg.includes('network') || errMsg.includes('fetch') || errMsg.includes('failed')) {
+          explanation = 'Could not connect to the analysis service. Check your internet connection.';
+        } else if (errMsg.includes('402') || errMsg.includes('credit') || errMsg.includes('billing')) {
+          explanation = 'Your Claude account may need billing set up or credits added.';
+        } else {
+          explanation = 'The written summary could not be generated right now. Try refreshing.';
+        }
+        body.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--accent-amber-dim);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:16px">
+          <p style="color:var(--accent-amber);font-weight:600;font-size:0.9em;margin-bottom:6px">Written briefing unavailable</p>
+          <p style="color:var(--text-secondary);font-size:0.85em;margin-bottom:0">${explanation}</p>
+        </div>` + renderTemplateBriefing(emails);
       }
     }
 
