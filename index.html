@@ -645,7 +645,7 @@
       gap: 16px;
     }
 
-    /* Top zone: Email Landscape + Top Senders — sticky, scrolls independently */
+    /* Sticky scroll zone: Email Landscape + Top Senders */
     .sidebar-scroll-zone {
       position: sticky;
       top: 24px;
@@ -662,6 +662,17 @@
     .sidebar-scroll-zone::-webkit-scrollbar-track { background: transparent; }
     .sidebar-scroll-zone::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
 
+    /* Volume + Breakdown — below the main grid, scrolls with the page */
+    .bottom-viz-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 24px;
+    }
+    @media (max-width: 900px) {
+      .bottom-viz-row { grid-template-columns: 1fr; }
+    }
+
     .viz-card {
       background: var(--bg-surface);
       border: 1px solid var(--border);
@@ -676,6 +687,7 @@
 
     /* Hide other sidebar cards when drill-down is active */
     .sidebar.drilled .viz-card.hideable { display: none; }
+    .bottom-viz-row.drilled { display: none; }
 
     .viz-title {
       font-size: 0.82em;
@@ -1565,7 +1577,7 @@
 
           <!-- RIGHT: Sidebar Visualizations -->
           <div class="sidebar" id="sidebar">
-            <!-- SCROLL ZONE: Email Landscape + Top Senders — scrolls independently -->
+            <!-- Sticky scroll zone: Email Landscape + Top Senders -->
             <div class="sidebar-scroll-zone" id="sidebar-scroll-zone">
               <!-- Topic Bubbles -->
               <div class="viz-card" id="bubble-card">
@@ -1587,17 +1599,18 @@
                 <div id="top-senders"></div>
               </div>
             </div>
+          </div>
+        </div>
 
-            <!-- MAIN-PAGE SCROLL: Volume + Breakdown — scroll with the page -->
-            <div class="viz-card hideable">
-              <div class="viz-title">Volume</div>
-              <div class="volume-chart" id="volume-chart"></div>
-            </div>
-
-            <div class="viz-card hideable">
-              <div class="viz-title">Breakdown</div>
-              <div class="cat-breakdown" id="cat-breakdown"></div>
-            </div>
+        <!-- Volume + Breakdown — OUTSIDE the grid, full width, scrolls with the page -->
+        <div class="bottom-viz-row hideable-row" id="bottom-viz-row">
+          <div class="viz-card">
+            <div class="viz-title">Volume</div>
+            <div class="volume-chart" id="volume-chart"></div>
+          </div>
+          <div class="viz-card">
+            <div class="viz-title">Breakdown</div>
+            <div class="cat-breakdown" id="cat-breakdown"></div>
           </div>
         </div>
 
@@ -2704,6 +2717,12 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
        ============================================ */
     let drillState = { level: 0, topic: null, subTopic: null };
 
+    function setDrilled(on) {
+      document.getElementById('sidebar').classList.toggle('drilled', on);
+      const bottomRow = document.getElementById('bottom-viz-row');
+      if (bottomRow) bottomRow.classList.toggle('drilled', on);
+    }
+
     function drillDown(type, value) {
       if (type === 'topic') {
         drillIntoTopic(value);
@@ -2717,8 +2736,7 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
     }
 
     function drillIntoTopic(topicName) {
-      const sidebar = document.getElementById('sidebar');
-      sidebar.classList.add('drilled');
+      setDrilled(true);
       drillState = { level: 1, topic: topicName, subTopic: null };
 
       const filtered = allEmails.filter(e => (e.topic || 'Other') === topicName);
@@ -2763,8 +2781,7 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
     }
 
     function drillIntoSender(email) {
-      const sidebar = document.getElementById('sidebar');
-      sidebar.classList.add('drilled');
+      setDrilled(true);
       const filtered = allEmails.filter(e => e.from === email);
       const name = filtered.length ? filtered[0].fromName : email;
       drillState = { level: 1, topic: `From: ${name}`, subTopic: null };
@@ -2790,8 +2807,7 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
     }
 
     function drillIntoCategory(cat) {
-      const sidebar = document.getElementById('sidebar');
-      sidebar.classList.add('drilled');
+      setDrilled(true);
       const names = { reply: 'Needs Reply', read: 'Worth Reading', fyi: 'Quick Scan', skip: 'Safe to Skip' };
       const filtered = allEmails.filter(e => e.category === cat);
       drillState = { level: 1, topic: names[cat], subTopic: null };
@@ -2817,8 +2833,7 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
 
     function drillReset() {
       drillState = { level: 0, topic: null, subTopic: null };
-      document.getElementById('sidebar').classList.remove('drilled');
-      // Restore top-level bubbles
+      setDrilled(false);
       renderBubbleMap(allEmails);
     }
 
