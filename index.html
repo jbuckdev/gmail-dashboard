@@ -2626,10 +2626,23 @@ ${emailList}` }]
       // (e.g., "Your API access is turned off" is important to know about)
       const important = [...reply, ...read];
 
-      // If very few important emails, still generate AI briefing but note it's a light period
+      const rl = currentTimeRange === 1 ? 'today' : currentTimeRange === 7 ? 'this week' : 'this month';
+      const noiseCount = fyi.length + skip.length;
+
+      // Not enough substance for a written briefing
       if (important.length === 0) {
-        const rl = currentTimeRange === 1 ? 'today' : currentTimeRange === 7 ? 'this week' : 'this month';
-        body.innerHTML = `<p>Quiet ${rl} &mdash; nothing flagged as important. ${emails.length} emails were filtered as newsletters, promotions, or notifications.</p>`;
+        body.innerHTML = `<div style="background:var(--bg-card);border-radius:var(--radius-md);padding:20px 24px">
+          <p style="color:var(--text-primary);font-size:0.95em;margin-bottom:8px">Quiet ${rl}.</p>
+          <p style="color:var(--text-secondary);font-size:0.88em">No emails needed your attention. ${noiseCount > 0 ? `${noiseCount} emails were filtered as newsletters, promotions, or notifications.` : ''}</p>
+        </div>`;
+        return;
+      }
+
+      if (important.length <= 3) {
+        // Too few for a narrative — show a light summary + the template
+        body.innerHTML = `<div style="background:var(--bg-card);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:16px">
+          <p style="color:var(--text-secondary);font-size:0.88em">Light ${rl} &mdash; only ${important.length} email${important.length === 1 ? '' : 's'} worth your attention${noiseCount > 0 ? `, plus ${noiseCount} filtered out` : ''}. Not enough for a written briefing, but here is what came in:</p>
+        </div>` + renderTemplateBriefing(emails);
         return;
       }
 
