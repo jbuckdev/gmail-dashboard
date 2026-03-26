@@ -1662,15 +1662,6 @@
         </div>
 
         <div class="pref-card">
-          <h2>Default Time Range</h2>
-          <div class="range-btns-pref" id="range-btns-pref">
-            <button onclick="setPrefTimeRange(1)" data-range="1">Today</button>
-            <button onclick="setPrefTimeRange(7)" data-range="7">This Week</button>
-            <button onclick="setPrefTimeRange(30)" data-range="30">This Month</button>
-          </div>
-        </div>
-
-        <div class="pref-card">
           <h2>Privacy &amp; Analysis</h2>
           <p>Choose how your emails are analyzed. You can switch anytime.</p>
           <div class="privacy-toggle" id="privacy-toggle">
@@ -1910,7 +1901,7 @@
 
     async function loadEmails() {
       const prefs = getPrefs();
-      const days = prefs.defaultTimeRange || currentTimeRange;
+      const days = currentTimeRange;
       currentTimeRange = days;
       updateRangeButtons();
 
