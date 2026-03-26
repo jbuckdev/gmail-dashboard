@@ -645,7 +645,8 @@
       gap: 16px;
     }
 
-    /* Sticky scroll zone: Email Landscape + Top Senders */
+    /* Sticky scroll zone: Email Landscape + Top Senders
+       Height syncs with left column — grows when sections expand */
     .sidebar-scroll-zone {
       position: sticky;
       top: 24px;
@@ -656,6 +657,7 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+      transition: max-height 0.3s ease;
     }
 
     .sidebar-scroll-zone::-webkit-scrollbar { width: 5px; }
@@ -3182,6 +3184,7 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
       }
 
       updatePrivacyBadge();
+      initSidebarSync();
 
       if (typeof google !== 'undefined' && google.accounts) {
         initGoogleAuth();
@@ -3190,6 +3193,33 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
           setTimeout(() => { if (typeof google !== 'undefined' && google.accounts) initGoogleAuth(); }, 500);
         });
       }
+    }
+
+    /* Sync sidebar scroll zone height with left column */
+    function initSidebarSync() {
+      const leftCol = document.getElementById('email-sections');
+      const scrollZone = document.getElementById('sidebar-scroll-zone');
+      if (!leftCol || !scrollZone) return;
+
+      function syncHeight() {
+        const leftHeight = leftCol.offsetHeight;
+        const viewportH = window.innerHeight - 48;
+        // Use the larger of: left column height or viewport
+        // This way the sidebar grows with expanded sections
+        // but never shorter than what fits on screen
+        const targetH = Math.max(viewportH, leftHeight);
+        scrollZone.style.maxHeight = targetH + 'px';
+      }
+
+      // Watch for left column resizing (sections expanding/collapsing)
+      const observer = new ResizeObserver(syncHeight);
+      observer.observe(leftCol);
+
+      // Also sync on window resize
+      window.addEventListener('resize', syncHeight);
+
+      // Initial sync
+      syncHeight();
     }
 
     init();
