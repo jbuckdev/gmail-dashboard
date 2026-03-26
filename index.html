@@ -2622,7 +2622,16 @@ ${emailList}` }]
       const read = emails.filter(e => e.category === 'read');
       const fyi = emails.filter(e => e.category === 'fyi');
       const skip = emails.filter(e => e.category === 'skip');
-      const important = [...reply, ...read].filter(e => !e.isNoreply);
+      // Include ALL reply + read emails — even noreply ones may be worth summarizing
+      // (e.g., "Your API access is turned off" is important to know about)
+      const important = [...reply, ...read];
+
+      // If very few important emails, still generate AI briefing but note it's a light period
+      if (important.length === 0) {
+        const rl = currentTimeRange === 1 ? 'today' : currentTimeRange === 7 ? 'this week' : 'this month';
+        body.innerHTML = `<p>Quiet ${rl} &mdash; nothing flagged as important. ${emails.length} emails were filtered as newsletters, promotions, or notifications.</p>`;
+        return;
+      }
 
       // Fetch full body for important emails so the briefing can summarize CONTENT
       body.innerHTML = `<div class="briefing-loading">Reading ${important.length} important emails...</div>`;
@@ -2749,7 +2758,8 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
         body.innerHTML = html;
       } catch (err) {
         console.error('Briefing error:', err);
-        body.innerHTML = renderTemplateBriefing(emails);
+        // Show template as fallback but indicate the AI briefing failed
+        body.innerHTML = `<p style="color:var(--accent-amber);font-size:0.85em;margin-bottom:12px">Narrative briefing unavailable (${esc(err.message || 'unknown error')}). Showing summary instead.</p>` + renderTemplateBriefing(emails);
       }
     }
 
