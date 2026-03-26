@@ -1861,9 +1861,8 @@
 
       allEmails = emails;
       updateLoadingStep('Sorting by importance...');
-      ruleClassify(allEmails);
-      await aiClassify(allEmails);
-      await assignTopics(allEmails);
+      filterNoise(allEmails);
+      await aiAnalyze(allEmails);
       renderDashboard(allEmails);
     }
 
@@ -1964,8 +1963,9 @@
     }
 
     /* ============================================
-       CLASSIFICATION ENGINE (v2)
-       Two-stage: fast deterministic → weighted scoring
+       CLASSIFICATION ENGINE (v3)
+       Stage 1: Rules filter noise (40-50%)
+       Stage 2: AI classifies + assigns organic topics
        ============================================ */
 
     // Known ESP / platform sender patterns
@@ -2012,540 +2012,146 @@
     const SECURITY_PATTERNS = /password reset|verify your|login attempt|suspicious sign|two[\s-]?factor|2fa|security (code|alert)|new (device|sign[\s-]?in)|unauthorized access|recovery code/i;
     const SUBSCRIPTION_PATTERNS = /confirm your subscription|welcome to|thanks for signing up|unsubscribed|subscription (updated|canceled|confirmed)|preferences updated/i;
 
-    function ruleClassify(emails) {
+    function filterNoise(emails) {
       const vips = getVipSenders().map(s => s.toLowerCase());
       const blocked = getBlockedSenders().map(s => s.toLowerCase());
 
-      // Build thread map for thread-awareness
-      const threadMap = {};
-      for (const e of emails) {
-        if (!threadMap[e.threadId]) threadMap[e.threadId] = [];
-        threadMap[e.threadId].push(e);
-      }
-
-      // Build sender frequency map
-      const senderFreq = {};
-      for (const e of emails) {
-        senderFreq[e.from] = (senderFreq[e.from] || 0) + 1;
-      }
-
       for (const e of emails) {
         const s = e.subjectLower;
-        const signals = [];
-        let score = 35; // neutral baseline
 
-        // ============================================
-        // STAGE 1: FAST DETERMINISTIC CLASSIFICATION
-        // These patterns are certain enough to skip scoring
-        // ============================================
-
-        // User overrides — always win
+        // --- USER OVERRIDES (always win) ---
         if (blocked.some(b => e.from.includes(b))) {
-          assign(e, 'skip', 1, 'Blocked sender', ['user-blocked']);
+          markAs(e, 'skip', 1, 'Blocked sender', 'Blocked');
           continue;
         }
         if (e.isStarred) {
-          signals.push('user-starred');
-          score += 40;
+          // Don't filter — let AI handle starred emails with full attention
+          e.isVip = true;
+          continue;
+        }
+        if (vips.some(v => e.from.includes(v))) {
+          e.isVip = true;
+          continue; // VIPs always go to AI for proper classification
         }
 
-        // OOO auto-replies — almost never actionable
+        // --- AUTO-REPLIES / SYSTEM ---
         if (OOO_PATTERNS.test(s) || e.isAutoSubmitted || e.hasAutoResponseSuppress) {
-          assign(e, 'skip', 5, 'Auto-reply', ['auto-reply']);
+          markAs(e, 'skip', 1, 'Auto-reply', 'Notifications');
           continue;
         }
-
-        // Bounce / delivery failure
-        if (BOUNCE_PATTERNS.test(s) || (e.from.includes('mailer-daemon') || e.from.includes('postmaster'))) {
-          assign(e, 'fyi', 15, 'Delivery notification', ['bounce']);
+        if (BOUNCE_PATTERNS.test(s) || e.from.includes('mailer-daemon') || e.from.includes('postmaster')) {
+          markAs(e, 'fyi', 2, 'Delivery notification', 'Notifications');
           continue;
         }
-
-        // Calendar responses (accepted/declined/tentative) — noise except declined by VIP
         if (e.calendarResponse) {
           if (/^declined/i.test(e.subject) && vips.some(v => e.from.includes(v))) {
-            assign(e, 'read', 60, 'VIP declined meeting', ['calendar-decline-vip']);
+            markAs(e, 'read', 3, 'VIP declined meeting', 'Meetings');
           } else {
-            assign(e, 'skip', 5, e.subject.split(':')[0], ['calendar-response']);
+            markAs(e, 'skip', 1, e.subject.split(':')[0], 'Notifications');
           }
           continue;
         }
-
-        // Calendar invite — important
-        if (e.calendarInvite || e.hasCalendar) {
-          assign(e, 'read', 65, 'Calendar invite', ['calendar-invite']);
-          continue;
-        }
-
-        // Subscription confirmations
         if (SUBSCRIPTION_PATTERNS.test(s)) {
-          assign(e, 'skip', 5, 'Subscription notification', ['subscription']);
+          markAs(e, 'skip', 1, 'Subscription notification', 'Notifications');
           continue;
         }
-
-        // Security alerts / 2FA — time-sensitive
         if (SECURITY_PATTERNS.test(s)) {
-          assign(e, 'fyi', 50, 'Security alert', ['security']);
+          markAs(e, 'fyi', 2, 'Security alert', 'Notifications');
           continue;
         }
 
-        // ============================================
-        // STAGE 2: PLATFORM DETECTION
-        // Known platforms get fixed classification
-        // ============================================
+        // --- KNOWN PLATFORMS ---
         let platformMatched = false;
         for (const [name, cfg] of Object.entries(PLATFORM_SENDERS)) {
           if (cfg.match.test(e.from) || cfg.match.test(e.fromDomain)) {
-            // Exception: DocuSign = action required
             if (name === 'docusign') {
-              assign(e, 'reply', 80, 'Signature requested', ['platform-docusign']);
+              markAs(e, 'reply', 5, 'Signature requested', 'Legal');
             } else {
-              assign(e, cfg.prio, cfg.prio === 'skip' ? 5 : 20, `${name.charAt(0).toUpperCase() + name.slice(1)} notification`, [`platform-${name}`]);
+              markAs(e, cfg.prio, cfg.prio === 'skip' ? 1 : 2,
+                `${name.charAt(0).toUpperCase() + name.slice(1)} notification`, cfg.topic);
             }
-            e.topic = e.topic || cfg.topic;
             platformMatched = true;
             break;
           }
         }
         if (platformMatched) continue;
 
-        // ============================================
-        // STAGE 3: WEIGHTED SCORING
-        // Accumulate signals, compute final score
-        // ============================================
-
-        // --- Sender signals (heaviest weight) ---
-
-        // VIP sender
-        if (vips.some(v => e.from.includes(v))) {
-          score += 40;
-          signals.push('vip-sender');
-        }
-
-        // Noreply / automated
-        if (e.isNoreply) {
-          score -= 25;
-          signals.push('noreply');
-        }
-
-        // ESP headers (bulk mail infrastructure)
-        if (e.hasEspHeaders || ESP_DOMAINS.test(e.fromDomain)) {
-          score -= 20;
-          signals.push('esp-detected');
-        }
-
-        // List-Unsubscribe or List-Id (newsletter/mailing list)
-        if (e.hasUnsubscribe || e.hasListId) {
-          score -= 20;
-          signals.push('list-email');
-        }
-
-        // Precedence: bulk
-        if (e.isBulk) {
-          score -= 15;
-          signals.push('bulk-precedence');
-        }
-
-        // Sender frequency — high frequency noreply = noise, high frequency human = relationship
-        const freq = senderFreq[e.from] || 0;
-        if (freq >= 5 && e.isNoreply) {
-          score -= 10;
-          signals.push('high-freq-automated');
-        } else if (freq >= 3 && !e.isNoreply && !e.hasUnsubscribe) {
-          score += 8;
-          signals.push('repeat-sender');
-        }
-
-        // First-time sender (only 1 email in this batch)
-        if (freq === 1 && !vips.some(v => e.from.includes(v))) {
-          signals.push('first-time-sender');
-          // Don't penalize — could be new client. Leave neutral.
-        }
-
-        // Government / regulatory domains — always elevate
-        if (e.isGovDomain) {
-          score += 20;
-          signals.push('gov-domain');
-        }
-
-        // .edu domain
-        if (e.isEduDomain) {
-          score += 5;
-          signals.push('edu-domain');
-        }
-
-        // --- Recipient signals ---
-
-        // Sole direct recipient — written specifically to Larry
-        if (e.toCount === 1 && !e.cc && e.to.includes(accessToken ? '' : '')) {
-          // Can't easily check if user is the To: without knowing their email
-          // But if toCount is 1 and no CC, it's probably direct
-          score += 12;
-          signals.push('sole-recipient');
-        }
-
-        // CC'd — informational
-        if (e.cc && !e.to) {
-          // User might be in CC only (hard to detect without user email)
-          // Use heuristic: if CC has content and we can infer
-        }
-
-        // Large recipient list — blast
-        if (e.totalRecipients > 10) {
-          score -= 15;
-          signals.push('mass-recipient');
-        } else if (e.totalRecipients > 5) {
-          score -= 5;
-          signals.push('group-email');
-        }
-
-        // --- Gmail signals ---
-
-        // Gmail's own importance flag
-        if (e.isGmailImportant) {
-          score += 15;
-          signals.push('gmail-important');
-        }
-
-        // Gmail categories
+        // --- GMAIL CATEGORIES (Google's own ML) ---
         if (e.gmailCategory === 'CATEGORY_PROMOTIONS') {
-          score -= 25;
-          signals.push('gmail-promotions');
-        } else if (e.gmailCategory === 'CATEGORY_SOCIAL') {
-          score -= 20;
-          signals.push('gmail-social');
-        } else if (e.gmailCategory === 'CATEGORY_UPDATES') {
-          score -= 5;
-          signals.push('gmail-updates');
-        } else if (e.gmailCategory === 'CATEGORY_FORUMS') {
-          score -= 10;
-          signals.push('gmail-forums');
-        } else if (e.gmailCategory === 'CATEGORY_PRIMARY' || !e.gmailCategory) {
-          score += 5;
-          signals.push('gmail-primary');
+          markAs(e, 'skip', 1, 'Promotion', 'Promotions');
+          continue;
+        }
+        if (e.gmailCategory === 'CATEGORY_SOCIAL') {
+          markAs(e, 'skip', 1, 'Social notification', 'Social');
+          continue;
         }
 
-        // --- Thread signals ---
-        const thread = threadMap[e.threadId] || [];
-        if (thread.length >= 4) {
-          score += 10;
-          signals.push('active-thread');
-        } else if (thread.length >= 2) {
-          score += 3;
-          signals.push('thread-reply');
+        // --- BULK / NEWSLETTER SIGNALS ---
+        if (e.isNoreply && (e.hasUnsubscribe || e.hasListId || e.isBulk || e.hasEspHeaders)) {
+          markAs(e, 'fyi', 2, 'Newsletter or automated', 'Newsletters');
+          continue;
         }
 
-        // --- Subject signals ---
-
-        // Forward — someone thought Larry should see it
-        if (e.isForward) {
-          score += 5;
-          signals.push('forwarded');
-        }
-
-        // Question mark — may need response
-        if (e.hasQuestionMark && !e.isNoreply && !e.hasUnsubscribe) {
-          score += 5;
-          signals.push('has-question');
-        }
-
-        // Urgency language — only trust from non-bulk senders
-        if (/\b(urgent|asap|immediate(ly)?|critical|time[\s-]?sensitive|action required|deadline)\b/i.test(s)) {
-          if (!e.isNoreply && !e.hasUnsubscribe && !e.hasEspHeaders) {
-            score += 15;
-            signals.push('urgency-trusted');
-          } else {
-            signals.push('urgency-untrusted'); // marketing fake urgency
-          }
-        }
-
-        // Legal keywords — always high
-        if (/\b(subpoena|litigation|cease and desist|legal notice|settlement|compliance audit)\b/i.test(s)) {
-          score += 25;
-          signals.push('legal-critical');
-        }
-
-        // Board/governance keywords
-        if (/\b(board meeting|resolution|vote|quorum|proxy|HOA|assessment|common area)\b/i.test(s)) {
-          score += 12;
-          signals.push('board-governance');
-        }
-
-        // Healthcare/compliance keywords
-        if (/\b(hipaa|phi|protected health|compliance|hitech|meaningful use|EHR|EMR|HL7|FHIR|CMS|FDA)\b/i.test(s)) {
-          score += 15;
-          signals.push('healthcare');
-        }
-
-        // Meeting patterns
-        if (/\b(agenda|minutes|standup|sync|check[\s-]?in|one[\s-]?on[\s-]?one|1:1)\b/i.test(s)) {
-          score += 8;
-          signals.push('meeting-related');
-        }
-
-        // Invoice/financial
-        if (/\b(invoice|receipt|payment|billing|statement|remittance|wire transfer|amount due)\b/i.test(s)) {
-          score += 8;
-          signals.push('financial');
-        }
-
-        // Report/update patterns — important but not urgent
-        if (/\b(weekly (update|report)|monthly (report|review)|quarterly|Q[1-4]\b|dashboard|metrics)\b/i.test(s)) {
-          score += 3;
-          signals.push('report');
-        }
-
-        // Shipping/delivery — low priority notification
-        if (/\b(shipped|delivered|tracking|out for delivery|order confirmed|order #)\b/i.test(s)) {
-          score -= 5;
-          signals.push('shipping');
-        }
-
-        // --- Conflict resolution ---
-
-        // Noreply + urgency = almost always marketing. Discard urgency bonus.
-        if (signals.includes('noreply') && signals.includes('urgency-untrusted')) {
-          score -= 5;
-        }
-
-        // Gov domain + bulk headers = still elevated (gov uses bulk infra for real notices)
-        if (signals.includes('gov-domain') && (signals.includes('bulk-precedence') || signals.includes('list-email'))) {
-          score += 10; // re-elevate
-        }
-
-        // VIP sender overrides list/bulk signals
-        if (signals.includes('vip-sender') && (signals.includes('list-email') || signals.includes('esp-detected'))) {
-          score += 15; // VIP might send via marketing platform for company updates
-        }
-
-        // --- Map score to category ---
-        e.score = Math.max(0, Math.min(100, score));
-        e.classificationSignals = signals;
-
-        if (e.score >= 70) {
-          e.category = 'reply';
-          e.priority = 5;
-        } else if (e.score >= 45) {
-          e.category = 'read';
-          e.priority = 3 + Math.round((e.score - 45) / 25);
-        } else if (e.score >= 20) {
-          e.category = 'fyi';
-          e.priority = 2;
-        } else {
-          e.category = 'skip';
-          e.priority = 1;
-        }
-
-        e.ruleClassified = true;
+        // Everything else → NOT noise. Goes to AI for real classification.
       }
     }
 
-    function assign(e, category, score, summary, signals) {
+    function markAs(e, category, priority, summary, topic) {
       e.category = category;
-      e.score = score;
-      e.priority = category === 'reply' ? 5 : category === 'read' ? (score >= 60 ? 4 : 3) : category === 'fyi' ? 2 : 1;
+      e.priority = priority;
       e.summary = summary;
-      e.classificationSignals = signals;
+      e.topic = topic;
       e.ruleClassified = true;
     }
 
     /* ============================================
-       AI CLASSIFICATION (Claude Haiku)
+       STAGE 2: AI ANALYSIS
+       Everything the noise filter didn't catch goes
+       here. AI decides category, priority, topic,
+       and summary — with ORGANIC topic names.
        ============================================ */
-    /* ============================================
-       AI REFINEMENT (Claude Haiku)
-       Only runs on ambiguous middle-score emails (30-55)
-       where the rule engine wasn't confident.
-       Adds: summary, action items, topic override.
-       ============================================ */
-    async function aiClassify(emails) {
-      if (isPrivateMode()) return; // no AI in private mode
+    async function aiAnalyze(emails) {
+      const needsAI = emails.filter(e => !e.ruleClassified);
 
-      const claudeKey = getClaudeKey();
-      if (!claudeKey) return;
-
-      // Find ambiguous emails — rule engine scored them but with low confidence
-      // Score 30-55 is the "gray zone" where AI refinement helps most
-      const ambiguous = emails.filter(e =>
-        e.ruleClassified && e.score >= 25 && e.score <= 60 &&
-        !e.summary // don't re-process if already has a summary
-      );
-
-      // Also get high-priority emails that need summaries
-      const needSummary = emails.filter(e =>
-        e.ruleClassified && e.score > 60 && !e.summary &&
-        !e.isNoreply && !e.hasUnsubscribe
-      );
-
-      const toProcess = [...ambiguous, ...needSummary];
-      if (!toProcess.length) return;
-
-      for (let i = 0; i < toProcess.length; i += 15) {
-        const batch = toProcess.slice(i, i + 15);
-        updateLoadingStep(`Refining... ${Math.min(i + 15, toProcess.length)} of ${toProcess.length}`);
-
-        const emailList = batch.map((e, idx) =>
-          `[${idx}] From: ${e.fromName} <${e.from}>\nSubject: ${e.subject}\nPreview: ${e.snippet.substring(0, 200)}\nCurrent: ${e.category} (score ${e.score})`
-        ).join('\n\n');
-
-        try {
-          const resp = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': claudeKey,
-              'anthropic-version': '2023-06-01',
-              'anthropic-dangerous-direct-browser-access': 'true',
-            },
-            body: JSON.stringify({
-              model: 'claude-haiku-4-5-20241022',
-              max_tokens: 1500,
-              messages: [{ role: 'user', content: `Review each email. For each one:
-1. Confirm or override the current category (reply/read/fyi/skip)
-2. Write a one-line plain-English summary
-3. If action is needed, describe it
-
-Return ONLY a JSON array:
-[{"idx":0, "category":"reply|read|fyi|skip", "summary":"one line", "action":"what to do or empty"}]
-
-Categories:
-- "reply" = someone asking the reader to do something, respond, approve, or decide
-- "read" = worth reading but no action needed
-- "fyi" = mildly interesting, quick scan
-- "skip" = not worth reading
-
-Emails:
-${emailList}` }]
-            })
-          });
-
-          if (!resp.ok) throw new Error(`Claude API ${resp.status}`);
-          const data = await resp.json();
-          const jsonMatch = data.content[0].text.match(/\[[\s\S]*\]/);
-          if (jsonMatch) {
-            const cls = JSON.parse(jsonMatch[0]);
-            for (const c of cls) {
-              if (c.idx >= 0 && c.idx < batch.length) {
-                const e = batch[c.idx];
-                // AI can override category for ambiguous emails
-                if (ambiguous.includes(e) && c.category) {
-                  e.category = c.category;
-                  e.priority = c.category === 'reply' ? 5 : c.category === 'read' ? 3 : c.category === 'fyi' ? 2 : 1;
-                  e.classificationSignals.push('ai-refined');
-                }
-                if (c.summary) e.summary = c.summary;
-                if (c.action) e.actionItem = c.action;
-              }
-            }
-          }
-        } catch (err) {
-          console.error('AI refinement error:', err);
-          // Non-fatal — rule classifications stand
+      // Private Mode fallback — rule-based defaults
+      if (isPrivateMode() || !getClaudeKey()) {
+        for (const e of needsAI) {
+          e.category = 'read';
+          e.priority = 3;
+          e.summary = e.snippet.substring(0, 120);
+          e.topic = guessTopicFromRules(e);
+          e.ruleClassified = true;
         }
-      }
-    }
-
-    /* ============================================
-       TOPIC ASSIGNMENT (v2 — Larry-specific taxonomy)
-       10 categories that match his actual life domains
-       ============================================ */
-
-    // Topic rules — first match wins, most specific first
-    const TOPIC_RULES = [
-      // --- System / Notifications (noisiest, catch first) ---
-      { test: e => e.isAutoSubmitted || e.hasAutoResponseSuppress, topic: 'Notifications' },
-      { test: e => OOO_PATTERNS.test(e.subjectLower), topic: 'Notifications' },
-      { test: e => SECURITY_PATTERNS.test(e.subjectLower), topic: 'Notifications' },
-      { test: e => BOUNCE_PATTERNS.test(e.subjectLower), topic: 'Notifications' },
-      { test: e => SUBSCRIPTION_PATTERNS.test(e.subjectLower), topic: 'Notifications' },
-      { test: e => e.calendarResponse, topic: 'Notifications' },
-      { test: e => /\b(shipped|delivered|tracking|out for delivery|order confirmed|order #)\b/i.test(e.subjectLower), topic: 'Shopping & Orders' },
-
-      // --- Legal (high stakes, always classify) ---
-      { test: e => /\.(law|legal)$/i.test(e.fromDomain) || /attorney|lawfirm|legal/i.test(e.fromDomain), topic: 'Legal' },
-      { test: e => /docusign/i.test(e.from), topic: 'Legal' },
-      { test: e => /\b(subpoena|litigation|cease and desist|legal notice|settlement|NDA|contract|agreement|amendment|executed copy|notarized)\b/i.test(e.subjectLower), topic: 'Legal' },
-      { test: e => /\b(compliance audit|regulatory)\b/i.test(e.subjectLower) && !(/hipaa|phi|health/i.test(e.subjectLower)), topic: 'Legal' },
-
-      // --- Healthcare & Compliance ---
-      { test: e => /hhs\.gov|cms\.gov|fda\.gov|cdc\.gov|healthit\.gov|nih\.gov/i.test(e.fromDomain), topic: 'Healthcare' },
-      { test: e => /\b(hipaa|phi|protected health|hitech|meaningful use|EHR|EMR|HL7|FHIR|clinical|patient data|healthcare compliance)\b/i.test(e.subjectLower), topic: 'Healthcare' },
-      // Healthcare domain check — exclude monitoring services (healthchecks.io, etc.)
-      { test: e => /healthcare|medical|pharma|clinical|hospital/i.test(e.fromDomain) && !e.isNoreply && !/healthcheck|uptime|monitor|status/i.test(e.fromDomain), topic: 'Healthcare' },
-
-      // --- Board & Community ---
-      { test: e => /\b(board meeting|HOA|condo (board|association)|resolution|quorum|proxy|assessment|common area|building management|property manager)\b/i.test(e.subjectLower), topic: 'Board & Community' },
-      { test: e => /\b(elevator|lobby|parking garage|maintenance request|building (permit|inspection)|contractor bid)\b/i.test(e.subjectLower), topic: 'Board & Community' },
-      { test: e => /\b(volunteer|committee|community (project|meeting|event)|town (hall|meeting)|neighborhood|civic)\b/i.test(e.subjectLower), topic: 'Board & Community' },
-      { test: e => e.isOrgDomain && /\b(meeting|minutes|agenda|vote)\b/i.test(e.subjectLower), topic: 'Board & Community' },
-
-      // --- Finance ---
-      { test: e => /bank|chase|wellsfargo|capitalone|citi|amex|fidelity|schwab|vanguard|quickbooks|intuit|stripe|paypal|venmo|square|bill\.com|freshbooks|xero|wave/i.test(e.fromDomain), topic: 'Finance' },
-      { test: e => /\b(invoice|receipt|payment|billing|statement|remittance|wire transfer|amount due|past due|accounts? (payable|receivable)|tax (return|filing)|W-?2|1099|K-?1)\b/i.test(e.subjectLower), topic: 'Finance' },
-      { test: e => /accounting@|billing@|finance@|ar@|ap@/i.test(e.from), topic: 'Finance' },
-
-      // --- Meetings & Calendar ---
-      { test: e => e.calendarInvite || e.hasCalendar, topic: 'Meetings' },
-      { test: e => /calendly|doodle|when2meet/i.test(e.from), topic: 'Meetings' },
-      { test: e => /\b(agenda|minutes|standup|sync|check[\s-]?in|one[\s-]?on[\s-]?one|1:1|conference call|dial[\s-]?in)\b/i.test(e.subjectLower) && !e.hasUnsubscribe, topic: 'Meetings' },
-
-      // --- Social (platforms, not community) ---
-      { test: e => /facebook|facebookmail|twitter|x\.com|instagram|youtube|tiktok|reddit|redditmail|pinterest|nextdoor/i.test(e.fromDomain), topic: 'Social' },
-
-      // --- Shopping & Vendors ---
-      { test: e => /amazon|ups\.com|fedex|usps|shopify|ebay|etsy|walmart|target|bestbuy/i.test(e.fromDomain), topic: 'Shopping & Orders' },
-      { test: e => /\b(order|shipping|return (request|label)|refund|delivery)\b/i.test(e.subjectLower) && (e.isNoreply || e.hasUnsubscribe), topic: 'Shopping & Orders' },
-
-      // --- Newsletters & Industry ---
-      { test: e => /substack|medium\.com|mailchimp|convertkit|beehiiv|buttondown/i.test(e.fromDomain), topic: 'Newsletters' },
-      { test: e => (e.hasUnsubscribe || e.hasListId) && e.isNoreply, topic: 'Newsletters' },
-      { test: e => /\b(weekly (digest|roundup|update)|daily (digest|brief)|newsletter|unsubscribe)\b/i.test(e.subjectLower), topic: 'Newsletters' },
-
-      // --- Tech & Accounts ---
-      { test: e => /google\.com|apple\.com|microsoft\.com|icloud|okta|auth0|duo/i.test(e.fromDomain) && e.isNoreply, topic: 'Tech & Accounts' },
-      { test: e => /github|gitlab|bitbucket|jira|atlassian|stackoverflow|aws|azure|heroku/i.test(e.fromDomain), topic: 'Tech & Accounts' },
-      { test: e => /\b(your account|subscription|license|renewal|upgrade|plan|storage|password)\b/i.test(e.subjectLower) && e.isNoreply, topic: 'Tech & Accounts' },
-
-      // --- Networking ---
-      { test: e => /linkedin/i.test(e.fromDomain), topic: 'Networking' },
-
-      // --- Government ---
-      { test: e => e.isGovDomain, topic: 'Government' },
-
-      // --- Personal (freemail from humans) ---
-      { test: e => e.isFreemailSender && !e.isNoreply && !e.hasUnsubscribe, topic: 'Personal' },
-    ];
-
-    async function assignTopics(emails) {
-      // Rule-based topic assignment
-      for (const e of emails) {
-        if (e.topic) continue; // already set by platform detection or AI
-
-        for (const rule of TOPIC_RULES) {
-          if (rule.test(e)) {
-            e.topic = rule.topic;
-            break;
-          }
-        }
-      }
-
-      // Remaining emails without topics
-      const needTopics = emails.filter(e => !e.topic);
-
-      // If private mode or no key — use "General" as fallback
-      if (isPrivateMode() || !getClaudeKey() || !needTopics.length) {
-        for (const e of needTopics) e.topic = 'General';
         return;
       }
 
-      // AI topic extraction for remaining (should be ~10-15% now, not 35%)
-      for (let i = 0; i < needTopics.length; i += 25) {
-        const batch = needTopics.slice(i, i + 25);
-        updateLoadingStep(`Mapping topics... ${Math.min(i + 25, needTopics.length)} of ${needTopics.length}`);
+      if (!needsAI.length) return;
 
-        const emailList = batch.map((e, idx) =>
-          `[${idx}] ${e.fromName} <${e.fromDomain}> — ${e.subject}`
-        ).join('\n');
+      // Track topics across batches for consistency
+      let topicsSoFar = [];
+
+      updateLoadingStep(`Analyzing ${needsAI.length} emails...`);
+
+      for (let i = 0; i < needsAI.length; i += 20) {
+        const batch = needsAI.slice(i, i + 20);
+        updateLoadingStep(`Analyzing emails... ${Math.min(i + 20, needsAI.length)} of ${needsAI.length}`);
+
+        const emailList = batch.map((e, idx) => {
+          let line = `[${idx}] From: ${e.fromName} <${e.from}>`;
+          line += `\nSubject: ${e.subject}`;
+          line += `\nPreview: ${e.snippet.substring(0, 250)}`;
+          if (e.isVip) line += '\n[VIP SENDER — user marked as important]';
+          if (e.isReply) line += '\n[Thread reply]';
+          if (e.isForward) line += '\n[Forwarded to reader]';
+          if (e.toCount === 1) line += '\n[Direct — sole recipient]';
+          if (e.totalRecipients > 5) line += `\n[Group email — ${e.totalRecipients} recipients]`;
+          if (e.isGmailImportant) line += '\n[Gmail flagged as important]';
+          return line;
+        }).join('\n---\n');
+
+        const topicContext = topicsSoFar.length
+          ? `\nTopics used so far in this inbox: ${topicsSoFar.join(', ')}\nReuse these when the email fits. Create new topics only when none of the existing ones apply.`
+          : '';
 
         try {
           const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -2558,30 +2164,85 @@ ${emailList}` }]
             },
             body: JSON.stringify({
               model: 'claude-haiku-4-5-20241022',
-              max_tokens: 800,
-              messages: [{ role: 'user', content: `Assign a topic to each email. Use ONLY these labels: Healthcare, Legal, Finance, Board & Community, Meetings, Clients, Vendors, Personal, Newsletters, Notifications, Tech & Accounts, Social, Shopping & Orders, Networking, Government, General
+              max_tokens: 2000,
+              messages: [{ role: 'user', content: `You are classifying emails for a busy CEO who runs a medical data analytics company and manages community projects (condo board, building maintenance, etc). He gets a mix of business, healthcare industry, community governance, legal, financial, and personal email.
 
-Return ONLY a JSON array: [{"idx":0,"topic":"Label"}, ...]
+For each email, determine:
+1. **category**: reply (someone needs him to do something), read (worth reading, no action), fyi (quick glance), skip (not worth his time)
+2. **priority**: 1-5 (5 = most urgent)
+3. **topic**: A natural, specific topic name that describes what this email is ACTUALLY about. Not generic categories — use the real subject matter. Examples: "Elevator Inspection", "Q2 Client Migration", "Board Vote on Assessment", "Insurance Renewal", "DataCore Contract". Keep topics to 2-5 words. Group related emails under the SAME topic name.${topicContext}
+4. **summary**: One plain-English sentence describing what this email says or asks for
+5. **action**: If category is "reply", what specifically does the sender need? Otherwise empty string.
+
+Return ONLY a JSON array:
+[{"idx":0, "category":"reply", "priority":5, "topic":"Elevator Inspection", "summary":"The contractor needs approval to proceed with phase 2", "action":"Approve or reject the phase 2 proposal"}, ...]
 
 Emails:
 ${emailList}` }]
             })
           });
-          if (!resp.ok) throw new Error(`${resp.status}`);
+
+          if (!resp.ok) throw new Error(`Claude API ${resp.status}`);
           const data = await resp.json();
           const jsonMatch = data.content[0].text.match(/\[[\s\S]*\]/);
           if (jsonMatch) {
-            const topics = JSON.parse(jsonMatch[0]);
-            for (const t of topics) {
-              if (t.idx >= 0 && t.idx < batch.length) batch[t.idx].topic = t.topic || 'General';
+            const results = JSON.parse(jsonMatch[0]);
+            for (const r of results) {
+              if (r.idx >= 0 && r.idx < batch.length) {
+                const e = batch[r.idx];
+                e.category = r.category || 'read';
+                e.priority = r.priority || 3;
+                e.topic = r.topic || 'General';
+                e.summary = r.summary || '';
+                e.actionItem = r.action || '';
+                e.ruleClassified = true;
+
+                // Track topics for consistency across batches
+                if (r.topic && !topicsSoFar.includes(r.topic)) {
+                  topicsSoFar.push(r.topic);
+                }
+              }
             }
           }
         } catch (err) {
-          console.error('Topic extraction error:', err);
+          console.error('AI analysis error:', err);
+          // Fallback for failed batch
+          for (const e of batch) {
+            if (!e.ruleClassified) {
+              e.category = 'read';
+              e.priority = 3;
+              e.summary = e.snippet.substring(0, 120);
+              e.topic = guessTopicFromRules(e);
+              e.ruleClassified = true;
+            }
+          }
         }
       }
 
-      for (const e of needTopics) { if (!e.topic) e.topic = 'General'; }
+      // Catch any stragglers
+      for (const e of needsAI) {
+        if (!e.ruleClassified) {
+          e.category = 'read';
+          e.priority = 3;
+          e.topic = 'General';
+          e.ruleClassified = true;
+        }
+      }
+    }
+
+    // Fallback topic assignment for Private Mode
+    function guessTopicFromRules(e) {
+      const s = e.subjectLower;
+      const d = e.fromDomain;
+      if (/hhs\.gov|cms\.gov|fda\.gov|hipaa|phi|EHR|EMR|clinical/i.test(s + d)) return 'Healthcare';
+      if (/\.(law|legal)$|attorney|contract|agreement|NDA|litigation/i.test(s + d)) return 'Legal';
+      if (/invoice|payment|billing|bank|chase|paypal|quickbooks/i.test(s + d)) return 'Finance';
+      if (/board|HOA|condo|elevator|building|committee|volunteer/i.test(s)) return 'Community';
+      if (/agenda|meeting|calendar|standup|sync/i.test(s)) return 'Meetings';
+      if (/shipped|delivered|tracking|order|amazon|ups|fedex/i.test(s + d)) return 'Shopping';
+      if (e.isFreemailSender && !e.isNoreply) return 'Personal';
+      if (e.isGovDomain) return 'Government';
+      return 'General';
     }
 
     /* ============================================
