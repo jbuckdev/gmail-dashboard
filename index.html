@@ -1991,6 +1991,19 @@
       'calendly':  { match: /calendly\.com/i,     topic: 'Meetings',     prio: 'read' },
       'doodle':    { match: /doodle\.com/i,       topic: 'Meetings',     prio: 'read' },
       'zoom':      { match: /zoom\.us/i,          topic: 'Meetings',     prio: 'fyi' },
+      // Monitoring / DevOps — system alerts, not healthcare
+      'healthchecks': { match: /healthchecks\.io/i, topic: 'Notifications', prio: 'fyi' },
+      'pagerduty': { match: /pagerduty/i,         topic: 'Notifications', prio: 'read' },
+      'datadog':   { match: /datadog/i,           topic: 'Notifications', prio: 'fyi' },
+      'uptimerobot': { match: /uptimerobot/i,     topic: 'Notifications', prio: 'fyi' },
+      'sentry':    { match: /sentry\.io|getsentry/i, topic: 'Notifications', prio: 'fyi' },
+      'newrelic':  { match: /newrelic/i,           topic: 'Notifications', prio: 'fyi' },
+      'pingdom':   { match: /pingdom/i,            topic: 'Notifications', prio: 'fyi' },
+      'aws-alerts': { match: /amazonaws\.com/i,    topic: 'Notifications', prio: 'fyi' },
+      'vercel':    { match: /vercel\.com/i,        topic: 'Tech & Accounts', prio: 'fyi' },
+      'netlify':   { match: /netlify\.com/i,       topic: 'Tech & Accounts', prio: 'fyi' },
+      'cloudflare': { match: /cloudflare\.com/i,   topic: 'Tech & Accounts', prio: 'fyi' },
+      'heroku':    { match: /heroku\.com/i,        topic: 'Tech & Accounts', prio: 'fyi' },
     };
 
     // OOO / auto-reply patterns
@@ -2457,7 +2470,8 @@ ${emailList}` }]
       // --- Healthcare & Compliance ---
       { test: e => /hhs\.gov|cms\.gov|fda\.gov|cdc\.gov|healthit\.gov|nih\.gov/i.test(e.fromDomain), topic: 'Healthcare' },
       { test: e => /\b(hipaa|phi|protected health|hitech|meaningful use|EHR|EMR|HL7|FHIR|clinical|patient data|healthcare compliance)\b/i.test(e.subjectLower), topic: 'Healthcare' },
-      { test: e => /health(care)?|medical|pharma|clinical|hospital/i.test(e.fromDomain) && !e.isNoreply, topic: 'Healthcare' },
+      // Healthcare domain check — exclude monitoring services (healthchecks.io, etc.)
+      { test: e => /healthcare|medical|pharma|clinical|hospital/i.test(e.fromDomain) && !e.isNoreply && !/healthcheck|uptime|monitor|status/i.test(e.fromDomain), topic: 'Healthcare' },
 
       // --- Board & Community ---
       { test: e => /\b(board meeting|HOA|condo (board|association)|resolution|quorum|proxy|assessment|common area|building management|property manager)\b/i.test(e.subjectLower), topic: 'Board & Community' },
@@ -3104,6 +3118,49 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
         return `<li class="${cls}"><a href="${gmailLink(e.id)}" target="_blank" rel="noopener" class="briefing-link">&#9993;</a><strong>${esc(e.fromName)}</strong> &mdash; ${esc(e.subject)}</li>`;
       };
 
+      // Group emails from the same sender — show "Sender (5 emails)" instead of 5 separate lines
+      const groupAndRender = (emailList, cls) => {
+        const bySender = {};
+        for (const e of emailList) {
+          if (!bySender[e.from]) bySender[e.from] = [];
+          bySender[e.from].push(e);
+        }
+        let out = '';
+        for (const [sender, senderEmails] of Object.entries(bySender).sort((a,b) => b[1].length - a[1].length)) {
+          if (senderEmails.length === 1) {
+            // Single email — show normally
+            out += emailLi(senderEmails[0], cls);
+          } else if (senderEmails.length <= 3) {
+            // 2-3 emails — show each but on one line per unique subject
+            const uniqueSubjects = [...new Set(senderEmails.map(e => e.subject))];
+            if (uniqueSubjects.length === 1) {
+              // Same subject repeated (like UP/DOWN alerts) — collapse
+              out += `<li class="${cls}"><a href="${gmailLink(senderEmails[0].id)}" target="_blank" rel="noopener" class="briefing-link">&#9993;</a><strong>${esc(senderEmails[0].fromName)}</strong> &mdash; ${esc(uniqueSubjects[0])} <span style="color:var(--text-muted)">(${senderEmails.length}x)</span></li>`;
+            } else {
+              for (const e of senderEmails) out += emailLi(e, cls);
+            }
+          } else {
+            // 4+ emails from same sender — always collapse
+            const uniqueSubjects = [...new Set(senderEmails.map(e => e.subject))];
+            const latest = senderEmails[0]; // already sorted by date
+            if (uniqueSubjects.length <= 2) {
+              // Repetitive (alerts, notifications) — single collapsed line
+              out += `<li class="${cls}"><a href="${gmailLink(latest.id)}" target="_blank" rel="noopener" class="briefing-link">&#9993;</a><strong>${esc(latest.fromName)}</strong> &mdash; ${esc(uniqueSubjects[0])} <span style="color:var(--text-muted)">(${senderEmails.length} emails)</span></li>`;
+            } else {
+              // Varied subjects — show count + most recent 2
+              out += `<li class="${cls}" style="margin-bottom:2px"><strong>${esc(latest.fromName)}</strong> <span style="color:var(--text-muted)">(${senderEmails.length} emails)</span></li>`;
+              for (const e of senderEmails.slice(0, 2)) {
+                out += `<li class="${cls}" style="padding-left:36px;font-size:0.9em"><a href="${gmailLink(e.id)}" target="_blank" rel="noopener" class="briefing-link">&#9993;</a>${esc(e.subject)}</li>`;
+              }
+              if (senderEmails.length > 2) {
+                out += `<li class="b-fyi" style="padding-left:36px;font-size:0.85em;color:var(--text-muted);font-style:italic">+ ${senderEmails.length - 2} more</li>`;
+              }
+            }
+          }
+        }
+        return out;
+      };
+
       // Opening summary paragraph
       let html = '<p>';
       html += `You received <strong>${emails.length} emails</strong> ${rl}. `;
@@ -3117,36 +3174,29 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
         html += '<p style="font-size:0.82em;color:var(--accent-amber);margin-top:4px">Private Mode &mdash; your emails stay on this device. Sorting uses built-in rules.</p>';
       }
 
-      // Action items
+      // Action items — group repeated senders
       if (reply.length) {
         html += '<div class="briefing-section-title">Needs Your Attention</div>';
-        html += '<ul>' + reply.map(e => emailLi(e, 'b-urgent')).join('') + '</ul>';
+        html += '<ul>' + groupAndRender(reply, 'b-urgent') + '</ul>';
       }
 
-      // Worth reading — grouped by topic
+      // Worth reading — grouped by topic, then by sender within topic
       if (read.length) {
         html += '<div class="briefing-section-title">Worth Reading</div>';
 
-        // Group by topic
         const topicGroups = {};
         for (const e of read) {
-          const t = e.topic || 'Other';
+          const t = e.topic || 'General';
           if (!topicGroups[t]) topicGroups[t] = [];
           topicGroups[t].push(e);
         }
         const sortedTopics = Object.entries(topicGroups).sort((a,b) => b[1].length - a[1].length);
 
         for (const [topic, topicEmails] of sortedTopics) {
-          if (sortedTopics.length > 1 && topicEmails.length > 0) {
+          if (sortedTopics.length > 1) {
             html += `<p style="margin-top:12px;margin-bottom:4px;font-size:0.85em;color:var(--text-muted);font-weight:600">${esc(topic)}</p>`;
           }
-          // Show top 3 per topic if many topics, otherwise show all
-          const showCount = sortedTopics.length > 3 ? 3 : topicEmails.length;
-          html += '<ul>' + topicEmails.slice(0, showCount).map(e => emailLi(e, 'b-info')).join('');
-          if (topicEmails.length > showCount) {
-            html += `<li class="b-fyi" style="color:var(--text-muted);font-style:italic">+ ${topicEmails.length - showCount} more in ${esc(topic)}</li>`;
-          }
-          html += '</ul>';
+          html += '<ul>' + groupAndRender(topicEmails, 'b-info') + '</ul>';
         }
       }
 
@@ -3690,16 +3740,39 @@ Write 200-400 words. Sound human — like a trusted assistant who actually read 
 
         scrollZone.style.maxHeight = availableH + 'px';
 
-        // If content fits — disable internal scroll so page scrolls normally
-        if (sidebarContentH <= availableH) {
+        // If content fits — no internal scroll needed
+        if (sidebarContentH <= availableH + 2) {
           scrollZone.style.overflowY = 'visible';
           scrollZone.style.overscrollBehavior = 'auto';
         } else {
-          // Content overflows — enable internal scroll
           scrollZone.style.overflowY = 'auto';
-          scrollZone.style.overscrollBehavior = 'contain';
+          // Don't use overscroll-behavior: contain — it traps the scroll
+          // Instead we handle scroll pass-through manually below
+          scrollZone.style.overscrollBehavior = 'auto';
         }
       }
+
+      // When scrolling inside the sidebar: if at top and scrolling up,
+      // or at bottom and scrolling down, let the page scroll instead
+      scrollZone.addEventListener('wheel', function(ev) {
+        // If no internal scroll needed, don't interfere
+        if (scrollZone.style.overflowY === 'visible') return;
+
+        const atTop = scrollZone.scrollTop <= 0;
+        const atBottom = scrollZone.scrollTop + scrollZone.clientHeight >= scrollZone.scrollHeight - 2;
+        const scrollingDown = ev.deltaY > 0;
+        const scrollingUp = ev.deltaY < 0;
+
+        // At bottom scrolling down, or at top scrolling up → let page scroll
+        if ((atBottom && scrollingDown) || (atTop && scrollingUp)) {
+          // Don't prevent default — let it bubble to page
+          return;
+        }
+
+        // In the middle — consume the scroll event so page doesn't move
+        ev.preventDefault();
+        scrollZone.scrollTop += ev.deltaY;
+      }, { passive: false });
 
       const observer = new ResizeObserver(syncHeight);
       observer.observe(leftCol);
