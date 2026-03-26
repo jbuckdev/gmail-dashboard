@@ -2721,10 +2721,16 @@ ${emailList}` }]
         return;
       }
 
-      if (important.length <= 3) {
-        // Too few for a narrative — show a light summary + the template
+      // Check if there's enough REAL content for a narrative
+      // Automated receipts and login alerts don't count — they're "read" but not conversational
+      const conversational = important.filter(e =>
+        !e.isNoreply && !e.hasUnsubscribe && !e.hasEspHeaders && !e.isBulk
+      );
+
+      if (important.length <= 5 && conversational.length <= 2) {
+        // Not enough real conversation for a narrative
         body.innerHTML = `<div style="background:var(--bg-card);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:16px">
-          <p style="color:var(--text-secondary);font-size:0.88em">Light ${rl} &mdash; only ${important.length} email${important.length === 1 ? '' : 's'} worth your attention${noiseCount > 0 ? `, plus ${noiseCount} filtered out` : ''}. Not enough for a written briefing, but here is what came in:</p>
+          <p style="color:var(--text-secondary);font-size:0.88em">Light ${rl} &mdash; ${important.length} email${important.length === 1 ? '' : 's'} worth a look${noiseCount > 0 ? `, plus ${noiseCount} filtered out` : ''}. Not enough conversation for a written briefing, but here is what came in:</p>
         </div>` + renderTemplateBriefing(emails);
         return;
       }
@@ -2896,10 +2902,11 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
         body.innerHTML = html;
       } catch (err) {
         console.error('Briefing error:', err);
-        // Friendly error explanation based on what went wrong
         const errMsg = (err.message || '').toLowerCase();
-        let title = 'Written briefing unavailable';
+        let title = '';
         let explanation = '';
+        let userCanFix = true; // if true, no Send Report button
+
         if (errMsg.includes('401') || errMsg.includes('auth')) {
           title = 'Claude key issue';
           explanation = 'Your Claude key may be invalid or expired. Open Preferences to update it.';
@@ -2920,17 +2927,45 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           explanation = 'The briefing took too long to generate, likely due to a large number of emails. Try the daily view for a faster result.';
         } else if (errMsg.includes('403')) {
           title = 'Access denied';
-          explanation = 'The analysis service rejected the request. Your Claude key may not have the right permissions. Try generating a new key at console.anthropic.com.';
+          explanation = 'Your Claude key may not have the right permissions. Try generating a new key at console.anthropic.com.';
         } else if (errMsg.includes('500') || errMsg.includes('503') || errMsg.includes('502')) {
           title = 'Service temporarily down';
           explanation = 'The analysis service is experiencing issues on their end. This usually resolves within a few minutes.';
+          userCanFix = false;
         } else {
-          title = 'Something went wrong';
-          explanation = 'The written briefing could not be generated. This might be a temporary issue — try refreshing, or switch to a different time range.';
+          title = 'Unexpected issue';
+          explanation = 'Something went wrong that we did not anticipate. Sending a report helps us fix it for you.';
+          userCanFix = false;
         }
+
+        // Build diagnostic snapshot (no email content — just counts and metadata)
+        const diagnostic = {
+          timestamp: new Date().toISOString(),
+          error: err.message || 'unknown',
+          errorType: err.name || '',
+          timeRange: currentTimeRange,
+          totalEmails: emails.length,
+          replyCount: reply.length,
+          readCount: read.length,
+          fyiCount: fyi.length,
+          skipCount: skip.length,
+          importantCount: important.length,
+          conversationalCount: conversational.length,
+          bodyFetchFailed: fetchFailed,
+          hasClaudeKey: !!getClaudeKey(),
+          privacyMode: isPrivateMode(),
+          topTopics: topTopics,
+          browser: navigator.userAgent.substring(0, 100),
+        };
+
+        const reportBtn = userCanFix ? '' : `<div style="margin-top:12px">
+          <button onclick="sendErrorReport(this)" data-diagnostic='${JSON.stringify(diagnostic).replace(/'/g, "&#39;")}' style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--accent-blue);padding:10px 18px;border-radius:var(--radius-sm);font-size:0.85em;cursor:pointer;min-height:40px">Send Report</button>
+        </div>`;
+
         body.innerHTML = `<div style="background:var(--bg-card);border:1px solid rgba(255,217,61,0.12);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:16px">
           <p style="color:var(--accent-amber);font-weight:600;font-size:0.9em;margin-bottom:6px">${title}</p>
           <p style="color:var(--text-secondary);font-size:0.85em;margin-bottom:0">${explanation}</p>
+          ${reportBtn}
         </div>` + renderTemplateBriefing(emails);
       }
     }
@@ -3356,6 +3391,41 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
 
     function showDashboard() { showScreen('dashboard'); }
     function showHelp() { showScreen('help'); }
+
+    function sendErrorReport(btn) {
+      try {
+        const diagnostic = JSON.parse(btn.dataset.diagnostic);
+        const reportBody = `Inbox Intelligence — Error Report
+-----------------------------------------
+Time: ${diagnostic.timestamp}
+Error: ${diagnostic.error}
+Type: ${diagnostic.errorType}
+-----------------------------------------
+Time Range: ${diagnostic.timeRange === 1 ? 'Today' : diagnostic.timeRange === 7 ? 'This Week' : 'This Month'}
+Total Emails: ${diagnostic.totalEmails}
+Important: ${diagnostic.importantCount} (${diagnostic.conversationalCount} conversational)
+Reply: ${diagnostic.replyCount} | Read: ${diagnostic.readCount} | FYI: ${diagnostic.fyiCount} | Skip: ${diagnostic.skipCount}
+Body Fetch Failures: ${diagnostic.bodyFetchFailed}
+Topics: ${diagnostic.topTopics}
+-----------------------------------------
+Claude Key Present: ${diagnostic.hasClaudeKey ? 'Yes' : 'No'}
+Privacy Mode: ${diagnostic.privacyMode ? 'On' : 'Off'}
+Browser: ${diagnostic.browser}
+-----------------------------------------
+(No email content is included in this report)`;
+
+        const mailto = `mailto:jbuck@jbuckdev.com?subject=${encodeURIComponent('Inbox Intelligence — Error Report')}&body=${encodeURIComponent(reportBody)}`;
+        window.open(mailto);
+
+        btn.textContent = 'Report sent';
+        btn.disabled = true;
+        btn.style.color = 'var(--accent-blue)';
+        btn.style.borderColor = 'rgba(78,205,196,0.3)';
+      } catch (e) {
+        btn.textContent = 'Could not send';
+        btn.disabled = true;
+      }
+    }
     function showDashboardAndRefresh() { refreshDashboard(); }
 
     function renderVipList() {
