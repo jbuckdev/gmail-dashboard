@@ -1512,6 +1512,26 @@
     }
     .clean-btn-cancel:hover { color: var(--text-primary); }
 
+    .clean-smart-filters {
+      display: flex;
+      gap: 6px;
+      border-right: 1px solid var(--border);
+      padding-right: 12px;
+    }
+    .clean-filter-btn {
+      padding: 6px 14px;
+      min-height: 34px;
+      font-size: 0.8em;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: 16px;
+      white-space: nowrap;
+    }
+    .clean-filter-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+    .clean-filter-btn.active-filter { background: var(--accent-blue-dim); border-color: rgba(78,205,196,0.3); color: var(--accent-blue); }
+    .clean-actions-group { display: flex; gap: 8px; align-items: center; }
+
     /* Toast notification */
     .toast {
       display: none;
@@ -1905,9 +1925,16 @@
     <!-- Floating action bar for cleaning mode -->
     <div class="clean-action-bar" id="clean-action-bar">
       <span class="clean-count" id="clean-count">0 selected</span>
-      <button class="clean-btn-trash" onclick="cleanAction('trash')">Move to Trash</button>
-      <button class="clean-btn-archive" onclick="cleanAction('archive')">Archive</button>
-      <button class="clean-btn-cancel" onclick="clearSelection()">Clear</button>
+      <div class="clean-smart-filters">
+        <button class="clean-filter-btn" onclick="smartSelect('newsletters')" id="filter-newsletters">Newsletters</button>
+        <button class="clean-filter-btn" onclick="smartSelect('promotions')" id="filter-promotions">Promotions</button>
+        <button class="clean-filter-btn" onclick="smartSelect('social')" id="filter-social">Social</button>
+      </div>
+      <div class="clean-actions-group">
+        <button class="clean-btn-trash" onclick="cleanAction('trash')">Trash</button>
+        <button class="clean-btn-archive" onclick="cleanAction('archive')">Archive</button>
+        <button class="clean-btn-cancel" onclick="clearSelection()">Clear</button>
+      </div>
     </div>
 
     <!-- Toast notification -->
@@ -2101,12 +2128,51 @@
        STATE
        ============================================ */
     let accessToken = null;
+    let tokenTimestamp = 0; // when token was obtained (ms)
     let currentTimeRange = 1;
     let allEmails = [];
     let hasModifyScope = false;
     let cleaningMode = false;
     let selectedEmails = new Set(); // set of email IDs
     let activeFilter = null; // for stat card filtering
+
+    /* ============================================
+       SESSION CACHE (sessionStorage)
+       Persists until tab closes. Keyed by time range.
+       ============================================ */
+    function getCacheKey() { return `inbox-intel-cache-${currentTimeRange}d`; }
+
+    function getCachedEmails() {
+      try {
+        const raw = sessionStorage.getItem(getCacheKey());
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        // Restore Date objects
+        data.emails.forEach(e => { e.date = new Date(e.date); });
+        return data;
+      } catch { return null; }
+    }
+
+    function setCachedEmails(emails) {
+      try {
+        const data = { emails, timestamp: Date.now() };
+        sessionStorage.setItem(getCacheKey(), JSON.stringify(data));
+      } catch (e) {
+        // sessionStorage full — clear old caches and retry
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key && key.startsWith('inbox-intel-cache-')) sessionStorage.removeItem(key);
+        }
+        try { sessionStorage.setItem(getCacheKey(), JSON.stringify({ emails, timestamp: Date.now() })); } catch {}
+      }
+    }
+
+    function clearAllCaches() {
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith('inbox-intel-cache-')) sessionStorage.removeItem(key);
+      }
+    }
 
     /* ============================================
        LOCALSTORAGE
@@ -2207,11 +2273,44 @@
     function handleAuthResponse(response) {
       if (response.error) { console.error('Auth error:', response); alert('Sign-in failed. Please try again.'); return; }
       accessToken = response.access_token;
+      tokenTimestamp = Date.now();
       document.getElementById('step-google').classList.add('completed');
       const b = document.getElementById('step2-badge');
       b.textContent = '\u2713';
       b.classList.add('done');
       startDashboard();
+    }
+
+    // Silent token refresh — re-requests token without user interaction
+    async function ensureValidToken() {
+      if (!accessToken) return;
+      const elapsed = Date.now() - tokenTimestamp;
+      const TOKEN_LIFETIME = 50 * 60 * 1000; // refresh at 50 min (tokens last ~60 min)
+      if (elapsed < TOKEN_LIFETIME) return; // still valid
+
+      return new Promise((resolve) => {
+        try {
+          const silentClient = google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_CLIENT_ID,
+            scope: hasModifyScope ? GMAIL_SCOPES_MODIFY : GMAIL_SCOPES_READONLY,
+            callback: (resp) => {
+              if (resp.error) {
+                console.warn('Silent token refresh failed:', resp.error);
+                // Don't clear accessToken — try with existing one, let gmailFetch handle 401
+              } else {
+                accessToken = resp.access_token;
+                tokenTimestamp = Date.now();
+              }
+              resolve();
+            },
+            prompt: '',
+          });
+          silentClient.requestAccessToken({ prompt: '' });
+        } catch (e) {
+          console.warn('Silent refresh error:', e);
+          resolve();
+        }
+      });
     }
 
     /* ============================================
@@ -2233,9 +2332,16 @@
        GMAIL API
        ============================================ */
     async function gmailFetch(endpoint) {
-      const resp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${endpoint}`, {
+      let resp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${endpoint}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
+      if (resp.status === 401) {
+        // Token expired mid-request — try silent refresh once
+        await ensureValidToken();
+        resp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${endpoint}`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+      }
       if (!resp.ok) {
         if (resp.status === 401) throw new Error('AUTH_EXPIRED');
         throw new Error(`Gmail API error: ${resp.status}`);
@@ -2249,7 +2355,18 @@
       currentTimeRange = days;
       updateRangeButtons();
 
-      updateLoadingStep('Fetching your emails from Gmail...');
+      // Check cache for incremental refresh
+      const cached = getCachedEmails();
+      const cachedIds = cached ? new Set(cached.emails.map(e => e.id)) : new Set();
+      const hasCachedData = cached && cached.emails.length > 0;
+
+      if (hasCachedData) {
+        updateLoadingStep('Checking for new emails...');
+      } else {
+        updateLoadingStep('Fetching your emails from Gmail...');
+      }
+
+      await ensureValidToken();
 
       const afterDate = new Date();
       afterDate.setDate(afterDate.getDate() - days);
@@ -2265,22 +2382,54 @@
         pageToken = data.nextPageToken || null;
       } while (pageToken && allMsgIds.length < 500);
 
-      updateLoadingStep(`Found ${allMsgIds.length} emails. Reading details...`);
+      // Filter to only new (uncached) message IDs
+      const newMsgIds = hasCachedData ? allMsgIds.filter(id => !cachedIds.has(id)) : allMsgIds;
+      // Also detect removed emails (trashed/archived since last cache)
+      const currentIdSet = new Set(allMsgIds);
 
-      const emails = [];
-      for (let i = 0; i < allMsgIds.length; i += 20) {
-        const batch = allMsgIds.slice(i, i + 20);
+      if (hasCachedData && newMsgIds.length === 0) {
+        // No new emails — use cache directly, filter out removed
+        allEmails = cached.emails.filter(e => currentIdSet.has(e.id));
+        updateLoadingStep('No new emails. Using cached data.');
+        setCachedEmails(allEmails);
+        renderDashboard(allEmails);
+        return;
+      }
+
+      if (hasCachedData) {
+        updateLoadingStep(`Found ${newMsgIds.length} new email${newMsgIds.length !== 1 ? 's' : ''}. Reading...`);
+      } else {
+        updateLoadingStep(`Found ${allMsgIds.length} emails. Reading details...`);
+      }
+
+      // Fetch only new messages
+      const idsToFetch = hasCachedData ? newMsgIds : allMsgIds;
+      const newEmails = [];
+      for (let i = 0; i < idsToFetch.length; i += 20) {
+        const batch = idsToFetch.slice(i, i + 20);
         const details = await Promise.all(
           batch.map(id => gmailFetch(`messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Reply-To&metadataHeaders=List-Unsubscribe&metadataHeaders=List-Id&metadataHeaders=Precedence&metadataHeaders=Content-Type&metadataHeaders=Auto-Submitted&metadataHeaders=X-Mailer&metadataHeaders=X-Auto-Response-Suppress&metadataHeaders=Feedback-ID&metadataHeaders=X-Priority&metadataHeaders=Importance`))
         );
-        for (const msg of details) emails.push(parseMessage(msg));
-        updateLoadingStep(`Reading emails... ${Math.min(i + 20, allMsgIds.length)} of ${allMsgIds.length}`);
+        for (const msg of details) newEmails.push(parseMessage(msg));
+        updateLoadingStep(`Reading emails... ${Math.min(i + 20, idsToFetch.length)} of ${idsToFetch.length}`);
       }
 
-      allEmails = emails;
+      // Classify only the new emails
       updateLoadingStep('Sorting by importance...');
-      filterNoise(allEmails);
-      await aiAnalyze(allEmails);
+      filterNoise(newEmails);
+      await aiAnalyze(newEmails);
+
+      if (hasCachedData) {
+        // Merge: cached (minus removed) + newly classified
+        const keptCached = cached.emails.filter(e => currentIdSet.has(e.id));
+        allEmails = [...keptCached, ...newEmails];
+        allEmails.sort((a, b) => b.date - a.date);
+      } else {
+        allEmails = newEmails;
+      }
+
+      // Save to cache
+      setCachedEmails(allEmails);
       renderDashboard(allEmails);
     }
 
@@ -3773,7 +3922,14 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     }
 
     async function refreshDashboard() {
-      showScreen('loading');
+      const hasCached = getCachedEmails() !== null;
+      if (hasCached) {
+        // Show dashboard with a subtle "refreshing" indicator instead of full loading screen
+        const updatedEl = document.getElementById('last-updated');
+        if (updatedEl) updatedEl.textContent = 'Refreshing...';
+      } else {
+        showScreen('loading');
+      }
       try {
         await loadEmails();
         showScreen('dashboard');
@@ -3882,6 +4038,7 @@ Browser: ${diagnostic.browser}
                 return;
               }
               accessToken = response.access_token;
+              tokenTimestamp = Date.now();
               hasModifyScope = true;
               activateCleaningMode();
             },
@@ -4045,9 +4202,9 @@ Browser: ${diagnostic.browser}
     function updateActionBar() {
       const bar = document.getElementById('clean-action-bar');
       const count = selectedEmails.size;
-      if (count > 0 && cleaningMode) {
+      if (cleaningMode) {
         bar.classList.add('visible');
-        document.getElementById('clean-count').textContent = `${count} selected`;
+        document.getElementById('clean-count').textContent = count > 0 ? `${count} selected` : 'Select emails or use filters';
       } else {
         bar.classList.remove('visible');
       }
@@ -4056,6 +4213,53 @@ Browser: ${diagnostic.browser}
     function clearSelection() {
       selectedEmails.clear();
       document.querySelectorAll('.email-item.selected').forEach(el => el.classList.remove('selected'));
+      // Clear active filter highlights
+      document.querySelectorAll('.clean-filter-btn.active-filter').forEach(el => el.classList.remove('active-filter'));
+      updateActionBar();
+    }
+
+    function smartSelect(type) {
+      // Toggle behavior: if this filter is already active, clear it
+      const btn = document.getElementById(`filter-${type}`);
+      if (btn && btn.classList.contains('active-filter')) {
+        clearSelection();
+        return;
+      }
+
+      // Clear current selection first
+      selectedEmails.clear();
+      document.querySelectorAll('.email-item.selected').forEach(el => el.classList.remove('selected'));
+      document.querySelectorAll('.clean-filter-btn.active-filter').forEach(el => el.classList.remove('active-filter'));
+
+      // Find matching emails from allEmails
+      const matchingIds = new Set();
+      for (const e of allEmails) {
+        let match = false;
+        if (type === 'newsletters') {
+          match = e.hasUnsubscribe || e.hasListId || e.isBulk || e.hasEspHeaders;
+        } else if (type === 'promotions') {
+          match = e.gmailCategory === 'CATEGORY_PROMOTIONS';
+        } else if (type === 'social') {
+          match = e.gmailCategory === 'CATEGORY_SOCIAL';
+        }
+        if (match) matchingIds.add(e.id);
+      }
+
+      if (matchingIds.size === 0) {
+        showToast(`No ${type} found in current view`);
+        return;
+      }
+
+      // Select matching .email-item elements in the DOM
+      document.querySelectorAll('.email-item').forEach(el => {
+        const href = el.getAttribute('href') || '';
+        const idMatch = href.match(/#inbox\/(.+)/);
+        if (idMatch && matchingIds.has(idMatch[1])) {
+          setEmailSelected(el, true);
+        }
+      });
+
+      if (btn) btn.classList.add('active-filter');
       updateActionBar();
     }
 
