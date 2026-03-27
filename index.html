@@ -3898,12 +3898,22 @@ Browser: ${diagnostic.browser}
         }
       }
 
-      // Auto-scroll when near edges
+      // Auto-scroll when near edges — detect which container to scroll
       const threshold = 60;
-      if (e.clientY < threshold) {
-        window.scrollBy(0, -10);
-      } else if (e.clientY > window.innerHeight - threshold) {
-        window.scrollBy(0, 10);
+      const drillEl = item ? item.closest('.sidebar-scroll-zone') : null;
+      if (drillEl) {
+        const rect = drillEl.getBoundingClientRect();
+        if (e.clientY < rect.top + threshold) {
+          drillEl.scrollBy(0, -10);
+        } else if (e.clientY > rect.bottom - threshold) {
+          drillEl.scrollBy(0, 10);
+        }
+      } else {
+        if (e.clientY < threshold) {
+          window.scrollBy(0, -10);
+        } else if (e.clientY > window.innerHeight - threshold) {
+          window.scrollBy(0, 10);
+        }
       }
     }
 
