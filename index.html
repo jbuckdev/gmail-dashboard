@@ -3304,18 +3304,7 @@ ${emailList}` }]
       const rangeType = currentTimeRange === 1 ? 'daily' : currentTimeRange === 7 ? 'weekly' : 'monthly';
 
       try {
-        const resp = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': claudeKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-          },
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 2000,
-            messages: [{ role: 'user', content: `You are writing a ${rangeType} email briefing for a CEO. Your job is to READ the emails below and tell him what people said — in your own words, as flowing prose.
+        const promptContent = `You are writing a ${rangeType} email briefing for a CEO. Your job is to READ the emails below and tell him what people said — in your own words, as flowing prose.
 
 CRITICAL RULES:
 - DO NOT list email subjects. DO NOT write "Subject: ..." or "From: ... — Subject: ..."
@@ -3354,7 +3343,22 @@ Structure:
 2. <div class="briefing-section-title">What People Told You</div> — 2-4 paragraphs summarizing the substance of what was communicated, grouped by topic. This is the heart of the briefing. Tell him what he needs to know WITHOUT making him read the emails.
 3. <div class="briefing-section-title">Action Items</div> — ONLY if there are emails needing a reply. Short bullet list: who needs what, specifically.${currentTimeRange >= 7 ? '\n4. <div class="briefing-section-title">Patterns</div> — <p> paragraph noting trends, busiest topics, notable senders.' : ''}
 
-Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real person who read everything and is now telling you about it.` }]
+Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real person who read everything and is now telling you about it.`;
+
+        console.log(`Briefing prompt: ${promptContent.length} chars (~${Math.round(promptContent.length/4)} tokens)`);
+
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': claudeKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 2000,
+            messages: [{ role: 'user', content: promptContent }]
           })
         });
 
