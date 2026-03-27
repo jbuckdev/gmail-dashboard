@@ -520,6 +520,16 @@
       background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple), var(--accent-coral));
     }
 
+    .hero-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .hero-top { flex-direction: column; gap: 12px; }
+    }
+
     .hero-greeting {
       font-family: var(--font-display);
       font-size: 1.5em;
@@ -531,32 +541,31 @@
     .hero-summary {
       font-size: 0.95em;
       color: var(--text-secondary);
-      margin-bottom: 14px;
       line-height: 1.5;
     }
 
-    .hero-stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-    }
-
+    /* Stat cards are now standalone bento cells */
     .stat-card {
-      background: var(--bg-card);
-      border-radius: var(--radius-md);
-      padding: 10px 14px;
+      background: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      padding: 20px;
       text-align: center;
       cursor: pointer;
-      border: 1px solid transparent;
+      border: 1px solid var(--border);
       transition: all var(--transition-fast);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
     }
-    .stat-card:hover { border-color: var(--border-active); transform: translateY(-1px); }
+    .stat-card:hover { border-color: var(--border-active); transform: translateY(-2px); box-shadow: var(--shadow-md); }
     .stat-card.active-stat { border-color: var(--accent-blue); background: var(--accent-blue-dim); }
 
     .stat-number {
-      font-family: var(--font-display);
-      font-size: 1.6em;
-      font-weight: 400;
+      font-family: var(--font-body);
+      font-size: 2.2em;
+      font-weight: 600;
       line-height: 1.1;
     }
     .stat-card.reply .stat-number { color: var(--accent-coral); }
@@ -575,11 +584,9 @@
 
     .hero-meta {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border);
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
     }
 
     .hero-meta-left {
@@ -729,37 +736,37 @@
     }
 
     /* ============================================
-       MAIN GRID
+       BENTO GRID LAYOUT
        ============================================ */
-    /* ============================================
-       SPLIT LAYOUT — Single page scroll, two columns
-       ============================================ */
-    .split-layout {
+    .bento-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: minmax(140px, auto);
+      gap: 16px;
       align-items: start;
     }
 
-    .split-left, .split-right {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+    .bento-card {
+      position: relative;
     }
 
-    /* Legacy class aliases for JS that references sidebar-scroll-zone */
-    .sidebar-scroll-zone { display: contents; }
+    /* Card size classes */
+    .card-md { grid-column: span 2; }
+    .card-lg { grid-column: span 2; grid-row: span 2; }
+    .card-wide { grid-column: span 3; }
+    .card-wide-tall { grid-column: span 3; grid-row: span 2; }
+    .card-full { grid-column: span 4; }
+    .card-action-items { grid-row: span 2; }
 
-    .bottom-viz-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+    @media (max-width: 1200px) {
+      .bento-grid { grid-template-columns: repeat(2, 1fr); }
+      .card-wide, .card-wide-tall { grid-column: span 2; }
+      .card-lg { grid-column: span 2; }
     }
-
     @media (max-width: 900px) {
-      .split-layout { grid-template-columns: 1fr; }
-      .hero-stats { grid-template-columns: repeat(2, 1fr); }
-      .bottom-viz-row { grid-template-columns: 1fr; }
+      .bento-grid { grid-template-columns: 1fr; }
+      .card-md, .card-lg, .card-wide, .card-wide-tall, .card-full { grid-column: span 1; }
+      .card-lg, .card-wide-tall, .card-action-items { grid-row: span 1; }
     }
 
     .viz-card {
@@ -769,12 +776,75 @@
       padding: 16px;
       overflow: hidden;
       transition: all var(--transition-med);
-      flex-shrink: 0;
     }
 
-    /* Hide other cards when drill-down is active */
-    .split-right.drilled .viz-card.hideable { display: none; }
-    .bottom-viz-row.drilled { display: none; }
+    /* ============================================
+       SLIDE-OVER PANEL (drill-down)
+       ============================================ */
+    .slide-over-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 900;
+      cursor: pointer;
+    }
+    .slide-over-backdrop.open { display: block; }
+
+    .slide-over {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 480px;
+      max-width: 90vw;
+      height: 100vh;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border);
+      z-index: 901;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .slide-over.open { transform: translateX(0); }
+
+    .slide-over-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .slide-over-breadcrumb {
+      font-size: 0.85em;
+      color: var(--text-secondary);
+    }
+    .slide-over-close {
+      width: 32px;
+      height: 32px;
+      min-height: 32px;
+      padding: 0;
+      font-size: 1.3em;
+      background: var(--bg-card);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+    }
+    .slide-over-close:hover { color: var(--text-primary); background: var(--bg-card-hover); }
+
+    .slide-over-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+    }
+
+    @media (max-width: 600px) {
+      .slide-over { width: 100vw; max-width: 100vw; }
+    }
 
     /* ============================================
        PANEL EXPAND BUTTON
@@ -844,6 +914,35 @@
       flex-shrink: 0;
     }
 
+    /* Action Items */
+    .action-item-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      color: inherit;
+      transition: background var(--transition-fast);
+    }
+    .action-item-row:hover { background: var(--bg-card-hover); opacity: 1; }
+    .action-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent-coral-dim);
+      color: var(--accent-coral);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75em;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .action-content { min-width: 0; flex: 1; }
+    .action-who { font-size: 0.82em; font-weight: 600; color: var(--text-primary); }
+    .action-what { font-size: 0.78em; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
     /* Bubble Map */
     .bubble-map {
       position: relative;
@@ -861,7 +960,7 @@
       font-size: 0.82em;
       flex-shrink: 0;
     }
-    .split-right.drilled .bubble-breadcrumb { display: flex; }
+    .slide-over.open .bubble-breadcrumb { display: flex; }
 
     .crumb-btn {
       background: var(--bg-card);
@@ -885,7 +984,7 @@
       margin-top: 16px;
       padding-top: 16px;
     }
-    .split-right.drilled .drill-panel { display: block; }
+    .slide-over .drill-panel { display: block; }
 
     .drill-panel::-webkit-scrollbar { width: 5px; }
     .drill-panel::-webkit-scrollbar-track { background: transparent; }
@@ -1728,8 +1827,8 @@
     @media print {
       body { background: white; color: #1a1a1a; font-size: 11pt; }
       body::before { display: none; }
-      .topbar, .split-right, .hero-meta, .footer { display: none !important; }
-      .split-layout { grid-template-columns: 1fr; }
+      .topbar, .hero-meta, .footer, .slide-over, .slide-over-backdrop, #bubble-card, #top-senders-card, #volume-card, #breakdown-card, #action-items-card { display: none !important; }
+      .bento-grid { display: block; }
       .hero { border: 1px solid #ddd; background: #f9f9f9; }
       .hero::before { display: none; }
       .hero-greeting, .stat-number { color: #1a1a1a; }
@@ -1864,35 +1963,21 @@
           </div>
         </div>
 
-        <!-- Hero Briefing -->
+        <!-- Hero — full width greeting + time range -->
         <div class="hero">
-          <h1 class="hero-greeting" id="greeting">Good morning.</h1>
-          <p class="hero-summary" id="summary-text"></p>
-          <div class="hero-stats anim-stagger" id="hero-stats">
-            <div class="stat-card reply" onclick="filterByCategory('reply')" id="stat-reply">
-              <div class="stat-number" id="stat-reply-num">0</div>
-              <div class="stat-label">Need Reply</div>
+          <div class="hero-top">
+            <div>
+              <h1 class="hero-greeting" id="greeting">Good morning.</h1>
+              <p class="hero-summary" id="summary-text"></p>
             </div>
-            <div class="stat-card read" onclick="filterByCategory('read')" id="stat-read">
-              <div class="stat-number" id="stat-read-num">0</div>
-              <div class="stat-label">Worth Reading</div>
+            <div class="hero-meta">
+              <div class="hero-meta-left">
+                <button class="range-btn active" data-range="1" onclick="setTimeRange(1, this)">Today</button>
+                <button class="range-btn" data-range="7" onclick="setTimeRange(7, this)">This Week</button>
+                <button class="range-btn" data-range="30" onclick="setTimeRange(30, this)">This Month</button>
+              </div>
+              <span class="hero-updated" id="last-updated"></span>
             </div>
-            <div class="stat-card fyi" onclick="filterByCategory('fyi')" id="stat-fyi">
-              <div class="stat-number" id="stat-fyi-num">0</div>
-              <div class="stat-label">Quick Scan</div>
-            </div>
-            <div class="stat-card skip" onclick="filterByCategory('skip')" id="stat-skip">
-              <div class="stat-number" id="stat-skip-num">0</div>
-              <div class="stat-label">Safe to Skip</div>
-            </div>
-          </div>
-          <div class="hero-meta">
-            <div class="hero-meta-left">
-              <button class="range-btn active" data-range="1" onclick="setTimeRange(1, this)">Today</button>
-              <button class="range-btn" data-range="7" onclick="setTimeRange(7, this)">This Week</button>
-              <button class="range-btn" data-range="30" onclick="setTimeRange(30, this)">This Month</button>
-            </div>
-            <span class="hero-updated" id="last-updated"></span>
           </div>
         </div>
 
@@ -1902,117 +1987,148 @@
           <button class="cleaning-banner-exit" onclick="toggleCleaningMode()">Exit</button>
         </div>
 
-        <!-- Split Layout -->
-        <div class="split-layout">
+        <!-- Bento Grid -->
+        <div class="bento-grid">
 
-          <!-- LEFT COLUMN: Briefing, Email Sections, Top Senders, Volume/Breakdown -->
-          <div class="split-left" id="split-left">
-
-            <!-- AI Briefing -->
-            <div class="briefing-card expandable-panel" id="briefing-card">
-              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-              <div class="briefing-header">
-                <div class="briefing-icon">&#9998;</div>
-                <div>
-                  <div class="briefing-title" id="briefing-title">Today's Briefing</div>
-                  <div class="briefing-subtitle" id="briefing-subtitle">A quick look at what matters</div>
-                </div>
-              </div>
-              <div class="briefing-body" id="briefing-body">
-                <div class="briefing-loading">Preparing your briefing...</div>
+          <!-- AI Briefing — spans 2 columns -->
+          <div class="briefing-card bento-card card-md expandable-panel" id="briefing-card">
+            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+            <div class="briefing-header">
+              <div class="briefing-icon">&#9998;</div>
+              <div>
+                <div class="briefing-title" id="briefing-title">Today's Briefing</div>
+                <div class="briefing-subtitle" id="briefing-subtitle">A quick look at what matters</div>
               </div>
             </div>
-
-            <!-- Email Sections -->
-            <div class="email-sections expandable-panel anim-stagger" id="email-sections">
-              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-              <div class="email-section section-reply">
-                <div class="section-header open" onclick="toggleSection(this)">
-                  <div class="section-title-area">
-                    <div class="section-dot"></div>
-                    <span class="section-label">Needs Your Reply</span>
-                    <span class="section-count" id="reply-count">0</span>
-                  </div>
-                  <span class="section-chevron">&#9662;</span>
-                </div>
-                <div class="section-body expanded" id="reply-emails"></div>
-              </div>
-
-              <div class="email-section section-read">
-                <div class="section-header" onclick="toggleSection(this)">
-                  <div class="section-title-area">
-                    <div class="section-dot"></div>
-                    <span class="section-label">Worth Reading</span>
-                    <span class="section-count" id="read-count">0</span>
-                  </div>
-                  <span class="section-chevron">&#9662;</span>
-                </div>
-                <div class="section-body" id="read-emails"></div>
-              </div>
-
-              <div class="email-section section-fyi">
-                <div class="section-header" onclick="toggleSection(this)">
-                  <div class="section-title-area">
-                    <div class="section-dot"></div>
-                    <span class="section-label">FYI &mdash; Quick Scan</span>
-                    <span class="section-count" id="fyi-count">0</span>
-                  </div>
-                  <span class="section-chevron">&#9662;</span>
-                </div>
-                <div class="section-body" id="fyi-emails"></div>
-              </div>
-
-              <div class="email-section section-skip">
-                <div class="section-header" onclick="toggleSection(this)">
-                  <div class="section-title-area">
-                    <div class="section-dot"></div>
-                    <span class="section-label">Safe to Skip</span>
-                    <span class="section-count" id="skip-count">0</span>
-                  </div>
-                  <span class="section-chevron">&#9662;</span>
-                </div>
-                <div class="section-body" id="skip-emails"></div>
-              </div>
-            </div>
-
-            <!-- Top Senders -->
-            <div class="viz-card expandable-panel" id="top-senders-card">
-              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-              <div class="viz-title">Top Senders</div>
-              <div id="top-senders"></div>
-            </div>
-
-            <!-- Volume + Breakdown -->
-            <div class="bottom-viz-row hideable-row" id="bottom-viz-row">
-              <div class="viz-card expandable-panel">
-                <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-                <div class="viz-title">Volume</div>
-                <div class="volume-chart" id="volume-chart"></div>
-              </div>
-              <div class="viz-card expandable-panel">
-                <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-                <div class="viz-title">Breakdown</div>
-                <div class="cat-breakdown" id="cat-breakdown"></div>
-              </div>
+            <div class="briefing-body" id="briefing-body">
+              <div class="briefing-loading">Preparing your briefing...</div>
             </div>
           </div>
 
-          <!-- RIGHT COLUMN: Large Bubble Map + Drill Emails -->
-          <div class="split-right" id="split-right">
-            <div class="sidebar-scroll-zone" id="sidebar-scroll-zone">
-              <div class="viz-card expandable-panel" id="bubble-card">
-                <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-                <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
-                <div class="bubble-breadcrumb" id="bubble-breadcrumb"></div>
-                <div class="bubble-map" id="bubble-map"></div>
-                <div class="drill-panel" id="drill-panel">
-                  <div class="drill-panel-header">
-                    <span class="drill-panel-title" id="drill-panel-title">Emails</span>
-                    <span class="drill-panel-count" id="drill-panel-count"></span>
-                  </div>
-                  <div id="drill-panel-emails"></div>
+          <!-- Stat Cards — 1x1 each -->
+          <div class="stat-card bento-card reply" onclick="filterByCategory('reply')" id="stat-reply">
+            <div class="stat-number" id="stat-reply-num">0</div>
+            <div class="stat-label">Need Reply</div>
+          </div>
+          <div class="stat-card bento-card read" onclick="filterByCategory('read')" id="stat-read">
+            <div class="stat-number" id="stat-read-num">0</div>
+            <div class="stat-label">Worth Reading</div>
+          </div>
+
+          <!-- Email Sections — spans 3 columns, 2 rows -->
+          <div class="email-sections bento-card card-wide-tall expandable-panel anim-stagger" id="email-sections">
+            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+            <div class="email-section section-reply">
+              <div class="section-header open" onclick="toggleSection(this)">
+                <div class="section-title-area">
+                  <div class="section-dot"></div>
+                  <span class="section-label">Needs Your Reply</span>
+                  <span class="section-count" id="reply-count">0</span>
                 </div>
+                <span class="section-chevron">&#9662;</span>
               </div>
+              <div class="section-body expanded" id="reply-emails"></div>
+            </div>
+
+            <div class="email-section section-read">
+              <div class="section-header" onclick="toggleSection(this)">
+                <div class="section-title-area">
+                  <div class="section-dot"></div>
+                  <span class="section-label">Worth Reading</span>
+                  <span class="section-count" id="read-count">0</span>
+                </div>
+                <span class="section-chevron">&#9662;</span>
+              </div>
+              <div class="section-body" id="read-emails"></div>
+            </div>
+
+            <div class="email-section section-fyi">
+              <div class="section-header" onclick="toggleSection(this)">
+                <div class="section-title-area">
+                  <div class="section-dot"></div>
+                  <span class="section-label">FYI &mdash; Quick Scan</span>
+                  <span class="section-count" id="fyi-count">0</span>
+                </div>
+                <span class="section-chevron">&#9662;</span>
+              </div>
+              <div class="section-body" id="fyi-emails"></div>
+            </div>
+
+            <div class="email-section section-skip">
+              <div class="section-header" onclick="toggleSection(this)">
+                <div class="section-title-area">
+                  <div class="section-dot"></div>
+                  <span class="section-label">Safe to Skip</span>
+                  <span class="section-count" id="skip-count">0</span>
+                </div>
+                <span class="section-chevron">&#9662;</span>
+              </div>
+              <div class="section-body" id="skip-emails"></div>
+            </div>
+          </div>
+
+          <!-- Action Items — 1 column, 2 rows -->
+          <div class="viz-card bento-card card-action-items expandable-panel" id="action-items-card">
+            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+            <div class="viz-title">Action Items</div>
+            <div id="action-items"></div>
+          </div>
+
+          <!-- Bubble Map — spans 2 columns, 2 rows -->
+          <div class="viz-card bento-card card-lg expandable-panel" id="bubble-card">
+            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+            <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
+            <div class="bubble-breadcrumb" id="bubble-breadcrumb"></div>
+            <div class="bubble-map" id="bubble-map"></div>
+          </div>
+
+          <!-- Top Senders -->
+          <div class="viz-card bento-card expandable-panel" id="top-senders-card">
+            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+            <div class="viz-title">Top Senders</div>
+            <div id="top-senders"></div>
+          </div>
+
+          <!-- Volume Chart -->
+          <div class="viz-card bento-card expandable-panel" id="volume-card">
+            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+            <div class="viz-title">Volume</div>
+            <div class="volume-chart" id="volume-chart"></div>
+          </div>
+
+          <!-- Category Breakdown -->
+          <div class="viz-card bento-card expandable-panel" id="breakdown-card">
+            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+            <div class="viz-title">Breakdown</div>
+            <div class="cat-breakdown" id="cat-breakdown"></div>
+          </div>
+
+          <!-- Stat Cards (lower) — FYI and Skip -->
+          <div class="stat-card bento-card fyi" onclick="filterByCategory('fyi')" id="stat-fyi">
+            <div class="stat-number" id="stat-fyi-num">0</div>
+            <div class="stat-label">Quick Scan</div>
+          </div>
+          <div class="stat-card bento-card skip" onclick="filterByCategory('skip')" id="stat-skip">
+            <div class="stat-number" id="stat-skip-num">0</div>
+            <div class="stat-label">Safe to Skip</div>
+          </div>
+
+        </div>
+
+        <!-- Slide-over drill panel -->
+        <div class="slide-over-backdrop" id="slide-over-backdrop" onclick="closeSlideOver()"></div>
+        <div class="slide-over" id="slide-over">
+          <div class="slide-over-header">
+            <div class="slide-over-breadcrumb" id="slide-over-breadcrumb"></div>
+            <button class="slide-over-close" onclick="closeSlideOver()" title="Close">&times;</button>
+          </div>
+          <div class="slide-over-body" id="slide-over-body">
+            <div class="drill-panel" id="drill-panel">
+              <div class="drill-panel-header">
+                <span class="drill-panel-title" id="drill-panel-title">Emails</span>
+                <span class="drill-panel-count" id="drill-panel-count"></span>
+              </div>
+              <div id="drill-panel-emails"></div>
             </div>
           </div>
         </div>
@@ -2967,6 +3083,7 @@ ${emailList}` }]
       renderTopSenders(emails);
       renderVolumeChart(emails);
       renderCatBreakdown(emails);
+      renderActionItems(emails);
 
       // Generate AI briefing (async, renders when ready)
       generateBriefing(emails);
@@ -3255,6 +3372,28 @@ ${emailList}` }]
           <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${c.color}"></div></div>
           <div class="cat-count">${count}</div>
         </div>`;
+      }).join('');
+    }
+
+    function renderActionItems(emails) {
+      const container = document.getElementById('action-items');
+      const actionEmails = emails.filter(e => e.category === 'reply' && e.actionItem);
+
+      if (!actionEmails.length) {
+        container.innerHTML = '<div class="empty-state" style="padding:12px 0;font-size:0.85em">Nothing needs your attention right now.</div>';
+        return;
+      }
+
+      container.innerHTML = actionEmails.sort((a,b) => b.priority - a.priority).map(e => {
+        const url = `https://mail.google.com/mail/u/0/#inbox/${e.id}`;
+        const initials = (e.fromName || '?').charAt(0).toUpperCase();
+        return `<a href="${url}" target="_blank" rel="noopener" class="action-item-row">
+          <div class="action-avatar">${esc(initials)}</div>
+          <div class="action-content">
+            <div class="action-who">${esc(e.fromName)}</div>
+            <div class="action-what">${esc(e.actionItem)}</div>
+          </div>
+        </a>`;
       }).join('');
     }
 
@@ -3733,9 +3872,29 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     let drillState = { level: 0, topic: null, subTopic: null };
 
     function setDrilled(on) {
-      document.getElementById('split-right').classList.toggle('drilled', on);
-      const bottomRow = document.getElementById('bottom-viz-row');
-      if (bottomRow) bottomRow.classList.toggle('drilled', on);
+      if (on) {
+        openSlideOver();
+      } else {
+        closeSlideOver();
+      }
+    }
+
+    function openSlideOver(breadcrumbText) {
+      document.getElementById('slide-over').classList.add('open');
+      document.getElementById('slide-over-backdrop').classList.add('open');
+      document.body.style.overflow = 'hidden';
+      if (breadcrumbText) {
+        document.getElementById('slide-over-breadcrumb').textContent = breadcrumbText;
+      }
+    }
+
+    function closeSlideOver() {
+      document.getElementById('slide-over').classList.remove('open');
+      document.getElementById('slide-over-backdrop').classList.remove('open');
+      document.body.style.overflow = '';
+      drillState = { level: 0, topic: null, subTopic: null };
+      activeFilter = null;
+      updateStatCardHighlights();
     }
 
     function drillDown(type, value) {
@@ -3996,6 +4155,14 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
 
     function filterByCategory(cat) {
       drillDown('category', cat);
+    }
+
+    function updateStatCardHighlights() {
+      document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active-stat'));
+      if (activeFilter) {
+        const el = document.getElementById(`stat-${activeFilter}`);
+        if (el) el.classList.add('active-stat');
+      }
     }
 
     /* ============================================
@@ -4822,7 +4989,11 @@ Browser: ${diagnostic.browser}
       // User must pick privacy level first
 
       updatePrivacyBadge();
-      initSidebarSync();
+
+      // ESC closes slide-over
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeSlideOver();
+      });
 
       if (typeof google !== 'undefined' && google.accounts) {
         initGoogleAuth();
@@ -4832,9 +5003,6 @@ Browser: ${diagnostic.browser}
         });
       }
     }
-
-    /* Split layout handles scrolling via CSS — no JS sync needed */
-    function initSidebarSync() { }
 
     init();
   </script>
