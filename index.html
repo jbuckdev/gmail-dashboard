@@ -2906,15 +2906,20 @@ ${emailList}` }]
       const maxCount = sorted[0][1];
       const w = map.clientWidth || 340;
 
+      // Scale bubble sizes based on available width
+      const isLargeView = w > 400;
+      const minBubble = isLargeView ? 56 : 48;
+      const maxBubble = isLargeView ? 120 : 96;
       const bubbles = sorted.map((item, i) => {
         const [name, count] = item;
         const ratio = count / maxCount;
-        const size = Math.max(48, Math.min(96, 48 + ratio * 48));
+        const size = Math.max(minBubble, Math.min(maxBubble, minBubble + ratio * (maxBubble - minBubble)));
         return { name, count, size, color: BUBBLE_COLORS[i % BUBBLE_COLORS.length] };
       });
 
       // Height: generous — let the force sim fill the space
-      const h = Math.max(300, bubbles.length * 32 + 60);
+      const minH = isLargeView ? 400 : 300;
+      const h = Math.max(minH, bubbles.length * 38 + 80);
       map.style.height = h + 'px';
 
       const positions = packBubbles(bubbles, w, h);
@@ -2925,7 +2930,7 @@ ${emailList}` }]
         const bottom = p.y + p.size + 28;
         if (bottom > maxBottom) maxBottom = bottom;
       }
-      map.style.height = Math.max(250, maxBottom + 12) + 'px';
+      map.style.height = Math.max(minH, maxBottom + 12) + 'px';
 
       renderBubbleHTML(map, positions, 'topic');
     }
