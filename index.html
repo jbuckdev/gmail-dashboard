@@ -333,7 +333,7 @@
     .dash-container {
       max-width: 1600px;
       margin: 0 auto;
-      padding: 24px 24px 60px;
+      padding: 16px 20px 40px;
     }
 
     /* ============================================
@@ -396,8 +396,8 @@
       background: var(--bg-surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-xl);
-      padding: 36px 40px;
-      margin-bottom: 24px;
+      padding: 20px 28px;
+      margin-bottom: 16px;
       position: relative;
       overflow: hidden;
     }
@@ -414,17 +414,17 @@
 
     .hero-greeting {
       font-family: var(--font-display);
-      font-size: 1.8em;
+      font-size: 1.5em;
       font-weight: 400;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       letter-spacing: -0.02em;
     }
 
     .hero-summary {
-      font-size: 1.05em;
+      font-size: 0.95em;
       color: var(--text-secondary);
-      margin-bottom: 24px;
-      line-height: 1.6;
+      margin-bottom: 14px;
+      line-height: 1.5;
     }
 
     .hero-stats {
@@ -436,7 +436,7 @@
     .stat-card {
       background: var(--bg-card);
       border-radius: var(--radius-md);
-      padding: 16px 20px;
+      padding: 10px 14px;
       text-align: center;
       cursor: pointer;
       border: 1px solid transparent;
@@ -447,7 +447,7 @@
 
     .stat-number {
       font-family: var(--font-display);
-      font-size: 2em;
+      font-size: 1.6em;
       font-weight: 400;
       line-height: 1.1;
     }
@@ -503,8 +503,7 @@
       background: var(--bg-surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-xl);
-      padding: 28px 32px;
-      margin-bottom: 24px;
+      padding: 16px 20px;
       position: relative;
     }
 
@@ -625,29 +624,20 @@
        MAIN GRID
        ============================================ */
     /* ============================================
-       SPLIT LAYOUT — Left (scrollable) / Right (scrollable)
+       SPLIT LAYOUT — Single page scroll, two columns
        ============================================ */
     .split-layout {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      height: calc(100vh - 80px);
-      min-height: 500px;
+      gap: 20px;
+      align-items: start;
     }
 
     .split-left, .split-right {
-      overflow-y: auto;
-      overflow-x: hidden;
-      overscroll-behavior: contain;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      padding-right: 4px;
+      gap: 12px;
     }
-
-    .split-left::-webkit-scrollbar, .split-right::-webkit-scrollbar { width: 5px; }
-    .split-left::-webkit-scrollbar-track, .split-right::-webkit-scrollbar-track { background: transparent; }
-    .split-left::-webkit-scrollbar-thumb, .split-right::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
 
     /* Legacy class aliases for JS that references sidebar-scroll-zone */
     .sidebar-scroll-zone { display: contents; }
@@ -655,12 +645,11 @@
     .bottom-viz-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      gap: 12px;
     }
 
     @media (max-width: 900px) {
-      .split-layout { grid-template-columns: 1fr; height: auto; }
-      .split-left, .split-right { overflow: visible; }
+      .split-layout { grid-template-columns: 1fr; }
       .hero-stats { grid-template-columns: repeat(2, 1fr); }
       .bottom-viz-row { grid-template-columns: 1fr; }
     }
@@ -669,7 +658,7 @@
       background: var(--bg-surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 24px;
+      padding: 16px;
       overflow: hidden;
       transition: all var(--transition-med);
       flex-shrink: 0;
@@ -1009,11 +998,11 @@
     .email-sections {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 8px;
       background: var(--bg-surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 16px;
+      padding: 10px;
     }
 
     .email-section {
@@ -1632,7 +1621,7 @@
       body { background: white; color: #1a1a1a; font-size: 11pt; }
       body::before { display: none; }
       .topbar, .split-right, .hero-meta, .footer { display: none !important; }
-      .split-layout { grid-template-columns: 1fr; height: auto; }
+      .split-layout { grid-template-columns: 1fr; }
       .hero { border: 1px solid #ddd; background: #f9f9f9; }
       .hero::before { display: none; }
       .hero-greeting, .stat-number { color: #1a1a1a; }
@@ -4152,22 +4141,12 @@ Browser: ${diagnostic.browser}
         }
       }
 
-      // Auto-scroll when near edges — detect which container to scroll
+      // Auto-scroll when near edges
       const threshold = 60;
-      const drillEl = item ? item.closest('.split-right') : null;
-      if (drillEl) {
-        const rect = drillEl.getBoundingClientRect();
-        if (e.clientY < rect.top + threshold) {
-          drillEl.scrollBy(0, -10);
-        } else if (e.clientY > rect.bottom - threshold) {
-          drillEl.scrollBy(0, 10);
-        }
-      } else {
-        if (e.clientY < threshold) {
-          window.scrollBy(0, -10);
-        } else if (e.clientY > window.innerHeight - threshold) {
-          window.scrollBy(0, 10);
-        }
+      if (e.clientY < threshold) {
+        window.scrollBy(0, -10);
+      } else if (e.clientY > window.innerHeight - threshold) {
+        window.scrollBy(0, 10);
       }
     }
 
