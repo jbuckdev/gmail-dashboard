@@ -331,7 +331,7 @@
     #dashboard.active { display: block; }
 
     .dash-container {
-      max-width: 1200px;
+      max-width: 1600px;
       margin: 0 auto;
       padding: 24px 24px 60px;
     }
@@ -624,54 +624,44 @@
     /* ============================================
        MAIN GRID
        ============================================ */
-    .main-grid {
-      display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 24px;
-      align-items: start;
-    }
-
-    @media (max-width: 900px) {
-      .main-grid { grid-template-columns: 1fr; }
-      .hero-stats { grid-template-columns: repeat(2, 1fr); }
-    }
-
     /* ============================================
-       SIDEBAR — VISUALIZATION
+       SPLIT LAYOUT — Left (scrollable) / Right (scrollable)
        ============================================ */
-    .sidebar {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      height: calc(100vh - 80px);
+      min-height: 500px;
     }
 
-    /* Sticky scroll zone: Email Landscape + Top Senders
-       Height syncs with left column — grows when sections expand */
-    .sidebar-scroll-zone {
-      position: sticky;
-      top: 24px;
-      max-height: calc(100vh - 48px);
+    .split-left, .split-right {
       overflow-y: auto;
       overflow-x: hidden;
       overscroll-behavior: contain;
       display: flex;
       flex-direction: column;
       gap: 16px;
-      transition: max-height 0.3s ease;
+      padding-right: 4px;
     }
 
-    .sidebar-scroll-zone::-webkit-scrollbar { width: 5px; }
-    .sidebar-scroll-zone::-webkit-scrollbar-track { background: transparent; }
-    .sidebar-scroll-zone::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
+    .split-left::-webkit-scrollbar, .split-right::-webkit-scrollbar { width: 5px; }
+    .split-left::-webkit-scrollbar-track, .split-right::-webkit-scrollbar-track { background: transparent; }
+    .split-left::-webkit-scrollbar-thumb, .split-right::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
 
-    /* Volume + Breakdown — below the main grid, scrolls with the page */
+    /* Legacy class aliases for JS that references sidebar-scroll-zone */
+    .sidebar-scroll-zone { display: contents; }
+
     .bottom-viz-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 16px;
-      margin-top: 24px;
     }
+
     @media (max-width: 900px) {
+      .split-layout { grid-template-columns: 1fr; height: auto; }
+      .split-left, .split-right { overflow: visible; }
+      .hero-stats { grid-template-columns: repeat(2, 1fr); }
       .bottom-viz-row { grid-template-columns: 1fr; }
     }
 
@@ -685,11 +675,67 @@
       flex-shrink: 0;
     }
 
-    /* When drilled, scroll zone handles the bubble card + drill panel */
-
-    /* Hide other sidebar cards when drill-down is active */
-    .sidebar.drilled .viz-card.hideable { display: none; }
+    /* Hide other cards when drill-down is active */
+    .split-right.drilled .viz-card.hideable { display: none; }
     .bottom-viz-row.drilled { display: none; }
+
+    /* ============================================
+       PANEL EXPAND BUTTON
+       ============================================ */
+    .panel-expand-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      min-height: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity var(--transition-fast), background var(--transition-fast);
+      z-index: 5;
+    }
+    .expandable-panel:hover .panel-expand-btn,
+    .expandable-panel.panel-expanded .panel-expand-btn { opacity: 1; }
+    .panel-expand-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+    .expandable-panel {
+      position: relative;
+    }
+
+    .expandable-panel.panel-expanded {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      z-index: 200;
+      border-radius: var(--radius-xl);
+      overflow-y: auto;
+      animation: panelExpandIn 0.25s ease;
+    }
+
+    .panel-expand-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 199;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes panelExpandIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
 
     .viz-title {
       font-size: 0.82em;
@@ -718,7 +764,7 @@
       font-size: 0.82em;
       flex-shrink: 0;
     }
-    .sidebar.drilled .bubble-breadcrumb { display: flex; }
+    .split-right.drilled .bubble-breadcrumb { display: flex; }
 
     .crumb-btn {
       background: var(--bg-card);
@@ -742,7 +788,7 @@
       margin-top: 16px;
       padding-top: 16px;
     }
-    .sidebar.drilled .drill-panel { display: block; }
+    .split-right.drilled .drill-panel { display: block; }
 
     .drill-panel::-webkit-scrollbar { width: 5px; }
     .drill-panel::-webkit-scrollbar-track { background: transparent; }
@@ -964,12 +1010,16 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
-    }
-
-    .email-section {
       background: var(--bg-surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
+      padding: 16px;
+    }
+
+    .email-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
       overflow: hidden;
       transition: all var(--transition-fast);
     }
@@ -1561,8 +1611,8 @@
     @media print {
       body { background: white; color: #1a1a1a; font-size: 11pt; }
       body::before { display: none; }
-      .topbar, .sidebar, .hero-meta, .footer { display: none !important; }
-      .main-grid { grid-template-columns: 1fr; }
+      .topbar, .split-right, .hero-meta, .footer { display: none !important; }
+      .split-layout { grid-template-columns: 1fr; height: auto; }
       .hero { border: 1px solid #ddd; background: #f9f9f9; }
       .hero::before { display: none; }
       .hero-greeting, .stat-number { color: #1a1a1a; }
@@ -1731,80 +1781,106 @@
           <button class="cleaning-banner-exit" onclick="toggleCleaningMode()">Exit</button>
         </div>
 
-        <!-- AI Briefing -->
-        <div class="briefing-card" id="briefing-card">
-          <div class="briefing-header">
-            <div class="briefing-icon">&#9998;</div>
-            <div>
-              <div class="briefing-title" id="briefing-title">Today's Briefing</div>
-              <div class="briefing-subtitle" id="briefing-subtitle">A quick look at what matters</div>
+        <!-- Split Layout -->
+        <div class="split-layout">
+
+          <!-- LEFT COLUMN: Briefing, Email Sections, Top Senders, Volume/Breakdown -->
+          <div class="split-left" id="split-left">
+
+            <!-- AI Briefing -->
+            <div class="briefing-card expandable-panel" id="briefing-card">
+              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+              <div class="briefing-header">
+                <div class="briefing-icon">&#9998;</div>
+                <div>
+                  <div class="briefing-title" id="briefing-title">Today's Briefing</div>
+                  <div class="briefing-subtitle" id="briefing-subtitle">A quick look at what matters</div>
+                </div>
+              </div>
+              <div class="briefing-body" id="briefing-body">
+                <div class="briefing-loading">Preparing your briefing...</div>
+              </div>
+            </div>
+
+            <!-- Email Sections -->
+            <div class="email-sections expandable-panel anim-stagger" id="email-sections">
+              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+              <div class="email-section section-reply">
+                <div class="section-header open" onclick="toggleSection(this)">
+                  <div class="section-title-area">
+                    <div class="section-dot"></div>
+                    <span class="section-label">Needs Your Reply</span>
+                    <span class="section-count" id="reply-count">0</span>
+                  </div>
+                  <span class="section-chevron">&#9662;</span>
+                </div>
+                <div class="section-body expanded" id="reply-emails"></div>
+              </div>
+
+              <div class="email-section section-read">
+                <div class="section-header" onclick="toggleSection(this)">
+                  <div class="section-title-area">
+                    <div class="section-dot"></div>
+                    <span class="section-label">Worth Reading</span>
+                    <span class="section-count" id="read-count">0</span>
+                  </div>
+                  <span class="section-chevron">&#9662;</span>
+                </div>
+                <div class="section-body" id="read-emails"></div>
+              </div>
+
+              <div class="email-section section-fyi">
+                <div class="section-header" onclick="toggleSection(this)">
+                  <div class="section-title-area">
+                    <div class="section-dot"></div>
+                    <span class="section-label">FYI &mdash; Quick Scan</span>
+                    <span class="section-count" id="fyi-count">0</span>
+                  </div>
+                  <span class="section-chevron">&#9662;</span>
+                </div>
+                <div class="section-body" id="fyi-emails"></div>
+              </div>
+
+              <div class="email-section section-skip">
+                <div class="section-header" onclick="toggleSection(this)">
+                  <div class="section-title-area">
+                    <div class="section-dot"></div>
+                    <span class="section-label">Safe to Skip</span>
+                    <span class="section-count" id="skip-count">0</span>
+                  </div>
+                  <span class="section-chevron">&#9662;</span>
+                </div>
+                <div class="section-body" id="skip-emails"></div>
+              </div>
+            </div>
+
+            <!-- Top Senders -->
+            <div class="viz-card expandable-panel" id="top-senders-card">
+              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+              <div class="viz-title">Top Senders</div>
+              <div id="top-senders"></div>
+            </div>
+
+            <!-- Volume + Breakdown -->
+            <div class="bottom-viz-row hideable-row" id="bottom-viz-row">
+              <div class="viz-card expandable-panel">
+                <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+                <div class="viz-title">Volume</div>
+                <div class="volume-chart" id="volume-chart"></div>
+              </div>
+              <div class="viz-card expandable-panel">
+                <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+                <div class="viz-title">Breakdown</div>
+                <div class="cat-breakdown" id="cat-breakdown"></div>
+              </div>
             </div>
           </div>
-          <div class="briefing-body" id="briefing-body">
-            <div class="briefing-loading">Preparing your briefing...</div>
-          </div>
-        </div>
 
-        <!-- Main Grid -->
-        <div class="main-grid">
-
-          <!-- LEFT: Email Sections -->
-          <div class="email-sections anim-stagger" id="email-sections">
-            <div class="email-section section-reply">
-              <div class="section-header open" onclick="toggleSection(this)">
-                <div class="section-title-area">
-                  <div class="section-dot"></div>
-                  <span class="section-label">Needs Your Reply</span>
-                  <span class="section-count" id="reply-count">0</span>
-                </div>
-                <span class="section-chevron">&#9662;</span>
-              </div>
-              <div class="section-body expanded" id="reply-emails"></div>
-            </div>
-
-            <div class="email-section section-read">
-              <div class="section-header" onclick="toggleSection(this)">
-                <div class="section-title-area">
-                  <div class="section-dot"></div>
-                  <span class="section-label">Worth Reading</span>
-                  <span class="section-count" id="read-count">0</span>
-                </div>
-                <span class="section-chevron">&#9662;</span>
-              </div>
-              <div class="section-body" id="read-emails"></div>
-            </div>
-
-            <div class="email-section section-fyi">
-              <div class="section-header" onclick="toggleSection(this)">
-                <div class="section-title-area">
-                  <div class="section-dot"></div>
-                  <span class="section-label">FYI &mdash; Quick Scan</span>
-                  <span class="section-count" id="fyi-count">0</span>
-                </div>
-                <span class="section-chevron">&#9662;</span>
-              </div>
-              <div class="section-body" id="fyi-emails"></div>
-            </div>
-
-            <div class="email-section section-skip">
-              <div class="section-header" onclick="toggleSection(this)">
-                <div class="section-title-area">
-                  <div class="section-dot"></div>
-                  <span class="section-label">Safe to Skip</span>
-                  <span class="section-count" id="skip-count">0</span>
-                </div>
-                <span class="section-chevron">&#9662;</span>
-              </div>
-              <div class="section-body" id="skip-emails"></div>
-            </div>
-          </div>
-
-          <!-- RIGHT: Sidebar Visualizations -->
-          <div class="sidebar" id="sidebar">
-            <!-- Sticky scroll zone: Email Landscape + Top Senders -->
+          <!-- RIGHT COLUMN: Large Bubble Map + Drill Emails -->
+          <div class="split-right" id="split-right">
             <div class="sidebar-scroll-zone" id="sidebar-scroll-zone">
-              <!-- Topic Bubbles -->
-              <div class="viz-card" id="bubble-card">
+              <div class="viz-card expandable-panel" id="bubble-card">
+                <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
                 <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
                 <div class="bubble-breadcrumb" id="bubble-breadcrumb"></div>
                 <div class="bubble-map" id="bubble-map"></div>
@@ -1816,25 +1892,7 @@
                   <div id="drill-panel-emails"></div>
                 </div>
               </div>
-
-              <!-- Top Senders -->
-              <div class="viz-card hideable">
-                <div class="viz-title">Top Senders</div>
-                <div id="top-senders"></div>
-              </div>
             </div>
-          </div>
-        </div>
-
-        <!-- Volume + Breakdown — OUTSIDE the grid, full width, scrolls with the page -->
-        <div class="bottom-viz-row hideable-row" id="bottom-viz-row">
-          <div class="viz-card">
-            <div class="viz-title">Volume</div>
-            <div class="volume-chart" id="volume-chart"></div>
-          </div>
-          <div class="viz-card">
-            <div class="viz-title">Breakdown</div>
-            <div class="cat-breakdown" id="cat-breakdown"></div>
           </div>
         </div>
 
@@ -3393,7 +3451,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     let drillState = { level: 0, topic: null, subTopic: null };
 
     function setDrilled(on) {
-      document.getElementById('sidebar').classList.toggle('drilled', on);
+      document.getElementById('split-right').classList.toggle('drilled', on);
       const bottomRow = document.getElementById('bottom-viz-row');
       if (bottomRow) bottomRow.classList.toggle('drilled', on);
     }
@@ -3668,6 +3726,40 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
       header.classList.toggle('open');
     }
 
+    function togglePanelExpand(btn) {
+      const panel = btn.closest('.expandable-panel');
+      if (!panel) return;
+
+      const isExpanded = panel.classList.contains('panel-expanded');
+
+      if (isExpanded) {
+        // Collapse: remove overlay + expanded state
+        panel.classList.remove('panel-expanded');
+        const backdrop = document.getElementById('panel-expand-backdrop');
+        if (backdrop) backdrop.remove();
+        btn.innerHTML = '\u26F6';
+        btn.title = 'Expand';
+        // Re-render bubble map if this was the bubble card
+        if (panel.id === 'bubble-card') {
+          setTimeout(() => renderBubbleMap(allEmails), 50);
+        }
+      } else {
+        // Expand: add backdrop + expanded state
+        const backdrop = document.createElement('div');
+        backdrop.className = 'panel-expand-backdrop';
+        backdrop.id = 'panel-expand-backdrop';
+        backdrop.onclick = () => togglePanelExpand(btn);
+        document.body.appendChild(backdrop);
+        panel.classList.add('panel-expanded');
+        btn.innerHTML = '\u2715';
+        btn.title = 'Close';
+        // Re-render bubble map bigger if this was the bubble card
+        if (panel.id === 'bubble-card') {
+          setTimeout(() => renderBubbleMap(allEmails), 50);
+        }
+      }
+    }
+
     function setTimeRange(days, btn) {
       currentTimeRange = days;
       updateRangeButtons();
@@ -3900,7 +3992,7 @@ Browser: ${diagnostic.browser}
 
       // Auto-scroll when near edges — detect which container to scroll
       const threshold = 60;
-      const drillEl = item ? item.closest('.sidebar-scroll-zone') : null;
+      const drillEl = item ? item.closest('.split-right') : null;
       if (drillEl) {
         const rect = drillEl.getBoundingClientRect();
         if (e.clientY < rect.top + threshold) {
@@ -4394,62 +4486,8 @@ Browser: ${diagnostic.browser}
       }
     }
 
-    /* Sync sidebar scroll zone with left column.
-       If sidebar content fits within the available space → no internal scroll, page scrolls normally.
-       If sidebar content overflows → internal scroll activates. */
-    function initSidebarSync() {
-      const leftCol = document.getElementById('email-sections');
-      const scrollZone = document.getElementById('sidebar-scroll-zone');
-      if (!leftCol || !scrollZone) return;
-
-      function syncHeight() {
-        const leftHeight = leftCol.offsetHeight;
-        const viewportH = window.innerHeight - 48;
-        const sidebarContentH = scrollZone.scrollHeight;
-        const availableH = Math.max(viewportH, leftHeight);
-
-        scrollZone.style.maxHeight = availableH + 'px';
-
-        // If content fits — no internal scroll needed
-        if (sidebarContentH <= availableH + 2) {
-          scrollZone.style.overflowY = 'visible';
-          scrollZone.style.overscrollBehavior = 'auto';
-        } else {
-          scrollZone.style.overflowY = 'auto';
-          // Don't use overscroll-behavior: contain — it traps the scroll
-          // Instead we handle scroll pass-through manually below
-          scrollZone.style.overscrollBehavior = 'auto';
-        }
-      }
-
-      // When scrolling inside the sidebar: if at top and scrolling up,
-      // or at bottom and scrolling down, let the page scroll instead
-      scrollZone.addEventListener('wheel', function(ev) {
-        // If no internal scroll needed, don't interfere
-        if (scrollZone.style.overflowY === 'visible') return;
-
-        const atTop = scrollZone.scrollTop <= 0;
-        const atBottom = scrollZone.scrollTop + scrollZone.clientHeight >= scrollZone.scrollHeight - 2;
-        const scrollingDown = ev.deltaY > 0;
-        const scrollingUp = ev.deltaY < 0;
-
-        // At bottom scrolling down, or at top scrolling up → let page scroll
-        if ((atBottom && scrollingDown) || (atTop && scrollingUp)) {
-          // Don't prevent default — let it bubble to page
-          return;
-        }
-
-        // In the middle — consume the scroll event so page doesn't move
-        ev.preventDefault();
-        scrollZone.scrollTop += ev.deltaY;
-      }, { passive: false });
-
-      const observer = new ResizeObserver(syncHeight);
-      observer.observe(leftCol);
-      observer.observe(scrollZone);
-      window.addEventListener('resize', syncHeight);
-      syncHeight();
-    }
+    /* Split layout handles scrolling via CSS — no JS sync needed */
+    function initSidebarSync() { }
 
     init();
   </script>
