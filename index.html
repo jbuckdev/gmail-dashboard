@@ -1373,6 +1373,27 @@
     body.cleaning-mode .section-fyi .select-all-row {
       display: flex;
     }
+    /* Drill-panel selectable items in cleaning mode */
+    body.cleaning-mode .drill-email-item {
+      display: block;
+      padding: 10px 12px 10px 48px;
+      border-radius: var(--radius-sm);
+      color: inherit;
+      text-decoration: none;
+      transition: background var(--transition-fast);
+      margin-bottom: 2px;
+    }
+    body.cleaning-mode .drill-email-item:hover { background: var(--bg-card); }
+    body.cleaning-mode .drill-email-item .email-top { display: flex; justify-content: space-between; align-items: baseline; }
+    body.cleaning-mode .drill-email-item .email-sender { font-weight: 600; font-size: 0.85em; }
+    body.cleaning-mode .drill-email-item .email-date { font-size: 0.72em; color: var(--text-muted); font-family: var(--font-mono); }
+    body.cleaning-mode .drill-email-item .email-subject { font-size: 0.82em; color: var(--text-secondary); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .drill-select-all {
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
     .select-all-btn {
       background: var(--bg-elevated);
       border: 1px solid var(--border);
@@ -1590,9 +1611,27 @@
           <p>See what matters. Skip what doesn't.</p>
         </div>
 
-        <div class="setup-card" id="step-claude">
+        <div class="setup-card" id="step-privacy">
           <div class="setup-card-header">
-            <div class="step-badge" id="step1-badge">1</div>
+            <div class="step-badge" id="step0-badge">1</div>
+            <h2>Choose your privacy level</h2>
+          </div>
+          <p>This cannot be changed after sign-in without re-scanning your emails.</p>
+          <div class="privacy-toggle" id="onboard-privacy-toggle">
+            <div class="privacy-option" data-mode="full" onclick="selectOnboardPrivacy('full')">
+              <div class="privacy-option-title"><span class="privacy-dot dot-full"></span> Full Analysis</div>
+              <div class="privacy-option-desc">AI reads your emails for the best sorting and written summaries. Email content is sent to Anthropic's AI service.</div>
+            </div>
+            <div class="privacy-option" data-mode="private" onclick="selectOnboardPrivacy('private')">
+              <div class="privacy-option-title"><span class="privacy-dot dot-private"></span> Private Mode</div>
+              <div class="privacy-option-desc">Everything stays on this computer. No email data leaves your browser. Sorting is less precise but fully private.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-card" id="step-claude" style="display:none">
+          <div class="setup-card-header">
+            <div class="step-badge" id="step1-badge">2</div>
             <h2>Paste your Claude key</h2>
           </div>
           <p>This lets the page sort your emails by importance. Your key stays on this computer only.</p>
@@ -1605,7 +1644,7 @@
 
         <div class="setup-card" id="step-google">
           <div class="setup-card-header">
-            <div class="step-badge" id="step2-badge">2</div>
+            <div class="step-badge" id="step2-badge">3</div>
             <h2>Sign in with Google</h2>
           </div>
           <p>Read-only access to your email subjects and senders. Cannot send, move, or delete anything.</p>
@@ -1688,7 +1727,7 @@
 
         <!-- Cleaning Mode Banner -->
         <div class="cleaning-banner" id="cleaning-banner">
-          <span class="cleaning-banner-text">Cleaning Mode — click emails to select, then trash or archive them</span>
+          <span class="cleaning-banner-text">Cleaning Mode — click emails, bubbles, or categories to select, then trash or archive</span>
           <button class="cleaning-banner-exit" onclick="toggleCleaningMode()">Exit</button>
         </div>
 
@@ -2032,6 +2071,40 @@
     /* ============================================
        ONBOARDING
        ============================================ */
+    function selectOnboardPrivacy(mode) {
+      const p = getPrefs();
+      p.privacyMode = mode;
+      savePrefs(p);
+
+      // Highlight selected option in onboarding toggle
+      document.querySelectorAll('#onboard-privacy-toggle .privacy-option').forEach(el => {
+        el.classList.toggle('selected', el.dataset.mode === mode);
+      });
+
+      // Mark step 0 done
+      document.getElementById('step-privacy').classList.add('completed');
+      const b0 = document.getElementById('step0-badge');
+      b0.textContent = '\u2713';
+      b0.classList.add('done');
+
+      if (mode === 'private') {
+        // Skip Claude key step entirely — go straight to Google sign-in
+        document.getElementById('step-claude').style.display = 'none';
+        document.getElementById('step2-badge').textContent = '2';
+        markStep1Done();
+      } else {
+        // Show Claude key step
+        document.getElementById('step-claude').style.display = '';
+        document.getElementById('step2-badge').textContent = '3';
+        // If key already saved from a previous visit, skip to Google
+        if (getClaudeKey()) {
+          markStep1Done();
+        }
+      }
+
+      updatePrivacyBadge();
+    }
+
     function saveClaudeKey() {
       const key = document.getElementById('claude-key-input').value.trim();
       if (!key.startsWith('sk-ant-')) {
@@ -3516,7 +3589,15 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     function renderDrillEmails(emails, title) {
       emails.sort((a,b) => b.date - a.date);
       document.getElementById('drill-panel-title').textContent = title;
-      document.getElementById('drill-panel-count').textContent = `${emails.length} email${emails.length !== 1 ? 's' : ''}`;
+
+      const countEl = document.getElementById('drill-panel-count');
+      const countText = `${emails.length} email${emails.length !== 1 ? 's' : ''}`;
+
+      if (cleaningMode && emails.length) {
+        countEl.innerHTML = `<span>${countText}</span> <button class="select-all-btn drill-select-all" onclick="selectAllInDrill()">Select all</button>`;
+      } else {
+        countEl.textContent = countText;
+      }
 
       const container = document.getElementById('drill-panel-emails');
       if (!emails.length) {
@@ -3524,14 +3605,53 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
         return;
       }
 
-      container.innerHTML = emails.map(email => {
-        const url = `https://mail.google.com/mail/u/0/#inbox/${email.id}`;
-        return `<a href="${url}" target="_blank" rel="noopener" class="drill-email">
-          <span class="drill-email-date">${fmtDate(email.date)}</span>
-          <div class="drill-email-sender">${esc(email.fromName)}</div>
-          <div class="drill-email-subject">${esc(email.subject)}</div>
-        </a>`;
-      }).join('');
+      if (cleaningMode) {
+        // Render as selectable email-items so cleaning mode handlers work
+        container.innerHTML = emails.map(email => {
+          const url = `https://mail.google.com/mail/u/0/#inbox/${email.id}`;
+          const sel = selectedEmails.has(email.id) ? ' selected' : '';
+          return `<a href="${url}" class="email-item drill-email-item${sel}">
+            <div class="email-top"><span class="email-sender">${esc(email.fromName)}</span><span class="email-date">${fmtDate(email.date)}</span></div>
+            <div class="email-subject">${esc(email.subject)}</div>
+          </a>`;
+        }).join('');
+      } else {
+        container.innerHTML = emails.map(email => {
+          const url = `https://mail.google.com/mail/u/0/#inbox/${email.id}`;
+          return `<a href="${url}" target="_blank" rel="noopener" class="drill-email">
+            <span class="drill-email-date">${fmtDate(email.date)}</span>
+            <div class="drill-email-sender">${esc(email.fromName)}</div>
+            <div class="drill-email-subject">${esc(email.subject)}</div>
+          </a>`;
+        }).join('');
+      }
+    }
+
+    function selectAllInDrill() {
+      const items = document.querySelectorAll('#drill-panel-emails .email-item');
+      items.forEach(item => setEmailSelected(item, true));
+    }
+
+    function rerenderDrillIfOpen() {
+      if (drillState.level === 0) return;
+      // Re-trigger current drill to re-render emails in correct mode
+      if (drillState.level === 2 && drillState.subTopic) {
+        drillIntoSubTopic(drillState.subTopic);
+      } else if (drillState.level === 1 && drillState.topic) {
+        // Could be a topic, sender, or category drill
+        const t = drillState.topic;
+        if (t.startsWith('From: ')) {
+          const email = allEmails.find(e => `From: ${e.fromName}` === t);
+          if (email) drillIntoSender(email.from);
+        } else {
+          const catNames = { 'Needs Reply': 'reply', 'Worth Reading': 'read', 'Quick Scan': 'fyi', 'Safe to Skip': 'skip' };
+          if (catNames[t]) {
+            drillIntoCategory(catNames[t]);
+          } else {
+            drillIntoTopic(t);
+          }
+        }
+      }
     }
 
     function filterByCategory(cat) {
@@ -3693,6 +3813,7 @@ Browser: ${diagnostic.browser}
       updateActionBar();
       addCleaningListeners();
       injectSelectAllRows();
+      rerenderDrillIfOpen();
     }
 
     function deactivateCleaningMode() {
@@ -3708,6 +3829,7 @@ Browser: ${diagnostic.browser}
       document.querySelectorAll('.email-item.selected').forEach(el => el.classList.remove('selected'));
       // Remove select-all rows
       document.querySelectorAll('.select-all-row').forEach(el => el.remove());
+      rerenderDrillIfOpen();
     }
 
     function addCleaningListeners() {
@@ -4243,13 +4365,12 @@ Browser: ${diagnostic.browser}
       if (p.textSize === 'large') document.body.classList.add('font-large');
       if (p.textSize === 'xl') document.body.classList.add('font-xl');
 
-      // Privacy mode: skip Claude key step in onboarding if private
-      if (isPrivateMode()) {
-        markStep1Done(); // no key needed, enable Google sign-in directly
-        document.getElementById('step-claude').style.display = 'none';
-      } else if (getClaudeKey()) {
-        markStep1Done();
+      // If user already chose privacy mode (returning visitor), restore onboarding state
+      if (p.privacyMode) {
+        selectOnboardPrivacy(p.privacyMode);
       }
+      // Otherwise: step-claude hidden by default, Google button disabled
+      // User must pick privacy level first
 
       updatePrivacyBadge();
       initSidebarSync();
