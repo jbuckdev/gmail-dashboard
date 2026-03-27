@@ -3295,6 +3295,9 @@ ${emailList}` }]
         return section;
       }).join('\n\n');
 
+      // Sanitize entire content block (subjects/names may also have control chars)
+      emailContent = sanitizeForApi(emailContent);
+
       // Safety cap: keep total email content under ~80k chars (~20k tokens) to avoid API limits
       if (emailContent.length > 80000) {
         emailContent = emailContent.substring(0, 80000) + '\n\n[Content truncated for length]';
@@ -4626,13 +4629,19 @@ Browser: ${diagnostic.browser}
       const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
     }
 
+    // Strip control characters that cause Claude API 400 errors
+    // Keep \n (0x0A), \r (0x0D), \t (0x09) — strip everything else in U+0000–U+001F
+    function sanitizeForApi(text) {
+      return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+    }
+
     function extractBodyText(payload) {
       // Recursively extract plain text from Gmail message payload
       if (!payload) return '';
 
       // Direct body
       if (payload.mimeType === 'text/plain' && payload.body && payload.body.data) {
-        return decodeBase64Url(payload.body.data);
+        return sanitizeForApi(decodeBase64Url(payload.body.data));
       }
 
       // HTML fallback — strip tags
@@ -4640,7 +4649,7 @@ Browser: ${diagnostic.browser}
         const html = decodeBase64Url(payload.body.data);
         const tmp = document.createElement('div');
         tmp.innerHTML = html;
-        return tmp.textContent || tmp.innerText || '';
+        return sanitizeForApi(tmp.textContent || tmp.innerText || '');
       }
 
       // Multipart — recurse into parts, prefer text/plain
@@ -4648,7 +4657,7 @@ Browser: ${diagnostic.browser}
         // First pass: look for text/plain
         for (const part of payload.parts) {
           if (part.mimeType === 'text/plain' && part.body && part.body.data) {
-            return decodeBase64Url(part.body.data);
+            return sanitizeForApi(decodeBase64Url(part.body.data));
           }
         }
         // Second pass: recurse into all parts
