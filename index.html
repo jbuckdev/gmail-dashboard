@@ -2738,7 +2738,12 @@ ${emailList}` }]
             })
           });
 
-          if (!resp.ok) throw new Error(`Claude API ${resp.status}`);
+          if (!resp.ok) {
+            let errDetail = '';
+            try { const errBody = await resp.json(); errDetail = errBody.error?.message || ''; } catch {}
+            console.error(`Classification API ${resp.status}:`, errDetail);
+            throw new Error(`Claude API ${resp.status}: ${errDetail}`);
+          }
           const data = await resp.json();
           const jsonMatch = data.content[0].text.match(/\[[\s\S]*\]/);
           if (jsonMatch) {
@@ -3250,6 +3255,8 @@ ${emailList}` }]
           } else {
             fetchFailed++;
           }
+          // Cap body length — shorter for larger time ranges to keep prompt under limits
+          const maxBody = currentTimeRange >= 30 ? 1500 : currentTimeRange >= 7 ? 2000 : 3000;
           emailBodies.push({
             id: batch[j].id,
             from: batch[j].fromName,
@@ -3258,7 +3265,7 @@ ${emailList}` }]
             category: batch[j].category,
             aiSummary: batch[j].summary || '',
             actionItem: batch[j].actionItem || '',
-            body: bodyText.substring(0, 3000)
+            body: bodyText.substring(0, maxBody)
           });
         }
       }
@@ -3280,13 +3287,18 @@ ${emailList}` }]
         if (!byTopic[e.topic]) byTopic[e.topic] = [];
         byTopic[e.topic].push(e);
       }
-      const emailContent = Object.entries(byTopic).map(([topic, topicEmails]) => {
+      let emailContent = Object.entries(byTopic).map(([topic, topicEmails]) => {
         const section = `=== TOPIC: ${topic} (${topicEmails.length} emails) ===\n` +
           topicEmails.map(e =>
             `[REF:${e.id}] [${e.category === 'reply' ? 'NEEDS REPLY' : 'INFORMATIONAL'}] From: ${e.from}\nSubject: ${e.subject}\nContent:\n${e.body}`
           ).join('\n---\n');
         return section;
       }).join('\n\n');
+
+      // Safety cap: keep total email content under ~80k chars (~20k tokens) to avoid API limits
+      if (emailContent.length > 80000) {
+        emailContent = emailContent.substring(0, 80000) + '\n\n[Content truncated for length]';
+      }
 
       const rangeLabel = currentTimeRange === 1 ? 'today' : currentTimeRange === 7 ? 'this week' : 'this month';
       const rangeType = currentTimeRange === 1 ? 'daily' : currentTimeRange === 7 ? 'weekly' : 'monthly';
@@ -3346,7 +3358,12 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           })
         });
 
-        if (!resp.ok) throw new Error(`${resp.status}`);
+        if (!resp.ok) {
+          let errDetail = '';
+          try { const errBody = await resp.json(); errDetail = errBody.error?.message || JSON.stringify(errBody); } catch {}
+          console.error(`Briefing API ${resp.status}:`, errDetail);
+          throw new Error(`${resp.status}: ${errDetail}`);
+        }
         const data = await resp.json();
 
         // Validate we got a real response
@@ -3385,7 +3402,10 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
         let explanation = '';
         let userCanFix = true; // if true, no Send Report button
 
-        if (errMsg.includes('401') || errMsg.includes('auth')) {
+        if (errMsg.includes('400')) {
+          title = 'Request issue';
+          explanation = 'The briefing request was rejected by the AI service. This can happen with unusual email content. Try the daily view for a smaller request.';
+        } else if (errMsg.includes('401') || errMsg.includes('auth')) {
           title = 'Claude key issue';
           explanation = 'Your Claude key may be invalid or expired. Open Preferences to update it.';
         } else if (errMsg.includes('429') || errMsg.includes('rate')) {
