@@ -544,11 +544,16 @@
       line-height: 1.5;
     }
 
-    /* Stat cards are now standalone bento cells */
+    /* Stat cards — 2x2 sub-grid */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
     .stat-card {
-      background: var(--bg-surface);
-      border-radius: var(--radius-lg);
-      padding: 20px;
+      background: var(--bg-card);
+      border-radius: var(--radius-md);
+      padding: 16px;
       text-align: center;
       cursor: pointer;
       border: 1px solid var(--border);
@@ -557,7 +562,6 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 120px;
     }
     .stat-card:hover { border-color: var(--border-active); transform: translateY(-2px); box-shadow: var(--shadow-md); }
     .stat-card.active-stat { border-color: var(--accent-blue); background: var(--accent-blue-dim); }
@@ -754,9 +758,7 @@
     .card-md { grid-column: span 2; }
     .card-lg { grid-column: span 2; grid-row: span 2; }
     .card-wide { grid-column: span 3; }
-    .card-wide-tall { grid-column: span 3; grid-row: span 2; }
     .card-full { grid-column: span 4; }
-    .card-action-items { grid-row: span 2; }
 
     @media (max-width: 1200px) {
       .bento-grid { grid-template-columns: repeat(2, 1fr); }
@@ -766,7 +768,7 @@
     @media (max-width: 900px) {
       .bento-grid { grid-template-columns: 1fr; }
       .card-md, .card-lg, .card-wide, .card-wide-tall, .card-full { grid-column: span 1; }
-      .card-lg, .card-wide-tall, .card-action-items { grid-row: span 1; }
+      .card-lg { grid-row: span 1; }
     }
 
     .viz-card {
@@ -1990,7 +1992,7 @@
         <!-- Bento Grid -->
         <div class="bento-grid">
 
-          <!-- AI Briefing — spans 2 columns -->
+          <!-- Row 1: Briefing + 4 stat cards -->
           <div class="briefing-card bento-card card-md expandable-panel" id="briefing-card">
             <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="briefing-header">
@@ -2005,18 +2007,27 @@
             </div>
           </div>
 
-          <!-- Stat Cards — 1x1 each -->
-          <div class="stat-card bento-card reply" onclick="filterByCategory('reply')" id="stat-reply">
-            <div class="stat-number" id="stat-reply-num">0</div>
-            <div class="stat-label">Need Reply</div>
-          </div>
-          <div class="stat-card bento-card read" onclick="filterByCategory('read')" id="stat-read">
-            <div class="stat-number" id="stat-read-num">0</div>
-            <div class="stat-label">Worth Reading</div>
+          <div class="stat-grid bento-card card-md">
+            <div class="stat-card reply" onclick="filterByCategory('reply')" id="stat-reply">
+              <div class="stat-number" id="stat-reply-num">0</div>
+              <div class="stat-label">Need Reply</div>
+            </div>
+            <div class="stat-card read" onclick="filterByCategory('read')" id="stat-read">
+              <div class="stat-number" id="stat-read-num">0</div>
+              <div class="stat-label">Worth Reading</div>
+            </div>
+            <div class="stat-card fyi" onclick="filterByCategory('fyi')" id="stat-fyi">
+              <div class="stat-number" id="stat-fyi-num">0</div>
+              <div class="stat-label">Quick Scan</div>
+            </div>
+            <div class="stat-card skip" onclick="filterByCategory('skip')" id="stat-skip">
+              <div class="stat-number" id="stat-skip-num">0</div>
+              <div class="stat-label">Safe to Skip</div>
+            </div>
           </div>
 
-          <!-- Email Sections — spans 3 columns, 2 rows -->
-          <div class="email-sections bento-card card-wide-tall expandable-panel anim-stagger" id="email-sections">
+          <!-- Row 2: Email Sections (full width) -->
+          <div class="email-sections bento-card card-full expandable-panel anim-stagger" id="email-sections">
             <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="email-section section-reply">
               <div class="section-header open" onclick="toggleSection(this)">
@@ -2067,14 +2078,7 @@
             </div>
           </div>
 
-          <!-- Action Items — 1 column, 2 rows -->
-          <div class="viz-card bento-card card-action-items expandable-panel" id="action-items-card">
-            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-            <div class="viz-title">Action Items</div>
-            <div id="action-items"></div>
-          </div>
-
-          <!-- Bubble Map — spans 2 columns, 2 rows -->
+          <!-- Row 3: Viz cards — Bubble Map (2x2) + Top Senders + Action Items -->
           <div class="viz-card bento-card card-lg expandable-panel" id="bubble-card">
             <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
@@ -2082,35 +2086,29 @@
             <div class="bubble-map" id="bubble-map"></div>
           </div>
 
-          <!-- Top Senders -->
           <div class="viz-card bento-card expandable-panel" id="top-senders-card">
             <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="viz-title">Top Senders</div>
             <div id="top-senders"></div>
           </div>
 
-          <!-- Volume Chart -->
+          <div class="viz-card bento-card expandable-panel" id="action-items-card">
+            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+            <div class="viz-title">Action Items</div>
+            <div id="action-items"></div>
+          </div>
+
+          <!-- Row 4: Volume + Breakdown -->
           <div class="viz-card bento-card expandable-panel" id="volume-card">
             <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="viz-title">Volume</div>
             <div class="volume-chart" id="volume-chart"></div>
           </div>
 
-          <!-- Category Breakdown -->
           <div class="viz-card bento-card expandable-panel" id="breakdown-card">
             <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="viz-title">Breakdown</div>
             <div class="cat-breakdown" id="cat-breakdown"></div>
-          </div>
-
-          <!-- Stat Cards (lower) — FYI and Skip -->
-          <div class="stat-card bento-card fyi" onclick="filterByCategory('fyi')" id="stat-fyi">
-            <div class="stat-number" id="stat-fyi-num">0</div>
-            <div class="stat-label">Quick Scan</div>
-          </div>
-          <div class="stat-card bento-card skip" onclick="filterByCategory('skip')" id="stat-skip">
-            <div class="stat-number" id="stat-skip-num">0</div>
-            <div class="stat-label">Safe to Skip</div>
           </div>
 
         </div>
