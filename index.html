@@ -736,7 +736,19 @@
       transition: all var(--transition-med);
     }
 
-    #bubble-card, #top-senders-card { max-height: 380px; overflow-y: auto; align-self: start; }
+    #bubble-card { max-height: 380px; overflow-y: auto; }
+
+    /* Left-side sub-grid: landscape, senders, volume, breakdown stack independently of emails */
+    .left-viz-stack {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-content: start;
+    }
+
+    @media (max-width: 900px) {
+      .left-viz-stack { grid-template-columns: 1fr; }
+    }
 
     /* ============================================
        SLIDE-OVER PANEL (drill-down)
@@ -751,8 +763,8 @@
     }
     .slide-over-backdrop.open { display: block; }
 
-    /* Keep bubble card interactive above backdrop when slide-over is open */
-    #bubble-card.drilled {
+    /* Keep bubble card + its parent interactive above backdrop when slide-over is open */
+    .left-viz-stack.drilled {
       position: relative;
       z-index: 901;
     }
@@ -1987,18 +1999,32 @@
             <div id="action-items"></div>
           </div>
 
-          <!-- Row 2: Bubble Map (1 col) + Top Senders (1 col) + Emails (2 cols) -->
-          <div class="viz-card bento-card card-1 expandable-panel" id="bubble-card">
-            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-            <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
-            <div class="bubble-breadcrumb" id="bubble-breadcrumb"></div>
-            <div class="bubble-map" id="bubble-map"></div>
-          </div>
+          <!-- Row 2: Left stack (landscape, senders, volume, breakdown) + Emails -->
+          <div class="left-viz-stack bento-card card-2">
+            <div class="viz-card expandable-panel" id="bubble-card">
+              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+              <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
+              <div class="bubble-breadcrumb" id="bubble-breadcrumb"></div>
+              <div class="bubble-map" id="bubble-map"></div>
+            </div>
 
-          <div class="viz-card bento-card card-1 expandable-panel" id="top-senders-card">
-            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-            <div class="viz-title">Top Senders</div>
-            <div id="top-senders"></div>
+            <div class="viz-card expandable-panel" id="top-senders-card">
+              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+              <div class="viz-title">Top Senders</div>
+              <div id="top-senders"></div>
+            </div>
+
+            <div class="viz-card expandable-panel" id="volume-card">
+              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+              <div class="viz-title">Volume</div>
+              <div class="volume-chart" id="volume-chart"></div>
+            </div>
+
+            <div class="viz-card expandable-panel" id="breakdown-card">
+              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+              <div class="viz-title">Breakdown</div>
+              <div class="cat-breakdown" id="cat-breakdown"></div>
+            </div>
           </div>
 
           <div class="email-sections bento-card card-2 expandable-panel anim-stagger" id="email-sections">
@@ -2050,19 +2076,6 @@
               </div>
               <div class="section-body" id="skip-emails"></div>
             </div>
-          </div>
-
-          <!-- Row 3: Volume + Breakdown (under bubble map + top senders) -->
-          <div class="viz-card bento-card card-1 expandable-panel" id="volume-card">
-            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-            <div class="viz-title">Volume</div>
-            <div class="volume-chart" id="volume-chart"></div>
-          </div>
-
-          <div class="viz-card bento-card card-1 expandable-panel" id="breakdown-card">
-            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-            <div class="viz-title">Breakdown</div>
-            <div class="cat-breakdown" id="cat-breakdown"></div>
           </div>
 
         </div>
@@ -3834,7 +3847,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     function openSlideOver(breadcrumbText) {
       document.getElementById('slide-over').classList.add('open');
       document.getElementById('slide-over-backdrop').classList.add('open');
-      document.getElementById('bubble-card').classList.add('drilled');
+      document.getElementById('bubble-card').closest('.left-viz-stack').classList.add('drilled');
       document.body.style.overflow = 'hidden';
       if (breadcrumbText) {
         document.getElementById('slide-over-breadcrumb').textContent = breadcrumbText;
@@ -3844,7 +3857,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     function closeSlideOver() {
       document.getElementById('slide-over').classList.remove('open');
       document.getElementById('slide-over-backdrop').classList.remove('open');
-      document.getElementById('bubble-card').classList.remove('drilled');
+      document.getElementById('bubble-card').closest('.left-viz-stack').classList.remove('drilled');
       document.body.style.overflow = '';
       drillState = { level: 0, topic: null, subTopic: null };
       activeFilter = null;
