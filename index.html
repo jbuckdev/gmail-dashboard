@@ -3835,6 +3835,8 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
       drillState = { level: 0, topic: null, subTopic: null };
       activeFilter = null;
       updateStatCardHighlights();
+      // Restore main bubble map (drill may have replaced it with sub-bubbles)
+      if (allEmails.length) renderBubbleMap(allEmails);
     }
 
     function drillDown(type, value) {
