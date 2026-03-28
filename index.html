@@ -736,7 +736,10 @@
       transition: all var(--transition-med);
     }
 
-    #bubble-card { max-height: 380px; overflow-y: auto; }
+    #bubble-card { overflow: hidden; }
+    #bubble-card .bubble-map {
+      transform-origin: top left;
+    }
 
     /* Left-side sub-grid: landscape, senders, volume, breakdown stack independently of emails */
     .left-viz-stack {
@@ -3083,13 +3086,14 @@ ${emailList}` }]
 
     function renderBubbleMap(emails) {
       const map = document.getElementById('bubble-map');
+      const card = document.getElementById('bubble-card');
       const topics = {};
       for (const e of emails) {
         const t = e.topic || 'Other';
         topics[t] = (topics[t] || 0) + 1;
       }
       const sorted = Object.entries(topics).sort((a,b) => b[1] - a[1]).slice(0, 12);
-      if (!sorted.length) { map.style.height = '60px'; map.innerHTML = '<div class="empty-state">No topics yet</div>'; return; }
+      if (!sorted.length) { map.style.height = '60px'; map.style.transform = ''; map.innerHTML = '<div class="empty-state">No topics yet</div>'; return; }
 
       const maxCount = sorted[0][1];
       const w = map.clientWidth || 340;
@@ -3105,22 +3109,35 @@ ${emailList}` }]
         return { name, count, size, color: BUBBLE_COLORS[i % BUBBLE_COLORS.length] };
       });
 
-      // Height: generous — let the force sim fill the space
-      const minH = isLargeView ? 400 : 300;
-      const h = Math.max(minH, bubbles.length * 38 + 80);
-      map.style.height = h + 'px';
+      // Layout at natural size first
+      const naturalH = Math.max(400, bubbles.length * 38 + 80);
+      map.style.transform = '';
+      map.style.height = naturalH + 'px';
 
-      const positions = packBubbles(bubbles, w, h);
+      const positions = packBubbles(bubbles, w, naturalH);
 
-      // Shrink to actual content
+      // Measure actual content bounds
       let maxBottom = 0;
       for (const p of positions) {
         const bottom = p.y + p.size + 28;
         if (bottom > maxBottom) maxBottom = bottom;
       }
-      map.style.height = Math.max(minH, maxBottom + 12) + 'px';
+      const contentH = maxBottom + 12;
+      map.style.height = contentH + 'px';
 
       renderBubbleHTML(map, positions, 'topic');
+
+      // Zoom to fit: scale down if content exceeds available card space
+      const maxCardH = 340;
+      const titleH = card.querySelector('.viz-title').offsetHeight + 16;
+      const availH = maxCardH - titleH;
+      if (contentH > availH) {
+        const scale = availH / contentH;
+        map.style.transform = `scale(${scale})`;
+        map.style.height = (contentH * scale) + 'px';
+      } else {
+        map.style.transform = '';
+      }
     }
 
     function renderBubbleHTML(container, positions, clickType) {
