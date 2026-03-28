@@ -751,6 +751,12 @@
     }
     .slide-over-backdrop.open { display: block; }
 
+    /* Keep bubble card interactive above backdrop when slide-over is open */
+    #bubble-card.drilled {
+      position: relative;
+      z-index: 901;
+    }
+
     .slide-over {
       position: fixed;
       top: 0;
@@ -3828,6 +3834,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     function openSlideOver(breadcrumbText) {
       document.getElementById('slide-over').classList.add('open');
       document.getElementById('slide-over-backdrop').classList.add('open');
+      document.getElementById('bubble-card').classList.add('drilled');
       document.body.style.overflow = 'hidden';
       if (breadcrumbText) {
         document.getElementById('slide-over-breadcrumb').textContent = breadcrumbText;
@@ -3837,6 +3844,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     function closeSlideOver() {
       document.getElementById('slide-over').classList.remove('open');
       document.getElementById('slide-over-backdrop').classList.remove('open');
+      document.getElementById('bubble-card').classList.remove('drilled');
       document.body.style.overflow = '';
       drillState = { level: 0, topic: null, subTopic: null };
       activeFilter = null;
