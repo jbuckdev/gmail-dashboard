@@ -703,7 +703,7 @@
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 16px;
-      align-items: start;
+      align-items: stretch;
     }
 
     .bento-card {
@@ -1086,8 +1086,14 @@
       display: flex;
       align-items: flex-end;
       gap: 4px;
-      height: 100px;
+      flex: 1;
+      min-height: 100px;
       padding-top: 8px;
+    }
+
+    #volume-card, #breakdown-card {
+      display: flex;
+      flex-direction: column;
     }
 
     .vol-bar-group {
