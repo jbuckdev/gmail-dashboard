@@ -4072,7 +4072,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           const rect = viewport.getBoundingClientRect();
           const originX = e.clientX - rect.left;
           const originY = e.clientY - rect.top;
-          const delta = e.deltaY > 0 ? -0.1 : 0.1;
+          const delta = e.deltaY > 0 ? -0.04 : 0.04;
           applyBubbleZoom(bubbleZoom + delta, originX, originY);
         }, { passive: false });
 
