@@ -736,10 +736,39 @@
       transition: all var(--transition-med);
     }
 
-    #bubble-card { overflow: hidden; }
-    #bubble-card .bubble-map {
-      transform-origin: top left;
+    #bubble-card { overflow: hidden; position: relative; }
+
+    .bubble-map-viewport {
+      overflow: hidden;
+      position: relative;
     }
+
+    .bubble-map {
+      transform-origin: 0 0;
+      transition: transform 0.2s ease;
+    }
+
+    .bubble-back-btn {
+      display: none;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      width: 32px;
+      height: 32px;
+      min-height: 32px;
+      padding: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 1.1em;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+    }
+    .bubble-back-btn:hover { color: var(--text-primary); background: var(--bg-card-hover); }
+    .bubble-back-btn.visible { display: flex; }
 
     /* Left-side sub-grid: landscape, senders, volume, breakdown stack independently of emails */
     .left-viz-stack {
@@ -2007,8 +2036,10 @@
             <div class="viz-card expandable-panel" id="bubble-card">
               <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
               <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
-              <div class="bubble-breadcrumb" id="bubble-breadcrumb"></div>
-              <div class="bubble-map" id="bubble-map"></div>
+              <button class="bubble-back-btn" id="bubble-back-btn" onclick="bubbleGoBack()" title="Back">&#8592;</button>
+              <div class="bubble-map-viewport" id="bubble-viewport">
+                <div class="bubble-map" id="bubble-map"></div>
+              </div>
             </div>
 
             <div class="viz-card expandable-panel" id="top-senders-card">
@@ -3086,19 +3117,17 @@ ${emailList}` }]
 
     function renderBubbleMap(emails) {
       const map = document.getElementById('bubble-map');
-      const card = document.getElementById('bubble-card');
       const topics = {};
       for (const e of emails) {
         const t = e.topic || 'Other';
         topics[t] = (topics[t] || 0) + 1;
       }
       const sorted = Object.entries(topics).sort((a,b) => b[1] - a[1]).slice(0, 12);
-      if (!sorted.length) { map.style.height = '60px'; map.style.transform = ''; map.innerHTML = '<div class="empty-state">No topics yet</div>'; return; }
+      if (!sorted.length) { map.style.height = '60px'; map.innerHTML = '<div class="empty-state">No topics yet</div>'; return; }
 
       const maxCount = sorted[0][1];
       const w = map.clientWidth || 340;
 
-      // Scale bubble sizes based on available width
       const isLargeView = w > 400;
       const minBubble = isLargeView ? 56 : 48;
       const maxBubble = isLargeView ? 120 : 96;
@@ -3109,35 +3138,24 @@ ${emailList}` }]
         return { name, count, size, color: BUBBLE_COLORS[i % BUBBLE_COLORS.length] };
       });
 
-      // Layout at natural size first
-      const naturalH = Math.max(400, bubbles.length * 38 + 80);
-      map.style.transform = '';
-      map.style.height = naturalH + 'px';
+      const minH = isLargeView ? 400 : 300;
+      const h = Math.max(minH, bubbles.length * 38 + 80);
+      map.style.height = h + 'px';
 
-      const positions = packBubbles(bubbles, w, naturalH);
+      const positions = packBubbles(bubbles, w, h);
 
-      // Measure actual content bounds
       let maxBottom = 0;
       for (const p of positions) {
         const bottom = p.y + p.size + 28;
         if (bottom > maxBottom) maxBottom = bottom;
       }
-      const contentH = maxBottom + 12;
-      map.style.height = contentH + 'px';
+      map.style.height = Math.max(minH, maxBottom + 12) + 'px';
 
       renderBubbleHTML(map, positions, 'topic');
 
-      // Zoom to fit: scale down if content exceeds available card space
-      const maxCardH = 340;
-      const titleH = card.querySelector('.viz-title').offsetHeight + 16;
-      const availH = maxCardH - titleH;
-      if (contentH > availH) {
-        const scale = availH / contentH;
-        map.style.transform = `scale(${scale})`;
-        map.style.height = (contentH * scale) + 'px';
-      } else {
-        map.style.transform = '';
-      }
+      // Reset zoom and hide back button
+      resetBubbleZoom();
+      updateBubbleBackBtn();
     }
 
     function renderBubbleHTML(container, positions, clickType) {
@@ -3898,6 +3916,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     function drillIntoTopic(topicName) {
       setDrilled(true);
       drillState = { level: 1, topic: topicName, subTopic: null };
+      updateBubbleBackBtn();
 
       const filtered = allEmails.filter(e => (e.topic || 'Other') === topicName);
 
@@ -3921,6 +3940,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
       const topicName = drillState.topic;
       drillState.level = 2;
       drillState.subTopic = subName;
+      updateBubbleBackBtn();
 
       const topicEmails = allEmails.filter(e => (e.topic || 'Other') === topicName);
       const filtered = topicEmails.filter(e => (e.subTopic || 'Other') === subName);
@@ -3945,6 +3965,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
       const filtered = allEmails.filter(e => e.from === email);
       const name = filtered.length ? filtered[0].fromName : email;
       drillState = { level: 1, topic: `From: ${name}`, subTopic: null };
+      updateBubbleBackBtn();
 
       document.getElementById('bubble-breadcrumb').innerHTML =
         `<button class="crumb-btn" onclick="drillReset()">All Topics</button>
@@ -3971,6 +3992,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
       const names = { reply: 'Needs Reply', read: 'Worth Reading', fyi: 'Quick Scan', skip: 'Safe to Skip' };
       const filtered = allEmails.filter(e => e.category === cat);
       drillState = { level: 1, topic: names[cat], subTopic: null };
+      updateBubbleBackBtn();
 
       document.getElementById('bubble-breadcrumb').innerHTML =
         `<button class="crumb-btn" onclick="drillReset()">All Topics</button>
@@ -3996,6 +4018,99 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
       setDrilled(false);
       renderBubbleMap(allEmails);
     }
+
+    /* ============================================
+       BUBBLE MAP — Zoom & Pan (scroll wheel + pinch)
+       ============================================ */
+    let bubbleZoom = 1;
+    const BUBBLE_ZOOM_MIN = 0.4;
+    const BUBBLE_ZOOM_MAX = 2.5;
+
+    function resetBubbleZoom() {
+      bubbleZoom = 1;
+      const map = document.getElementById('bubble-map');
+      if (map) {
+        map.style.transform = `scale(1)`;
+      }
+    }
+
+    function applyBubbleZoom(newZoom, originX, originY) {
+      bubbleZoom = Math.max(BUBBLE_ZOOM_MIN, Math.min(BUBBLE_ZOOM_MAX, newZoom));
+      const map = document.getElementById('bubble-map');
+      if (map) {
+        map.style.transformOrigin = `${originX}px ${originY}px`;
+        map.style.transform = `scale(${bubbleZoom})`;
+      }
+    }
+
+    function updateBubbleBackBtn() {
+      const btn = document.getElementById('bubble-back-btn');
+      if (btn) {
+        btn.classList.toggle('visible', drillState.level > 0);
+      }
+    }
+
+    function bubbleGoBack() {
+      if (drillState.level === 2) {
+        // Sub-topic → back to topic
+        drillIntoTopic(drillState.topic);
+      } else if (drillState.level === 1) {
+        // Topic/sender/category → back to all
+        drillReset();
+      }
+    }
+
+    // Wire up zoom on the viewport
+    (function() {
+      document.addEventListener('DOMContentLoaded', function() {
+        const viewport = document.getElementById('bubble-viewport');
+        if (!viewport) return;
+
+        // Mouse wheel zoom
+        viewport.addEventListener('wheel', function(e) {
+          e.preventDefault();
+          const rect = viewport.getBoundingClientRect();
+          const originX = e.clientX - rect.left;
+          const originY = e.clientY - rect.top;
+          const delta = e.deltaY > 0 ? -0.1 : 0.1;
+          applyBubbleZoom(bubbleZoom + delta, originX, originY);
+        }, { passive: false });
+
+        // Pinch zoom (touch)
+        let lastPinchDist = 0;
+        let pinchOriginX = 0;
+        let pinchOriginY = 0;
+
+        viewport.addEventListener('touchstart', function(e) {
+          if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            lastPinchDist = Math.hypot(dx, dy);
+            const rect = viewport.getBoundingClientRect();
+            pinchOriginX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+            pinchOriginY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+          }
+        }, { passive: true });
+
+        viewport.addEventListener('touchmove', function(e) {
+          if (e.touches.length === 2) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.hypot(dx, dy);
+            if (lastPinchDist > 0) {
+              const scale = dist / lastPinchDist;
+              applyBubbleZoom(bubbleZoom * scale, pinchOriginX, pinchOriginY);
+            }
+            lastPinchDist = dist;
+          }
+        }, { passive: false });
+
+        viewport.addEventListener('touchend', function() {
+          lastPinchDist = 0;
+        }, { passive: true });
+      });
+    })();
 
     function computeSubTopics(emails) {
       // Group by sender domain/name for sub-topics
