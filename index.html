@@ -146,12 +146,8 @@
     [data-theme="light"] .viz-card,
     [data-theme="light"] .hero,
     [data-theme="light"] .briefing-card,
-    [data-theme="light"] .email-sections,
-    [data-theme="light"] .stat-card {
+    [data-theme="light"] .email-sections {
       box-shadow: var(--shadow-sm);
-    }
-    [data-theme="light"] .stat-card:hover {
-      box-shadow: var(--shadow-md);
     }
 
     /* Theme transition — applied after first toggle to prevent flash on load */
@@ -159,7 +155,7 @@
       transition: background-color 0.3s ease, color 0.2s ease;
     }
     .theme-ready .hero, .theme-ready .viz-card, .theme-ready .briefing-card,
-    .theme-ready .email-sections, .theme-ready .stat-card, .theme-ready .topbar,
+    .theme-ready .email-sections, .theme-ready .topbar,
     .theme-ready button, .theme-ready input, .theme-ready .cleaning-banner,
     .theme-ready .clean-action-bar, .theme-ready .email-item, .theme-ready .slide-over {
       transition: background-color 0.3s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.3s ease;
@@ -541,48 +537,6 @@
       line-height: 1.4;
     }
 
-    /* Stat cards — horizontal inline strip */
-    .stat-strip {
-      display: flex;
-      gap: 6px;
-      flex-shrink: 0;
-    }
-    .stat-card {
-      background: var(--bg-card);
-      border-radius: var(--radius-md);
-      padding: 10px 18px;
-      text-align: center;
-      cursor: pointer;
-      border: 1px solid var(--border);
-      transition: all var(--transition-fast);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-width: 80px;
-    }
-    .stat-card:hover { border-color: var(--border-active); transform: translateY(-1px); box-shadow: var(--shadow-md); }
-    .stat-card.active-stat { border-color: var(--accent-blue); background: var(--accent-blue-dim); }
-
-    .stat-number {
-      font-family: var(--font-body);
-      font-size: 1.6em;
-      font-weight: 600;
-      line-height: 1.1;
-    }
-    .stat-card.reply .stat-number { color: var(--accent-coral); }
-    .stat-card.read .stat-number { color: var(--accent-blue); }
-    .stat-card.fyi .stat-number { color: var(--accent-amber); }
-    .stat-card.skip .stat-number { color: var(--accent-slate); }
-
-    .stat-label {
-      font-size: 0.68em;
-      color: var(--text-secondary);
-      margin-top: 2px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
 
     .hero-meta {
       display: flex;
@@ -613,16 +567,9 @@
       color: var(--text-muted);
     }
 
-    @media (max-width: 1200px) {
-      .hero-top { flex-wrap: wrap; }
-      .hero-summary { display: none; }
-    }
     @media (max-width: 900px) {
       .hero-top { flex-direction: column; align-items: flex-start; gap: 12px; }
-      .stat-strip { width: 100%; }
-      .stat-card { flex: 1; min-width: 0; padding: 8px 10px; }
       .hero-meta { width: 100%; justify-content: space-between; }
-      .hero-summary { display: block; }
     }
 
     /* ============================================
@@ -1840,12 +1787,11 @@
     @media print {
       body { background: white; color: #1a1a1a; font-size: 11pt; }
       body::before { display: none; }
-      .topbar, .hero-meta, .stat-strip, .footer, .slide-over, .slide-over-backdrop, #bubble-card, #top-senders-card, #volume-card, #breakdown-card, #action-items-card { display: none !important; }
+      .topbar, .hero-meta, .footer, .slide-over, .slide-over-backdrop, #bubble-card, #top-senders-card, #volume-card, #breakdown-card, #action-items-card { display: none !important; }
       .bento-grid { display: block; }
       .hero { border: 1px solid #ddd; background: #f9f9f9; }
       .hero::before { display: none; }
-      .hero-greeting, .stat-number { color: #1a1a1a; }
-      .stat-card { border: 1px solid #ddd; }
+      .hero-greeting { color: #1a1a1a; }
       .email-section { border: 1px solid #ddd; }
       .section-body { max-height: none !important; }
       a { color: inherit; }
@@ -1983,24 +1929,11 @@
               <h1 class="hero-greeting" id="greeting">Good morning.</h1>
               <p class="hero-summary" id="summary-text"></p>
             </div>
-            <div class="stat-strip">
-              <div class="stat-card reply" onclick="filterByCategory('reply')" id="stat-reply">
-                <div class="stat-number" id="stat-reply-num">0</div>
-                <div class="stat-label">Reply</div>
-              </div>
-              <div class="stat-card read" onclick="filterByCategory('read')" id="stat-read">
-                <div class="stat-number" id="stat-read-num">0</div>
-                <div class="stat-label">Read</div>
-              </div>
-              <div class="stat-card fyi" onclick="filterByCategory('fyi')" id="stat-fyi">
-                <div class="stat-number" id="stat-fyi-num">0</div>
-                <div class="stat-label">FYI</div>
-              </div>
-              <div class="stat-card skip" onclick="filterByCategory('skip')" id="stat-skip">
-                <div class="stat-number" id="stat-skip-num">0</div>
-                <div class="stat-label">Skip</div>
-              </div>
-            </div>
+            <!-- stat counts kept as hidden elements for JS compatibility -->
+            <span id="stat-reply" style="display:none"><span id="stat-reply-num">0</span></span>
+            <span id="stat-read" style="display:none"><span id="stat-read-num">0</span></span>
+            <span id="stat-fyi" style="display:none"><span id="stat-fyi-num">0</span></span>
+            <span id="stat-skip" style="display:none"><span id="stat-skip-num">0</span></span>
             <div class="hero-meta">
               <div class="hero-meta-left">
                 <button class="range-btn active" data-range="1" onclick="setTimeRange(1, this)">Today</button>
