@@ -1981,12 +1981,18 @@
             <div id="action-items"></div>
           </div>
 
-          <!-- Row 2: Bubble Map (2 cols) + Emails (2 cols) -->
-          <div class="viz-card bento-card card-2 expandable-panel" id="bubble-card">
+          <!-- Row 2: Bubble Map (1 col) + Top Senders (1 col) + Emails (2 cols) -->
+          <div class="viz-card bento-card card-1 expandable-panel" id="bubble-card">
             <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
             <div class="bubble-breadcrumb" id="bubble-breadcrumb"></div>
             <div class="bubble-map" id="bubble-map"></div>
+          </div>
+
+          <div class="viz-card bento-card card-1 expandable-panel" id="top-senders-card">
+            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
+            <div class="viz-title">Top Senders</div>
+            <div id="top-senders"></div>
           </div>
 
           <div class="email-sections bento-card card-2 expandable-panel anim-stagger" id="email-sections">
@@ -2040,7 +2046,7 @@
             </div>
           </div>
 
-          <!-- Row 3: Volume + Breakdown (equal halves under bubble map) -->
+          <!-- Row 3: Volume + Breakdown (under bubble map + top senders) -->
           <div class="viz-card bento-card card-1 expandable-panel" id="volume-card">
             <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="viz-title">Volume</div>
@@ -2051,13 +2057,6 @@
             <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="viz-title">Breakdown</div>
             <div class="cat-breakdown" id="cat-breakdown"></div>
-          </div>
-
-          <!-- Row 3 cont: Top Senders (fills remaining 2 cols beside volume/breakdown) -->
-          <div class="viz-card bento-card card-2 expandable-panel" id="top-senders-card">
-            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
-            <div class="viz-title">Top Senders</div>
-            <div id="top-senders"></div>
           </div>
 
         </div>
