@@ -748,6 +748,7 @@
     }
     .bubble-map-viewport { cursor: grab; }
     .bubble-map-viewport.panning { cursor: grabbing; }
+    .bubble-map-viewport.panning .bubble-wrap { pointer-events: none; }
 
     .bubble-back-btn {
       display: none;
@@ -4090,8 +4091,15 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
         let panStartPanX = 0, panStartPanY = 0;
         let dragMoved = false;
 
-        viewport.addEventListener('mousedown', function(e) {
+        // Use pointerdown on the card itself to ensure capture regardless of child elements
+        const card = document.getElementById('bubble-card');
+
+        card.addEventListener('pointerdown', function(e) {
           if (e.button !== 0) return;
+          // Only pan if the pointer is inside the viewport area
+          const vpRect = viewport.getBoundingClientRect();
+          if (e.clientX < vpRect.left || e.clientX > vpRect.right ||
+              e.clientY < vpRect.top || e.clientY > vpRect.bottom) return;
           isPanning = true;
           dragMoved = false;
           panStartX = e.clientX;
@@ -4099,10 +4107,11 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           panStartPanX = bubblePanX;
           panStartPanY = bubblePanY;
           viewport.classList.add('panning');
+          card.setPointerCapture(e.pointerId);
           e.preventDefault();
         });
 
-        window.addEventListener('mousemove', function(e) {
+        card.addEventListener('pointermove', function(e) {
           if (!isPanning) return;
           const dx = e.clientX - panStartX;
           const dy = e.clientY - panStartY;
@@ -4112,10 +4121,11 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           applyBubbleTransform();
         });
 
-        window.addEventListener('mouseup', function() {
+        card.addEventListener('pointerup', function(e) {
           if (isPanning) {
             isPanning = false;
             viewport.classList.remove('panning');
+            card.releasePointerCapture(e.pointerId);
           }
         });
 
@@ -4123,6 +4133,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
         viewport.addEventListener('click', function(e) {
           if (dragMoved) {
             e.stopPropagation();
+            e.preventDefault();
             dragMoved = false;
           }
         }, true);
