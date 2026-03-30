@@ -989,7 +989,16 @@
       cursor: pointer;
       opacity: 0;
       transition: opacity var(--transition-fast), background var(--transition-fast);
-      z-index: 5;
+      z-index: 10;
+    }
+    /* Ensure expand btn stays visible on flex/scroll containers */
+    .email-sections > .panel-expand-btn {
+      position: sticky;
+      top: 4px;
+      align-self: flex-end;
+      margin-top: -28px;
+      margin-right: 4px;
+      margin-bottom: -4px;
     }
     .expandable-panel:hover .panel-expand-btn,
     .expandable-panel.panel-expanded .panel-expand-btn { opacity: 1; }
@@ -1360,7 +1369,45 @@
       border-radius: var(--radius-md);
       cursor: crosshair;
     }
-    .landscape-canvas:hover { cursor: pointer; }
+    .landscape-canvas:hover { cursor: grab; }
+    .landscape-canvas:active { cursor: grabbing; }
+
+    /* Zoom indicator */
+    .landscape-zoom-indicator {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      font-family: var(--font-mono);
+      font-size: 0.72em;
+      color: var(--text-muted);
+      background: var(--glass);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      pointer-events: none;
+      transition: opacity var(--transition-fast);
+    }
+    .landscape-hint {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-ui);
+      font-size: 0.72em;
+      color: var(--text-muted);
+      background: var(--glass);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 4px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      pointer-events: none;
+      opacity: 0.7;
+      transition: opacity 1s ease;
+    }
+    .landscape-hint.faded { opacity: 0; }
 
     /* Right sidebar for drill-down inside expanded landscape */
     .landscape-sidebar {
@@ -1663,12 +1710,13 @@
     .bubble-circle::after {
       content: '';
       position: absolute;
-      inset: -4px;
+      inset: -5px;
       border-radius: 50%;
       border: 1px dashed;
       border-color: inherit;
       opacity: 0;
       transition: opacity var(--transition-fast);
+      pointer-events: none;
     }
     .bubble-wrap:hover .bubble-circle::after { opacity: 0.3; }
     .bubble-wrap.active-sub .bubble-circle::after { opacity: 0.5; }
@@ -1708,40 +1756,7 @@
     .bubble-map:hover .bubble-connections line { stroke-opacity: 0.06; }
     .bubble-map .bubble-connections line.conn-highlight { stroke-opacity: 0.35; }
 
-    /* Bubble legend (main page) */
-    .bubble-legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid var(--border);
-    }
-    .bubble-legend-pill {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 10px;
-      border-radius: 12px;
-      font-size: 0.65em;
-      font-family: var(--font-ui);
-      font-weight: 500;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-      user-select: none;
-    }
-    .bubble-legend-pill:hover { border-color: var(--border-active); color: var(--text-primary); }
-    .bubble-legend-pill.active { border-color: var(--accent-blue-border); }
-    .bubble-legend-pill.hidden-pill { opacity: 0.35; text-decoration: line-through; }
-    .bubble-legend-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
+    /* Bubble legend — removed from main page, only in expanded view */
     .bubble.active-bubble {
       transform: scale(1.12);
       z-index: 10;
@@ -4007,24 +4022,6 @@ ${emailList}` }]
       }).join('');
 
       container.innerHTML = svgHtml + bubblesHtml;
-
-      // Build legend
-      const card = container.closest('.viz-card') || container.closest('.expandable-panel');
-      if (card && clickType === 'topic') {
-        let legend = card.querySelector('.bubble-legend');
-        if (!legend) {
-          legend = document.createElement('div');
-          legend.className = 'bubble-legend';
-          card.appendChild(legend);
-        }
-        legend.innerHTML = positions.map(b => {
-          const color = b.color || 'var(--accent-blue)';
-          const rawColor = color.startsWith('var(') ? '' : 'background:' + color;
-          return '<div class="bubble-legend-pill active" data-topic="' + esc(b.name) + '" onclick="toggleBubbleTopic(this,\'' + esc(b.name) + '\')">' +
-            '<div class="bubble-legend-dot" style="' + rawColor + '"></div>' + b.name +
-            '</div>';
-        }).join('');
-      }
     }
 
     // Connection line highlighting
@@ -5426,6 +5423,8 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           '<div class="expanded-landscape-canvas-wrap">' +
           '<canvas class="landscape-canvas" id="landscape-canvas"></canvas>' +
           '<div class="landscape-tooltip" id="landscape-tooltip"><span class="landscape-tooltip-name"></span><span class="landscape-tooltip-count"></span></div>' +
+          '<div class="landscape-zoom-indicator" id="landscape-zoom">1.0x</div>' +
+          '<div class="landscape-hint" id="landscape-hint">Scroll to zoom \u00b7 Drag to pan \u00b7 Click a bubble to drill in</div>' +
           '<div class="landscape-legend" id="landscape-legend"></div>' +
           '</div>' +
           '<div class="landscape-sidebar" id="landscape-sidebar">' +
@@ -6494,8 +6493,72 @@ Browser: ${diagnostic.browser}
       let selectedNode = null;
       let animFrame;
 
+      // Pan & zoom state
+      let panX = 0, panY = 0, zoom = 1;
+      let isPanning = false, panStartX = 0, panStartY = 0, panOriginX = 0, panOriginY = 0;
+
+      canvas.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const oldZoom = zoom;
+        zoom *= e.deltaY < 0 ? 1.08 : 0.92;
+        zoom = Math.max(0.5, Math.min(4, zoom));
+        panX = mx - (mx - panX) * (zoom / oldZoom);
+        panY = my - (my - panY) * (zoom / oldZoom);
+        const zi = document.getElementById('landscape-zoom');
+        if (zi) zi.textContent = zoom.toFixed(1) + 'x';
+        // Fade hint on first interaction
+        const hint = document.getElementById('landscape-hint');
+        if (hint) hint.classList.add('faded');
+      }, { passive: false });
+
+      canvas.addEventListener('pointerdown', function(e) {
+        if (e.button === 0) {
+          isPanning = true;
+          panStartX = e.clientX;
+          panStartY = e.clientY;
+          panOriginX = panX;
+          panOriginY = panY;
+          canvas.setPointerCapture(e.pointerId);
+          canvas.style.cursor = 'grabbing';
+          const hint = document.getElementById('landscape-hint');
+          if (hint) hint.classList.add('faded');
+        }
+      });
+      canvas.addEventListener('pointermove', function(e) {
+        if (isPanning) {
+          panX = panOriginX + (e.clientX - panStartX);
+          panY = panOriginY + (e.clientY - panStartY);
+        }
+      });
+      canvas.addEventListener('pointerup', function(e) {
+        const moved = Math.abs(e.clientX - panStartX) + Math.abs(e.clientY - panStartY);
+        isPanning = false;
+        canvas.style.cursor = 'pointer';
+        // Only fire click if not a drag
+        if (moved < 5) {
+          const rect = canvas.getBoundingClientRect();
+          const mx = (e.clientX - rect.left - panX) / zoom;
+          const my = (e.clientY - rect.top - panY) / zoom;
+          const node = getNodeAt(mx, my);
+          if (node) {
+            selectedNode = node;
+            openLandscapeSidebar(node.topic);
+          }
+        }
+      });
+
+      // Remove the old click handler (we use pointerup now)
+      // canvas.addEventListener('click'...) is not added
+
       function draw() {
         ctx.clearRect(0, 0, size, size);
+
+        ctx.save();
+        ctx.translate(panX, panY);
+        ctx.scale(zoom, zoom);
 
         // Draw grid dots
         const gridSpacing = 32;
@@ -6581,8 +6644,21 @@ Browser: ${diagnostic.browser}
           ctx.fillStyle = isDark ? (isHovered || isSelected ? '#eaeaf2' : '#8494AD') : (isHovered || isSelected ? '#1a1a2e' : '#64748B');
           ctx.font = (n.r > 40 ? '12px' : '10px') + ' "Instrument Sans", "DM Sans", sans-serif';
           ctx.fillText(n.topic.name, n.x, n.y + n.r + 14);
+
+          // Subtle count ring (thin arc showing proportion of total)
+          if (n.r > 35) {
+            const pct = n.topic.count / emails.length;
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r - 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+            ctx.strokeStyle = n.color;
+            ctx.globalAlpha = 0.2;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
         }
 
+        ctx.restore();
         animFrame = requestAnimationFrame(draw);
       }
 
@@ -6599,12 +6675,13 @@ Browser: ${diagnostic.browser}
 
       // Mouse events
       canvas.addEventListener('mousemove', function(e) {
+        if (isPanning) return;
         const rect = canvas.getBoundingClientRect();
-        const mx = (e.clientX - rect.left);
-        const my = (e.clientY - rect.top);
+        const mx = (e.clientX - rect.left - panX) / zoom;
+        const my = (e.clientY - rect.top - panY) / zoom;
         const node = getNodeAt(mx, my);
         hoveredNode = node;
-        canvas.style.cursor = node ? 'pointer' : 'crosshair';
+        if (!isPanning) canvas.style.cursor = node ? 'pointer' : 'grab';
 
         const tooltip = document.getElementById('landscape-tooltip');
         if (node && tooltip) {
@@ -6622,17 +6699,6 @@ Browser: ${diagnostic.browser}
         hoveredNode = null;
         const tooltip = document.getElementById('landscape-tooltip');
         if (tooltip) tooltip.classList.remove('visible');
-      });
-
-      canvas.addEventListener('click', function(e) {
-        const rect = canvas.getBoundingClientRect();
-        const mx = (e.clientX - rect.left);
-        const my = (e.clientY - rect.top);
-        const node = getNodeAt(mx, my);
-        if (node) {
-          selectedNode = node;
-          openLandscapeSidebar(node.topic);
-        }
       });
 
       // Build legend with toggle
