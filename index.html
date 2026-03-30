@@ -1423,11 +1423,11 @@
       left: 16px;
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 8px;
       font-size: 0.75em;
       font-family: var(--font-ui);
       color: var(--text-secondary);
-      pointer-events: none;
+      pointer-events: auto;
     }
     .landscape-legend-item {
       display: flex;
@@ -1439,7 +1439,12 @@
       padding: 4px 10px;
       border-radius: 12px;
       border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      user-select: none;
     }
+    .landscape-legend-item:hover { border-color: var(--border-active); color: var(--text-primary); }
+    .landscape-legend-item.legend-hidden { opacity: 0.3; text-decoration: line-through; }
     .landscape-legend-dot {
       width: 8px;
       height: 8px;
@@ -1634,12 +1639,13 @@
       flex-direction: column;
       align-items: center;
       cursor: pointer;
-      transition: all var(--transition-med);
+      transition: transform var(--transition-med), opacity var(--transition-med);
     }
-    .bubble-wrap:hover { transform: scale(1.1); z-index: 10; }
-    .bubble-wrap.active-sub { transform: scale(1.12); z-index: 10; }
-    .bubble-wrap.active-sub .bubble-circle { border-color: var(--accent-blue); box-shadow: var(--shadow-glow-blue); }
+    .bubble-wrap:hover { transform: scale(1.12); z-index: 10; }
+    .bubble-wrap.active-sub { transform: scale(1.15); z-index: 10; }
+    .bubble-wrap.active-sub .bubble-circle { border-color: var(--accent-blue); box-shadow: 0 0 20px rgba(96,165,250,0.4), 0 0 40px rgba(96,165,250,0.15); }
     .bubble-wrap.active-sub .bubble-label { color: var(--text-primary); }
+    .bubble-wrap.hidden-topic { opacity: 0.08; pointer-events: none; transform: scale(0.7); }
     .bubble-circle {
       border-radius: 50%;
       display: flex;
@@ -1647,23 +1653,94 @@
       justify-content: center;
       font-weight: 700;
       font-size: 0.85em;
-      border: 1px solid transparent;
+      font-family: var(--font-mono);
+      border: 1.5px solid;
+      border-color: inherit;
       transition: all var(--transition-fast);
+      position: relative;
     }
+    /* Outer glow ring */
+    .bubble-circle::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 1px dashed;
+      border-color: inherit;
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+    .bubble-wrap:hover .bubble-circle::after { opacity: 0.3; }
+    .bubble-wrap.active-sub .bubble-circle::after { opacity: 0.5; }
     .bubble-wrap:hover .bubble-circle {
-      border-color: var(--border-active);
-      box-shadow: var(--shadow-lg);
+      box-shadow: 0 0 16px var(--bubble-glow, rgba(96,165,250,0.3)), 0 0 32px var(--bubble-glow, rgba(96,165,250,0.1));
     }
     .bubble-label {
-      margin-top: 4px;
-      font-size: 0.7em;
+      margin-top: 6px;
+      font-size: 0.68em;
       font-weight: 600;
+      font-family: var(--font-ui);
       color: var(--text-secondary);
       text-align: center;
       width: max-content;
       max-width: 100px;
       line-height: 1.3;
       word-wrap: break-word;
+      transition: color var(--transition-fast);
+    }
+    .bubble-wrap:hover .bubble-label { color: var(--text-primary); }
+
+    /* Connection lines SVG layer */
+    .bubble-connections {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .bubble-connections line {
+      stroke: var(--text-muted);
+      stroke-opacity: 0.12;
+      transition: stroke-opacity var(--transition-fast);
+    }
+    .bubble-map:hover .bubble-connections line { stroke-opacity: 0.06; }
+    .bubble-map .bubble-connections line.conn-highlight { stroke-opacity: 0.35; }
+
+    /* Bubble legend (main page) */
+    .bubble-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .bubble-legend-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.65em;
+      font-family: var(--font-ui);
+      font-weight: 500;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      user-select: none;
+    }
+    .bubble-legend-pill:hover { border-color: var(--border-active); color: var(--text-primary); }
+    .bubble-legend-pill.active { border-color: var(--accent-blue-border); }
+    .bubble-legend-pill.hidden-pill { opacity: 0.35; text-decoration: line-through; }
+    .bubble-legend-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
     }
     .bubble.active-bubble {
       transform: scale(1.12);
@@ -1726,7 +1803,10 @@
       height: 100%;
       border-radius: 3px;
       background: var(--accent-blue);
-      transition: width var(--transition-slow);
+      transition: width var(--transition-slow), box-shadow var(--transition-fast);
+    }
+    .sender-row:hover .sender-bar {
+      box-shadow: 0 0 8px var(--sender-bar-glow, rgba(96,165,250,0.4));
     }
 
     /* Volume Chart */
@@ -1755,11 +1835,14 @@
 
     .vol-bar {
       width: 100%;
-      border-radius: 3px 3px 0 0;
+      border-radius: 4px 4px 0 0;
       transition: all var(--transition-fast);
       position: relative;
     }
-    .vol-bar-group:hover .vol-bar { filter: brightness(1.3); }
+    .vol-bar-group:hover .vol-bar {
+      filter: brightness(1.3);
+      box-shadow: 0 0 8px var(--bar-glow, rgba(96,165,250,0.3));
+    }
 
     .vol-label {
       font-size: 0.65em;
@@ -1802,7 +1885,10 @@
     .cat-bar {
       height: 100%;
       border-radius: 3px;
-      transition: width var(--transition-slow);
+      transition: width var(--transition-slow), box-shadow var(--transition-fast);
+    }
+    .cat-row:hover .cat-bar {
+      box-shadow: 0 0 8px var(--cat-bar-glow, rgba(96,165,250,0.3));
     }
 
     .cat-count {
@@ -2537,11 +2623,6 @@
     /* Sender row — subtle glow on hover */
     .sender-row:hover {
       box-shadow: inset 0 0 0 1px var(--border-glow);
-    }
-
-    /* Bubble circle — deeper hover effect */
-    .bubble-wrap:hover .bubble-circle {
-      filter: brightness(1.15);
     }
 
     /* Button press feedback — more satisfying */
@@ -3886,19 +3967,104 @@ ${emailList}` }]
     }
 
     function renderBubbleHTML(container, positions, clickType) {
-      container.innerHTML = positions.map(b => {
+      // Build connection SVG
+      const senderMap = {};
+      const emails = allEmails || [];
+      for (const b of positions) {
+        const topicEmails = emails.filter(e => (e.topic || 'Other') === b.name);
+        senderMap[b.name] = new Set(topicEmails.map(e => e.from));
+      }
+      let connLines = '';
+      for (let i = 0; i < positions.length; i++) {
+        for (let j = i + 1; j < positions.length; j++) {
+          const a = positions[i], b = positions[j];
+          const sendersA = senderMap[a.name] || new Set();
+          let shared = 0;
+          for (const s of (senderMap[b.name] || [])) { if (sendersA.has(s)) shared++; }
+          if (shared > 0) {
+            const ax = a.x + a.size / 2, ay = a.y + a.size / 2;
+            const bx = b.x + b.size / 2, by = b.y + b.size / 2;
+            const sw = Math.min(shared * 0.8, 3);
+            connLines += '<line x1="' + ax + '" y1="' + ay + '" x2="' + bx + '" y2="' + by + '" stroke-width="' + sw + '" data-from="' + esc(a.name) + '" data-to="' + esc(b.name) + '"/>';
+          }
+        }
+      }
+      const svgHtml = '<svg class="bubble-connections" style="height:' + container.style.height + '">' + connLines + '</svg>';
+
+      const bubblesHtml = positions.map(b => {
         const color = b.color || 'var(--accent-blue)';
         const bgColor = color.startsWith('var(') ? color.replace(')', '-dim)') : color + '20';
+        const glowColor = color.startsWith('var(') ? '' : '--bubble-glow:' + color + '40;';
         const clickAttr = clickType === 'topic'
-          ? `onclick="drillDown('topic','${esc(b.name)}')"`
+          ? `onclick="drillDown('topic','${esc(b.name)}')" onmouseenter="highlightConns('${esc(b.name)}')" onmouseleave="clearConns()"`
           : `onclick="drillDown('subtopic','${esc(b.name)}')"`;
-        return `<div class="bubble-wrap" data-subtopic="${esc(b.name)}" style="left:${b.x}px;top:${b.y}px;width:${b.size}px" ${clickAttr}>
-          <div class="bubble-circle" style="width:${b.size}px;height:${b.size}px;background:${bgColor};color:${color}">
+        return `<div class="bubble-wrap" data-topic="${esc(b.name)}" data-subtopic="${esc(b.name)}" style="left:${b.x}px;top:${b.y}px;width:${b.size}px;${glowColor}" ${clickAttr}>
+          <div class="bubble-circle" style="width:${b.size}px;height:${b.size}px;background:${bgColor};color:${color};border-color:${color}">
             ${b.count}
           </div>
           <div class="bubble-label">${b.name}</div>
         </div>`;
       }).join('');
+
+      container.innerHTML = svgHtml + bubblesHtml;
+
+      // Build legend
+      const card = container.closest('.viz-card') || container.closest('.expandable-panel');
+      if (card && clickType === 'topic') {
+        let legend = card.querySelector('.bubble-legend');
+        if (!legend) {
+          legend = document.createElement('div');
+          legend.className = 'bubble-legend';
+          card.appendChild(legend);
+        }
+        legend.innerHTML = positions.map(b => {
+          const color = b.color || 'var(--accent-blue)';
+          const rawColor = color.startsWith('var(') ? '' : 'background:' + color;
+          return '<div class="bubble-legend-pill active" data-topic="' + esc(b.name) + '" onclick="toggleBubbleTopic(this,\'' + esc(b.name) + '\')">' +
+            '<div class="bubble-legend-dot" style="' + rawColor + '"></div>' + b.name +
+            '</div>';
+        }).join('');
+      }
+    }
+
+    // Connection line highlighting
+    function highlightConns(topicName) {
+      document.querySelectorAll('.bubble-connections line').forEach(line => {
+        if (line.dataset.from === topicName || line.dataset.to === topicName) {
+          line.classList.add('conn-highlight');
+        }
+      });
+    }
+    function clearConns() {
+      document.querySelectorAll('.bubble-connections line.conn-highlight').forEach(l => l.classList.remove('conn-highlight'));
+    }
+
+    // Toggle bubble visibility from legend
+    let hiddenTopics = new Set();
+    function toggleBubbleTopic(pill, topicName) {
+      if (hiddenTopics.has(topicName)) {
+        hiddenTopics.delete(topicName);
+        pill.classList.remove('hidden-pill');
+        pill.classList.add('active');
+      } else {
+        hiddenTopics.add(topicName);
+        pill.classList.add('hidden-pill');
+        pill.classList.remove('active');
+      }
+      // Toggle bubble visibility
+      document.querySelectorAll('.bubble-wrap[data-topic]').forEach(wrap => {
+        if (hiddenTopics.has(wrap.dataset.topic)) {
+          wrap.classList.add('hidden-topic');
+        } else {
+          wrap.classList.remove('hidden-topic');
+        }
+      });
+      // Toggle connection lines
+      document.querySelectorAll('.bubble-connections line').forEach(line => {
+        const fromHidden = hiddenTopics.has(line.dataset.from);
+        const toHidden = hiddenTopics.has(line.dataset.to);
+        line.style.display = (fromHidden || toHidden) ? 'none' : '';
+      });
     }
 
     /* ============================================
@@ -4031,13 +4197,14 @@ ${emailList}` }]
       container.innerHTML = sorted.map(([email, info], i) => {
         const initials = info.name.split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
         const pct = (info.count / max * 100).toFixed(0);
-        return `<div class="sender-row" onclick="drillDown('sender','${esc(email)}')">
-          <div class="sender-avatar" style="background:${avatarColors[i]}20;color:${avatarColors[i]}">${initials}</div>
+        const col = avatarColors[i];
+        return `<div class="sender-row" style="--sender-bar-glow:${col}60" onclick="drillDown('sender','${esc(email)}')">
+          <div class="sender-avatar" style="background:${col}20;color:${col}">${initials}</div>
           <div class="sender-info">
             <div class="sender-name">${esc(info.name)}</div>
             <div class="sender-count">${info.count} email${info.count!==1?'s':''}</div>
           </div>
-          <div class="sender-bar-container"><div class="sender-bar" style="width:${pct}%;background:${avatarColors[i]}"></div></div>
+          <div class="sender-bar-container"><div class="sender-bar" style="width:${pct}%;background:${col}"></div></div>
         </div>`;
       }).join('');
     }
@@ -4063,17 +4230,16 @@ ${emailList}` }]
 
       container.innerHTML = sorted.map(([date, d]) => {
         const h = (d.total / maxTotal * 80);
-        // Stacked bar
         const replyH = d.reply / d.total * h;
         const readH = d.read / d.total * h;
         const fyiH = d.fyi / d.total * h;
         const skipH = d.skip / d.total * h;
         return `<div class="vol-bar-group" title="${d.total} emails">
-          <div style="display:flex;flex-direction:column-reverse;width:100%;height:80px;justify-content:flex-start">
-            <div class="vol-bar" style="height:${skipH}px;background:var(--accent-slate)"></div>
-            <div class="vol-bar" style="height:${fyiH}px;background:var(--accent-amber)"></div>
-            <div class="vol-bar" style="height:${readH}px;background:var(--accent-blue)"></div>
-            <div class="vol-bar" style="height:${replyH}px;background:var(--accent-coral);border-radius:3px 3px 0 0"></div>
+          <div style="display:flex;flex-direction:column-reverse;width:100%;height:80px;justify-content:flex-start;border-radius:4px 4px 0 0;overflow:hidden">
+            <div class="vol-bar" style="height:${skipH}px;background:var(--accent-slate);--bar-glow:rgba(148,163,184,0.3)"></div>
+            <div class="vol-bar" style="height:${fyiH}px;background:var(--accent-amber);--bar-glow:rgba(250,204,21,0.3)"></div>
+            <div class="vol-bar" style="height:${readH}px;background:var(--accent-blue);--bar-glow:rgba(96,165,250,0.3)"></div>
+            <div class="vol-bar" style="height:${replyH}px;background:var(--accent-coral);--bar-glow:rgba(248,113,113,0.3)"></div>
           </div>
           <div class="vol-label">${d.label}</div>
         </div>`;
@@ -4090,13 +4256,17 @@ ${emailList}` }]
       ];
       const total = emails.length || 1;
 
+      const glowMap = {
+        reply: 'rgba(248,113,113,0.4)', read: 'rgba(96,165,250,0.4)',
+        fyi: 'rgba(250,204,21,0.3)', skip: 'rgba(148,163,184,0.3)'
+      };
       container.innerHTML = cats.map(c => {
         const count = emails.filter(e => e.category === c.key).length;
         const pct = (count / total * 100).toFixed(0);
         return `<div class="cat-row">
-          <div class="cat-dot" style="background:${c.color}"></div>
+          <div class="cat-dot" style="background:${c.color};box-shadow:0 0 6px ${glowMap[c.key] || 'transparent'}"></div>
           <div class="cat-name">${c.name}</div>
-          <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${c.color}"></div></div>
+          <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${c.color};--cat-bar-glow:${glowMap[c.key]}"></div></div>
           <div class="cat-count">${count}</div>
         </div>`;
       }).join('');
@@ -6340,11 +6510,12 @@ Browser: ${diagnostic.browser}
 
         // Draw connections
         for (const c of connections) {
+          if (c.a.hidden || c.b.hidden) continue;
           const isHighlighted = hoveredNode && (c.a === hoveredNode || c.b === hoveredNode);
           ctx.strokeStyle = isHighlighted
-            ? (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)')
-            : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)');
-          ctx.lineWidth = Math.min(c.weight * 0.5, 3);
+            ? (isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.2)')
+            : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)');
+          ctx.lineWidth = isHighlighted ? Math.min(c.weight * 1.2, 4) : Math.min(c.weight * 0.7, 2.5);
           ctx.beginPath();
           ctx.moveTo(c.a.x, c.a.y);
           ctx.lineTo(c.b.x, c.b.y);
@@ -6353,6 +6524,7 @@ Browser: ${diagnostic.browser}
 
         // Draw bubbles
         for (const n of nodes) {
+          if (n.hidden) { continue; }
           const isHovered = n === hoveredNode;
           const isSelected = n === selectedNode;
           const baseAlpha = isHovered || isSelected ? 0.25 : 0.15;
@@ -6418,6 +6590,7 @@ Browser: ${diagnostic.browser}
       function getNodeAt(mx, my) {
         for (let i = nodes.length - 1; i >= 0; i--) {
           const n = nodes[i];
+          if (n.hidden) continue;
           const dx = mx - n.x, dy = my - n.y;
           if (dx * dx + dy * dy <= (n.r + 4) * (n.r + 4)) return n;
         }
@@ -6462,12 +6635,27 @@ Browser: ${diagnostic.browser}
         }
       });
 
-      // Build legend
+      // Build legend with toggle
+      const hiddenCanvasTopics = new Set();
       const legend = document.getElementById('landscape-legend');
       if (legend) {
-        legend.innerHTML = topics.slice(0, 8).map(t =>
-          '<div class="landscape-legend-item"><div class="landscape-legend-dot" style="background:' + t.color + '"></div>' + t.name + '</div>'
+        legend.innerHTML = topics.map(t =>
+          '<div class="landscape-legend-item" data-topic="' + t.name + '"><div class="landscape-legend-dot" style="background:' + t.color + '"></div>' + t.name + '</div>'
         ).join('');
+        legend.querySelectorAll('.landscape-legend-item').forEach(pill => {
+          pill.addEventListener('click', function() {
+            const name = this.dataset.topic;
+            if (hiddenCanvasTopics.has(name)) {
+              hiddenCanvasTopics.delete(name);
+              this.classList.remove('legend-hidden');
+            } else {
+              hiddenCanvasTopics.add(name);
+              this.classList.add('legend-hidden');
+            }
+            // Rebuild hidden set for draw loop
+            nodes.forEach(n => { n.hidden = hiddenCanvasTopics.has(n.topic.name); });
+          });
+        });
       }
 
       draw();
