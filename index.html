@@ -1040,6 +1040,10 @@
       box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 1px rgba(255,255,255,0.1);
       animation: expandPanelIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     }
+    .expanded-panel.panel-landscape {
+      max-width: calc(100vh - 48px);
+      aspect-ratio: auto;
+    }
     .expanded-panel.closing {
       animation: expandPanelOut 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
     }
@@ -1335,6 +1339,134 @@
     }
     @media (max-width: 600px) {
       .expanded-breakdown { flex-direction: column; }
+    }
+
+    /* Expanded Email Landscape — immersive canvas */
+    .expanded-landscape {
+      display: flex;
+      gap: 0;
+      height: calc(100vh - 160px);
+      min-height: 500px;
+    }
+    .expanded-landscape-canvas-wrap {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .landscape-canvas {
+      border-radius: var(--radius-md);
+      cursor: crosshair;
+    }
+    .landscape-canvas:hover { cursor: pointer; }
+
+    /* Right sidebar for drill-down inside expanded landscape */
+    .landscape-sidebar {
+      width: 0;
+      overflow: hidden;
+      border-left: 1px solid transparent;
+      transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-card);
+      flex-shrink: 0;
+    }
+    .landscape-sidebar.open {
+      width: 360px;
+      border-left-color: var(--border);
+    }
+    .landscape-sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .landscape-sidebar-title {
+      font-family: var(--font-ui);
+      font-weight: 600;
+      font-size: 0.95em;
+    }
+    .landscape-sidebar-count {
+      font-family: var(--font-mono);
+      font-size: 0.78em;
+      color: var(--text-muted);
+    }
+    .landscape-sidebar-close {
+      width: 28px;
+      height: 28px;
+      min-height: 28px;
+      padding: 0;
+      font-size: 1em;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .landscape-sidebar-close:hover { color: var(--text-primary); }
+    .landscape-sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+    .landscape-sidebar-body .email-item {
+      padding: 12px 20px;
+    }
+
+    /* Legend overlay on canvas */
+    .landscape-legend {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 0.75em;
+      font-family: var(--font-ui);
+      color: var(--text-secondary);
+      pointer-events: none;
+    }
+    .landscape-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--glass);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .landscape-legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* Tooltip for hover */
+    .landscape-tooltip {
+      position: absolute;
+      padding: 8px 14px;
+      background: var(--glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.82em;
+      pointer-events: none;
+      z-index: 10;
+      display: none;
+      white-space: nowrap;
+    }
+    .landscape-tooltip.visible { display: block; }
+    .landscape-tooltip-name { font-weight: 600; color: var(--text-primary); }
+    .landscape-tooltip-count { font-family: var(--font-mono); color: var(--text-muted); margin-left: 8px; }
+
+    @media (max-width: 800px) {
+      .landscape-sidebar.open { width: 280px; }
     }
 
     /* Expanded Action Items — card grid */
@@ -5118,10 +5250,25 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
 
       } else if (panelId === 'bubble-card') {
         title = 'Email Landscape';
-        subtitle = 'Topics and senders mapped by volume';
-        // Clone the bubble map content
-        const bubbleMap = document.getElementById('bubble-map');
-        bodyContent = '<div style="min-height:400px;position:relative;">' + (bubbleMap ? bubbleMap.outerHTML : '') + '</div>';
+        const topicCount = new Set(emails.map(e => e.topic || 'Other')).size;
+        subtitle = topicCount + ' topics \u00b7 ' + emails.length + ' emails \u00b7 click a bubble to drill in';
+        bodyContent = '<div class="expanded-landscape">' +
+          '<div class="expanded-landscape-canvas-wrap">' +
+          '<canvas class="landscape-canvas" id="landscape-canvas"></canvas>' +
+          '<div class="landscape-tooltip" id="landscape-tooltip"><span class="landscape-tooltip-name"></span><span class="landscape-tooltip-count"></span></div>' +
+          '<div class="landscape-legend" id="landscape-legend"></div>' +
+          '</div>' +
+          '<div class="landscape-sidebar" id="landscape-sidebar">' +
+          '<div class="landscape-sidebar-header">' +
+          '<div><div class="landscape-sidebar-title" id="landscape-sidebar-title"></div>' +
+          '<div class="landscape-sidebar-count" id="landscape-sidebar-count"></div></div>' +
+          '<button class="landscape-sidebar-close" onclick="closeLandscapeSidebar()">\u2715</button>' +
+          '</div>' +
+          '<div class="landscape-sidebar-body" id="landscape-sidebar-body"></div>' +
+          '</div></div>';
+        // Flag to init canvas after DOM insert
+        epanel.classList.add('panel-landscape');
+        setTimeout(() => initExpandedLandscape(emails), 50);
 
       } else if (panelId === 'email-sections') {
         title = 'All Emails';
@@ -5181,6 +5328,9 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     function closeExpandedPanel() {
       const overlay = document.getElementById('expanded-overlay');
       if (!overlay) return;
+      // Clean up canvas animation if running
+      const lc = document.getElementById('landscape-canvas');
+      if (lc && lc._cleanup) lc._cleanup();
       const panel = overlay.querySelector('.expanded-panel');
       if (panel) {
         panel.classList.add('closing');
@@ -6061,6 +6211,299 @@ Browser: ${diagnostic.browser}
       resize();
       draw();
     })();
+
+    // ==========================================
+    // EXPANDED EMAIL LANDSCAPE — Canvas renderer
+    // ==========================================
+    function initExpandedLandscape(emails) {
+      const canvas = document.getElementById('landscape-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const wrap = canvas.parentElement;
+      const dpr = window.devicePixelRatio || 1;
+
+      // Size canvas to be square, fitting the container
+      const containerRect = wrap.getBoundingClientRect();
+      const size = Math.min(containerRect.width - 32, containerRect.height - 32, 720);
+      canvas.width = size * dpr;
+      canvas.height = size * dpr;
+      canvas.style.width = size + 'px';
+      canvas.style.height = size + 'px';
+      ctx.scale(dpr, dpr);
+
+      const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+
+      // Build topic data
+      const topicMap = {};
+      for (const e of emails) {
+        const t = e.topic || 'Other';
+        if (!topicMap[t]) topicMap[t] = { name: t, emails: [], count: 0 };
+        topicMap[t].emails.push(e);
+        topicMap[t].count++;
+      }
+      const topics = Object.values(topicMap).sort((a, b) => b.count - a.count).slice(0, 16);
+      const maxCount = topics[0] ? topics[0].count : 1;
+
+      // Assign colors
+      const rawColors = ['#60A5FA','#F87171','#FACC15','#A78BFA','#4ADE80','#FB923C','#F472B6','#22D3EE','#A3E635','#C084FC','#FBBF24','#38BDF8','#E879F9','#34D399','#FCA5A5','#FCD34D'];
+      topics.forEach((t, i) => { t.color = rawColors[i % rawColors.length]; });
+
+      // Force-directed layout
+      const cx = size / 2, cy = size / 2;
+      const minR = 28, maxR = 64;
+      const nodes = topics.map((t, i) => {
+        const ratio = t.count / maxCount;
+        const r = minR + ratio * (maxR - minR);
+        const angle = i * 2.399963;
+        const spread = Math.sqrt(i) * (r + 12) * 1.3;
+        return {
+          x: cx + Math.cos(angle) * spread,
+          y: cy + Math.sin(angle) * spread,
+          vx: 0, vy: 0,
+          r: r,
+          topic: t,
+          color: t.color,
+        };
+      });
+
+      // Run physics
+      for (let iter = 0; iter < 400; iter++) {
+        const alpha = 1 - iter / 400;
+        const decay = alpha * alpha;
+        for (const n of nodes) {
+          n.vx += (cx - n.x) * 0.015 * (1 + n.r / 30) * decay;
+          n.vy += (cy - n.y) * 0.015 * (1 + n.r / 30) * decay;
+        }
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const a = nodes[i], b = nodes[j];
+            let dx = b.x - a.x, dy = b.y - a.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+            const minDist = a.r + b.r + 14;
+            if (dist < minDist) {
+              const overlap = (minDist - dist) / dist;
+              const total = a.r + b.r;
+              const str = 0.5 * (1 + decay);
+              a.vx -= dx * overlap * (b.r / total) * str;
+              a.vy -= dy * overlap * (b.r / total) * str;
+              b.vx += dx * overlap * (a.r / total) * str;
+              b.vy += dy * overlap * (a.r / total) * str;
+            }
+          }
+        }
+        for (const n of nodes) {
+          const pad = n.r + 8;
+          if (n.x < pad) n.vx += (pad - n.x) * 0.8;
+          if (n.x > size - pad) n.vx -= (n.x - size + pad) * 0.8;
+          if (n.y < pad) n.vy += (pad - n.y) * 0.8;
+          if (n.y > size - pad) n.vy -= (n.y - size + pad) * 0.8;
+          n.x += n.vx * 0.6; n.y += n.vy * 0.6;
+          n.vx *= 0.3; n.vy *= 0.3;
+        }
+      }
+      // Clamp
+      for (const n of nodes) {
+        n.x = Math.max(n.r + 4, Math.min(size - n.r - 4, n.x));
+        n.y = Math.max(n.r + 4, Math.min(size - n.r - 4, n.y));
+      }
+
+      // Draw connection lines between topics that share senders
+      const connections = [];
+      for (let i = 0; i < nodes.length; i++) {
+        const sendersA = new Set(nodes[i].topic.emails.map(e => e.from));
+        for (let j = i + 1; j < nodes.length; j++) {
+          let shared = 0;
+          for (const e of nodes[j].topic.emails) {
+            if (sendersA.has(e.from)) shared++;
+          }
+          if (shared > 0) connections.push({ a: nodes[i], b: nodes[j], weight: shared });
+        }
+      }
+
+      let hoveredNode = null;
+      let selectedNode = null;
+      let animFrame;
+
+      function draw() {
+        ctx.clearRect(0, 0, size, size);
+
+        // Draw grid dots
+        const gridSpacing = 32;
+        ctx.fillStyle = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)';
+        for (let x = gridSpacing; x < size; x += gridSpacing) {
+          for (let y = gridSpacing; y < size; y += gridSpacing) {
+            ctx.beginPath();
+            ctx.arc(x, y, 0.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Draw connections
+        for (const c of connections) {
+          const isHighlighted = hoveredNode && (c.a === hoveredNode || c.b === hoveredNode);
+          ctx.strokeStyle = isHighlighted
+            ? (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)')
+            : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)');
+          ctx.lineWidth = Math.min(c.weight * 0.5, 3);
+          ctx.beginPath();
+          ctx.moveTo(c.a.x, c.a.y);
+          ctx.lineTo(c.b.x, c.b.y);
+          ctx.stroke();
+        }
+
+        // Draw bubbles
+        for (const n of nodes) {
+          const isHovered = n === hoveredNode;
+          const isSelected = n === selectedNode;
+          const baseAlpha = isHovered || isSelected ? 0.25 : 0.15;
+          const borderAlpha = isHovered || isSelected ? 0.8 : 0.4;
+
+          // Glow
+          if (isHovered || isSelected) {
+            ctx.save();
+            ctx.shadowColor = n.color;
+            ctx.shadowBlur = 24;
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+            ctx.fillStyle = 'transparent';
+            ctx.fill();
+            ctx.restore();
+          }
+
+          // Fill
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+          ctx.fillStyle = n.color + (isDark ? '25' : '18');
+          ctx.fill();
+
+          // Border ring
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+          ctx.strokeStyle = n.color;
+          ctx.globalAlpha = borderAlpha;
+          ctx.lineWidth = isHovered || isSelected ? 2.5 : 1.5;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+
+          // Outer ring pulse for selected
+          if (isSelected) {
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r + 6, 0, Math.PI * 2);
+            ctx.strokeStyle = n.color;
+            ctx.globalAlpha = 0.2;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1;
+          }
+
+          // Count text
+          ctx.fillStyle = isDark ? '#eaeaf2' : '#1a1a2e';
+          ctx.font = (n.r > 40 ? 'bold 16px' : 'bold 13px') + ' "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(n.topic.count, n.x, n.y);
+
+          // Label below
+          ctx.fillStyle = isDark ? (isHovered || isSelected ? '#eaeaf2' : '#8494AD') : (isHovered || isSelected ? '#1a1a2e' : '#64748B');
+          ctx.font = (n.r > 40 ? '12px' : '10px') + ' "Instrument Sans", "DM Sans", sans-serif';
+          ctx.fillText(n.topic.name, n.x, n.y + n.r + 14);
+        }
+
+        animFrame = requestAnimationFrame(draw);
+      }
+
+      // Hit test
+      function getNodeAt(mx, my) {
+        for (let i = nodes.length - 1; i >= 0; i--) {
+          const n = nodes[i];
+          const dx = mx - n.x, dy = my - n.y;
+          if (dx * dx + dy * dy <= (n.r + 4) * (n.r + 4)) return n;
+        }
+        return null;
+      }
+
+      // Mouse events
+      canvas.addEventListener('mousemove', function(e) {
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left);
+        const my = (e.clientY - rect.top);
+        const node = getNodeAt(mx, my);
+        hoveredNode = node;
+        canvas.style.cursor = node ? 'pointer' : 'crosshair';
+
+        const tooltip = document.getElementById('landscape-tooltip');
+        if (node && tooltip) {
+          tooltip.querySelector('.landscape-tooltip-name').textContent = node.topic.name;
+          tooltip.querySelector('.landscape-tooltip-count').textContent = node.topic.count + ' emails';
+          tooltip.style.left = (e.clientX - wrap.getBoundingClientRect().left + 16) + 'px';
+          tooltip.style.top = (e.clientY - wrap.getBoundingClientRect().top - 10) + 'px';
+          tooltip.classList.add('visible');
+        } else if (tooltip) {
+          tooltip.classList.remove('visible');
+        }
+      });
+
+      canvas.addEventListener('mouseleave', function() {
+        hoveredNode = null;
+        const tooltip = document.getElementById('landscape-tooltip');
+        if (tooltip) tooltip.classList.remove('visible');
+      });
+
+      canvas.addEventListener('click', function(e) {
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left);
+        const my = (e.clientY - rect.top);
+        const node = getNodeAt(mx, my);
+        if (node) {
+          selectedNode = node;
+          openLandscapeSidebar(node.topic);
+        }
+      });
+
+      // Build legend
+      const legend = document.getElementById('landscape-legend');
+      if (legend) {
+        legend.innerHTML = topics.slice(0, 8).map(t =>
+          '<div class="landscape-legend-item"><div class="landscape-legend-dot" style="background:' + t.color + '"></div>' + t.name + '</div>'
+        ).join('');
+      }
+
+      draw();
+
+      // Store cleanup ref
+      canvas._cleanup = function() { cancelAnimationFrame(animFrame); };
+    }
+
+    function openLandscapeSidebar(topic) {
+      const sidebar = document.getElementById('landscape-sidebar');
+      const titleEl = document.getElementById('landscape-sidebar-title');
+      const countEl = document.getElementById('landscape-sidebar-count');
+      const bodyEl = document.getElementById('landscape-sidebar-body');
+      if (!sidebar || !topic) return;
+
+      titleEl.textContent = topic.name;
+      countEl.textContent = topic.count + ' email' + (topic.count !== 1 ? 's' : '');
+
+      const sorted = topic.emails.sort((a, b) => b.date - a.date);
+      bodyEl.innerHTML = sorted.map(e => {
+        const url = 'https://mail.google.com/mail/u/0/#inbox/' + e.id;
+        return '<a href="' + url + '" target="_blank" rel="noopener" class="email-item">' +
+          '<div class="email-top"><span class="email-sender">' + esc(e.fromName) + '</span>' +
+          '<span class="email-date">' + fmtDate(e.date) + '</span></div>' +
+          '<div class="email-subject">' + esc(e.subject) + '</div>' +
+          (e.summary ? '<div class="email-summary">' + esc(e.summary) + '</div>' : '') +
+          '</a>';
+      }).join('');
+
+      sidebar.classList.add('open');
+    }
+
+    function closeLandscapeSidebar() {
+      const sidebar = document.getElementById('landscape-sidebar');
+      if (sidebar) sidebar.classList.remove('open');
+    }
 
     // Spotlight cursor effect on all glass surfaces
     (function initSpotlight() {
