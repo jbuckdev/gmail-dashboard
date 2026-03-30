@@ -999,30 +999,385 @@
       position: relative;
     }
 
-    .expandable-panel.panel-expanded {
-      position: fixed;
-      top: 16px;
-      left: 16px;
-      right: 16px;
-      bottom: 16px;
-      z-index: 200;
-      border-radius: var(--radius-xl);
-      overflow-y: auto;
-      animation: panelExpandIn 0.25s ease;
-    }
-
-    .panel-expand-backdrop {
+    /* ============================================
+       EXPANDED PANEL OVERLAY — Full-screen modal
+       ============================================ */
+    .expanded-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 199;
-      animation: fadeIn 0.2s ease;
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
     }
 
-    @keyframes panelExpandIn {
-      from { opacity: 0; transform: scale(0.95); }
-      to { opacity: 1; transform: scale(1); }
+    .expanded-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      animation: expandBackdropIn 0.3s ease;
     }
+    @keyframes expandBackdropIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .expanded-panel {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 1100px;
+      max-height: calc(100vh - 48px);
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 1px rgba(255,255,255,0.1);
+      animation: expandPanelIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .expanded-panel.closing {
+      animation: expandPanelOut 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+    }
+    @keyframes expandPanelIn {
+      from { opacity: 0; transform: scale(0.88) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes expandPanelOut {
+      from { opacity: 1; transform: scale(1) translateY(0); }
+      to { opacity: 0; transform: scale(0.92) translateY(12px); }
+    }
+
+    .expanded-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .expanded-panel-title {
+      font-family: var(--font-display);
+      font-size: 1.3em;
+      font-weight: 400;
+    }
+    .expanded-panel-subtitle {
+      font-size: 0.82em;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .expanded-close-btn {
+      width: 40px;
+      height: 40px;
+      min-height: 40px;
+      padding: 0;
+      font-size: 1.2em;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .expanded-close-btn:hover { color: var(--text-primary); background: var(--bg-card-hover); border-color: var(--border-active); }
+
+    .expanded-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+    }
+
+    /* Expanded Briefing — two-column reading layout */
+    .expanded-briefing {
+      columns: 2;
+      column-gap: 40px;
+      font-size: 1.02em;
+      line-height: 1.8;
+    }
+    .expanded-briefing .briefing-section-title {
+      font-size: 0.85em;
+      column-span: all;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .expanded-briefing .briefing-section-title:first-child { margin-top: 0; }
+    .expanded-briefing li {
+      break-inside: avoid;
+      padding: 10px 0 10px 24px;
+    }
+    @media (max-width: 800px) {
+      .expanded-briefing { columns: 1; }
+    }
+
+    /* Expanded Email Sections — grid layout */
+    .expanded-emails {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .expanded-emails .email-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
+    }
+    .expanded-emails .section-body {
+      max-height: none !important;
+      border-top: 1px solid var(--border);
+    }
+    .expanded-emails .section-body.expanded { max-height: none; }
+    @media (max-width: 800px) {
+      .expanded-emails { grid-template-columns: 1fr; }
+    }
+
+    /* Expanded Senders — larger, with more detail */
+    .expanded-senders {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .expanded-sender-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+      cursor: pointer;
+    }
+    .expanded-sender-card:hover {
+      border-color: var(--border-glow);
+      box-shadow: var(--shadow-md);
+    }
+    .expanded-sender-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1em;
+      flex-shrink: 0;
+    }
+    .expanded-sender-info { flex: 1; min-width: 0; }
+    .expanded-sender-name { font-weight: 600; font-size: 1em; margin-bottom: 4px; }
+    .expanded-sender-email { font-size: 0.8em; color: var(--text-muted); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .expanded-sender-count { font-size: 1.4em; font-weight: 700; font-family: var(--font-mono); color: var(--accent-blue); }
+    .expanded-sender-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--bg-elevated);
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .expanded-sender-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Expanded Volume — taller bars, legend */
+    .expanded-volume {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      height: 100%;
+    }
+    .expanded-volume-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      flex: 1;
+      min-height: 300px;
+    }
+    .expanded-vol-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .expanded-vol-stack {
+      display: flex;
+      flex-direction: column-reverse;
+      width: 100%;
+      max-width: 64px;
+      justify-content: flex-start;
+      border-radius: 6px 6px 0 0;
+      overflow: hidden;
+    }
+    .expanded-vol-bar {
+      width: 100%;
+      transition: height 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter var(--transition-fast);
+    }
+    .expanded-vol-group:hover .expanded-vol-bar {
+      filter: brightness(1.3);
+    }
+    .expanded-vol-label {
+      font-size: 0.8em;
+      color: var(--text-secondary);
+      font-family: var(--font-ui);
+    }
+    .expanded-vol-count {
+      font-size: 0.75em;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+    .expanded-volume-legend {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .expanded-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85em;
+      color: var(--text-secondary);
+    }
+    .expanded-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    /* Expanded Breakdown — donut-like visualization */
+    .expanded-breakdown {
+      display: flex;
+      gap: 40px;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+    }
+    .expanded-breakdown-visual {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      flex-shrink: 0;
+    }
+    .expanded-breakdown-ring {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: conic-gradient(
+        var(--accent-coral) 0deg var(--ring-reply, 0deg),
+        var(--accent-blue) var(--ring-reply, 0deg) var(--ring-read, 0deg),
+        var(--accent-amber) var(--ring-read, 0deg) var(--ring-fyi, 0deg),
+        var(--accent-slate) var(--ring-fyi, 0deg) 360deg
+      );
+      mask: radial-gradient(circle, transparent 60%, black 61%);
+      -webkit-mask: radial-gradient(circle, transparent 60%, black 61%);
+      animation: expandRingIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes expandRingIn {
+      from { transform: scale(0.5) rotate(-90deg); opacity: 0; }
+      to { transform: scale(1) rotate(0); opacity: 1; }
+    }
+    .expanded-breakdown-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .expanded-breakdown-total {
+      font-size: 2em;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+    .expanded-breakdown-label {
+      font-size: 0.8em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-family: var(--font-ui);
+    }
+    .expanded-breakdown-list {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .expanded-cat-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .expanded-cat-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .expanded-cat-info { flex: 1; }
+    .expanded-cat-name { font-weight: 600; font-size: 1em; }
+    .expanded-cat-pct { font-size: 0.82em; color: var(--text-muted); }
+    .expanded-cat-count {
+      font-size: 1.6em;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+    @media (max-width: 600px) {
+      .expanded-breakdown { flex-direction: column; }
+    }
+
+    /* Expanded Action Items — card grid */
+    .expanded-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .expanded-action-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+      text-decoration: none;
+      color: inherit;
+    }
+    .expanded-action-card:hover {
+      border-color: var(--accent-coral-border);
+      box-shadow: var(--shadow-glow-coral);
+      color: inherit;
+      text-decoration: none;
+    }
+    .expanded-action-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--accent-coral-dim);
+      color: var(--accent-coral);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1em;
+      flex-shrink: 0;
+    }
+    .expanded-action-info { flex: 1; min-width: 0; }
+    .expanded-action-who { font-weight: 600; font-size: 1em; margin-bottom: 4px; }
+    .expanded-action-subject { font-size: 0.9em; color: var(--text-secondary); margin-bottom: 6px; }
+    .expanded-action-what { font-size: 0.85em; color: var(--accent-coral); font-weight: 500; }
 
     .viz-title {
       font-family: var(--font-ui);
@@ -4600,34 +4955,240 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
       const panel = btn.closest('.expandable-panel');
       if (!panel) return;
 
-      const isExpanded = panel.classList.contains('panel-expanded');
-
-      if (isExpanded) {
-        // Collapse: remove overlay + expanded state
-        panel.classList.remove('panel-expanded');
-        const backdrop = document.getElementById('panel-expand-backdrop');
-        if (backdrop) backdrop.remove();
-        btn.innerHTML = '\u26F6';
-        btn.title = 'Expand';
-        // Re-render bubble map if this was the bubble card
-        if (panel.id === 'bubble-card') {
-          setTimeout(() => renderBubbleMap(allEmails), 50);
-        }
-      } else {
-        // Expand: add backdrop + expanded state
-        const backdrop = document.createElement('div');
-        backdrop.className = 'panel-expand-backdrop';
-        backdrop.id = 'panel-expand-backdrop';
-        backdrop.onclick = () => togglePanelExpand(btn);
-        document.body.appendChild(backdrop);
-        panel.classList.add('panel-expanded');
-        btn.innerHTML = '\u2715';
-        btn.title = 'Close';
-        // Re-render bubble map bigger if this was the bubble card
-        if (panel.id === 'bubble-card') {
-          setTimeout(() => renderBubbleMap(allEmails), 50);
-        }
+      // If there's already an expanded overlay, close it
+      const existing = document.getElementById('expanded-overlay');
+      if (existing) {
+        closeExpandedPanel();
+        return;
       }
+
+      // Build the expanded overlay
+      const overlay = document.createElement('div');
+      overlay.className = 'expanded-overlay';
+      overlay.id = 'expanded-overlay';
+
+      const backdrop = document.createElement('div');
+      backdrop.className = 'expanded-backdrop';
+      backdrop.onclick = closeExpandedPanel;
+
+      const epanel = document.createElement('div');
+      epanel.className = 'expanded-panel';
+
+      const header = document.createElement('div');
+      header.className = 'expanded-panel-header';
+
+      const body = document.createElement('div');
+      body.className = 'expanded-panel-body';
+
+      // Determine content based on panel ID
+      const panelId = panel.id;
+      const emails = allEmails || [];
+      let title = '', subtitle = '', bodyContent = '';
+
+      if (panelId === 'briefing-card') {
+        title = 'Today\'s Briefing';
+        subtitle = 'Full intelligence overview';
+        const briefBody = document.getElementById('briefing-body');
+        bodyContent = '<div class="expanded-briefing">' + (briefBody ? briefBody.innerHTML : '') + '</div>';
+
+      } else if (panelId === 'action-items-card') {
+        const actionEmails = emails.filter(e => e.category === 'reply' && e.actionItem);
+        title = 'Action Items';
+        subtitle = actionEmails.length + ' items need your attention';
+        if (!actionEmails.length) {
+          bodyContent = '<div class="empty-state" style="padding:40px;font-size:1em">Nothing needs your attention right now.</div>';
+        } else {
+          bodyContent = '<div class="expanded-actions">' + actionEmails.sort((a,b) => b.priority - a.priority).map(e => {
+            const url = 'https://mail.google.com/mail/u/0/#inbox/' + e.id;
+            const initials = (e.fromName || '?').charAt(0).toUpperCase();
+            return '<a href="' + url + '" target="_blank" rel="noopener" class="expanded-action-card">' +
+              '<div class="expanded-action-avatar">' + initials + '</div>' +
+              '<div class="expanded-action-info">' +
+              '<div class="expanded-action-who">' + esc(e.fromName) + '</div>' +
+              '<div class="expanded-action-subject">' + esc(e.subject) + '</div>' +
+              (e.actionItem ? '<div class="expanded-action-what">' + esc(e.actionItem) + '</div>' : '') +
+              '</div></a>';
+          }).join('') + '</div>';
+        }
+
+      } else if (panelId === 'top-senders-card') {
+        const senders = {};
+        for (const e of emails) {
+          if (!senders[e.from]) senders[e.from] = { name: e.fromName, email: e.from, count: 0 };
+          senders[e.from].count++;
+        }
+        const sorted = Object.entries(senders).sort((a,b) => b[1].count - a[1].count).slice(0, 12);
+        const max = sorted.length ? sorted[0][1].count : 1;
+        const avatarColors = ['#4ECDC4','#FF6B6B','#A78BFA','#FFD93D','#4ADE80','#60A5FA','#F472B6','#FB923C','#38BDF8','#A3E635','#E879F9','#34D399'];
+        title = 'Top Senders';
+        subtitle = sorted.length + ' senders ranked by volume';
+        bodyContent = '<div class="expanded-senders">' + sorted.map(([email, info], i) => {
+          const initials = info.name.split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
+          const pct = (info.count / max * 100).toFixed(0);
+          const col = avatarColors[i % avatarColors.length];
+          return '<div class="expanded-sender-card" onclick="drillDown(\'sender\',\'' + esc(email) + '\');closeExpandedPanel();">' +
+            '<div class="expanded-sender-avatar" style="background:' + col + '20;color:' + col + '">' + initials + '</div>' +
+            '<div class="expanded-sender-info">' +
+            '<div class="expanded-sender-name">' + esc(info.name) + '</div>' +
+            '<div class="expanded-sender-email">' + esc(email) + '</div>' +
+            '<div class="expanded-sender-bar"><div class="expanded-sender-bar-fill" style="width:' + pct + '%;background:' + col + '"></div></div>' +
+            '</div>' +
+            '<div class="expanded-sender-count">' + info.count + '</div>' +
+            '</div>';
+        }).join('') + '</div>';
+
+      } else if (panelId === 'volume-card') {
+        title = 'Email Volume';
+        subtitle = 'Daily breakdown by category';
+        const days = {};
+        for (const e of emails) {
+          const dateKey = e.date.toISOString().split('T')[0];
+          const label = e.date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+          if (!days[dateKey]) days[dateKey] = { label: label, reply: 0, read: 0, fyi: 0, skip: 0, total: 0 };
+          days[dateKey][e.category]++;
+          days[dateKey].total++;
+        }
+        const sorted = Object.entries(days).sort((a,b) => a[0].localeCompare(b[0])).slice(-14);
+        const maxTotal = Math.max(...sorted.map(d => d[1].total), 1);
+        bodyContent = '<div class="expanded-volume"><div class="expanded-volume-chart">' +
+          sorted.map(([date, d]) => {
+            const maxH = 240;
+            const replyH = d.reply / maxTotal * maxH;
+            const readH = d.read / maxTotal * maxH;
+            const fyiH = d.fyi / maxTotal * maxH;
+            const skipH = d.skip / maxTotal * maxH;
+            return '<div class="expanded-vol-group">' +
+              '<div class="expanded-vol-count">' + d.total + '</div>' +
+              '<div class="expanded-vol-stack" style="height:' + maxH + 'px">' +
+              '<div class="expanded-vol-bar" style="height:' + skipH + 'px;background:var(--accent-slate)"></div>' +
+              '<div class="expanded-vol-bar" style="height:' + fyiH + 'px;background:var(--accent-amber)"></div>' +
+              '<div class="expanded-vol-bar" style="height:' + readH + 'px;background:var(--accent-blue)"></div>' +
+              '<div class="expanded-vol-bar" style="height:' + replyH + 'px;background:var(--accent-coral);border-radius:6px 6px 0 0"></div>' +
+              '</div>' +
+              '<div class="expanded-vol-label">' + d.label + '</div>' +
+              '</div>';
+          }).join('') +
+          '</div>' +
+          '<div class="expanded-volume-legend">' +
+          '<div class="expanded-legend-item"><div class="expanded-legend-dot" style="background:var(--accent-coral)"></div>Needs Reply</div>' +
+          '<div class="expanded-legend-item"><div class="expanded-legend-dot" style="background:var(--accent-blue)"></div>Worth Reading</div>' +
+          '<div class="expanded-legend-item"><div class="expanded-legend-dot" style="background:var(--accent-amber)"></div>Quick Scan</div>' +
+          '<div class="expanded-legend-item"><div class="expanded-legend-dot" style="background:var(--accent-slate)"></div>Safe to Skip</div>' +
+          '</div></div>';
+
+      } else if (panelId === 'breakdown-card') {
+        title = 'Category Breakdown';
+        subtitle = emails.length + ' emails classified';
+        const cats = [
+          { key: 'reply', name: 'Needs Reply', color: 'var(--accent-coral)' },
+          { key: 'read', name: 'Worth Reading', color: 'var(--accent-blue)' },
+          { key: 'fyi', name: 'Quick Scan', color: 'var(--accent-amber)' },
+          { key: 'skip', name: 'Safe to Skip', color: 'var(--accent-slate)' },
+        ];
+        const total = emails.length || 1;
+        const counts = {};
+        cats.forEach(c => { counts[c.key] = emails.filter(e => e.category === c.key).length; });
+        // Compute conic-gradient angles
+        let angle = 0;
+        const angles = {};
+        cats.forEach(c => { angle += (counts[c.key] / total) * 360; angles[c.key] = angle; });
+
+        bodyContent = '<div class="expanded-breakdown">' +
+          '<div class="expanded-breakdown-visual">' +
+          '<div class="expanded-breakdown-ring" style="' +
+          '--ring-reply:' + angles.reply + 'deg;' +
+          '--ring-read:' + angles.read + 'deg;' +
+          '--ring-fyi:' + angles.fyi + 'deg;"></div>' +
+          '<div class="expanded-breakdown-center">' +
+          '<div class="expanded-breakdown-total">' + total + '</div>' +
+          '<div class="expanded-breakdown-label">emails</div>' +
+          '</div></div>' +
+          '<div class="expanded-breakdown-list">' +
+          cats.map(c => {
+            const count = counts[c.key];
+            const pct = (count / total * 100).toFixed(0);
+            return '<div class="expanded-cat-item">' +
+              '<div class="expanded-cat-dot" style="background:' + c.color + '"></div>' +
+              '<div class="expanded-cat-info"><div class="expanded-cat-name">' + c.name + '</div>' +
+              '<div class="expanded-cat-pct">' + pct + '% of total</div></div>' +
+              '<div class="expanded-cat-count" style="color:' + c.color + '">' + count + '</div>' +
+              '</div>';
+          }).join('') +
+          '</div></div>';
+
+      } else if (panelId === 'bubble-card') {
+        title = 'Email Landscape';
+        subtitle = 'Topics and senders mapped by volume';
+        // Clone the bubble map content
+        const bubbleMap = document.getElementById('bubble-map');
+        bodyContent = '<div style="min-height:400px;position:relative;">' + (bubbleMap ? bubbleMap.outerHTML : '') + '</div>';
+
+      } else if (panelId === 'email-sections') {
+        title = 'All Emails';
+        subtitle = emails.length + ' emails across all categories';
+        const cats = [
+          { key: 'reply', label: 'Needs Your Reply', cls: 'section-reply' },
+          { key: 'read', label: 'Worth Reading', cls: 'section-read' },
+          { key: 'fyi', label: 'Quick Scan', cls: 'section-fyi' },
+          { key: 'skip', label: 'Safe to Skip', cls: 'section-skip' },
+        ];
+        bodyContent = '<div class="expanded-emails">' + cats.map(c => {
+          const catEmails = emails.filter(e => e.category === c.key).sort((a,b) => c.key === 'reply' ? b.priority - a.priority : b.date - a.date);
+          return '<div class="email-section ' + c.cls + '">' +
+            '<div class="section-header open" style="cursor:default">' +
+            '<div class="section-title-area"><div class="section-dot"></div>' +
+            '<span class="section-label">' + c.label + '</span>' +
+            '<span class="section-count">' + catEmails.length + '</span></div></div>' +
+            '<div class="section-body expanded">' +
+            (catEmails.length ? catEmails.map(e => {
+              const url = 'https://mail.google.com/mail/u/0/#inbox/' + e.id;
+              return '<a href="' + url + '" target="_blank" rel="noopener" class="email-item">' +
+                '<div class="email-top"><span class="email-sender">' + esc(e.fromName) + '</span>' +
+                '<span class="email-date">' + fmtDate(e.date) + '</span></div>' +
+                '<div class="email-subject">' + esc(e.subject) + '</div>' +
+                (e.summary ? '<div class="email-summary">' + esc(e.summary) + '</div>' : '') +
+                (e.actionItem && c.key === 'reply' ? '<div class="email-action">' + esc(e.actionItem) + '</div>' : '') +
+                '</a>';
+            }).join('') : '<div class="empty-state">None</div>') +
+            '</div></div>';
+        }).join('') + '</div>';
+      }
+
+      // Close button
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'expanded-close-btn';
+      closeBtn.innerHTML = '\u2715';
+      closeBtn.onclick = closeExpandedPanel;
+
+      const titleDiv = document.createElement('div');
+      titleDiv.innerHTML = '<div class="expanded-panel-title">' + title + '</div>' +
+        (subtitle ? '<div class="expanded-panel-subtitle">' + subtitle + '</div>' : '');
+
+      header.appendChild(titleDiv);
+      header.appendChild(closeBtn);
+      body.innerHTML = bodyContent;
+      epanel.appendChild(header);
+      epanel.appendChild(body);
+      overlay.appendChild(backdrop);
+      overlay.appendChild(epanel);
+      document.body.appendChild(overlay);
+
+      // ESC to close
+      overlay._escHandler = function(e) { if (e.key === 'Escape') closeExpandedPanel(); };
+      document.addEventListener('keydown', overlay._escHandler);
+    }
+
+    function closeExpandedPanel() {
+      const overlay = document.getElementById('expanded-overlay');
+      if (!overlay) return;
+      const panel = overlay.querySelector('.expanded-panel');
+      if (panel) {
+        panel.classList.add('closing');
+        setTimeout(() => { overlay.remove(); }, 250);
+      } else {
+        overlay.remove();
+      }
+      document.removeEventListener('keydown', overlay._escHandler);
     }
 
     function setTimeRange(days, btn) {
