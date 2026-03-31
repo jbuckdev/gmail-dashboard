@@ -101,56 +101,56 @@
       color-scheme: dark;
     }
 
-    /* ---- LIGHT MODE — "Frosted Lab" ---- */
+    /* ---- LIGHT MODE — "Warm Stone" ---- */
     [data-theme="light"] {
-      --bg-deep: #f0f0ec;
-      --bg-surface: rgba(255, 255, 255, 0.82);
-      --bg-card: rgba(255, 255, 255, 0.75);
-      --bg-card-hover: rgba(255, 255, 255, 0.9);
-      --bg-elevated: #FFFFFF;
+      --bg-deep: #e8e6e1;
+      --bg-surface: rgba(245, 243, 239, 0.85);
+      --bg-card: rgba(240, 238, 233, 0.8);
+      --bg-card-hover: rgba(245, 243, 239, 0.95);
+      --bg-elevated: #f0eee9;
 
       --text-primary: #1a1a2e;
-      --text-secondary: #64748B;
-      --text-muted: #94A3B8;
+      --text-secondary: #5a6370;
+      --text-muted: #8891a0;
 
-      --accent-coral: #EF4444;
-      --accent-coral-dim: rgba(239,68,68,0.08);
-      --accent-blue: #3B82F6;
-      --accent-blue-dim: rgba(59,130,246,0.08);
-      --accent-amber: #e8722a;
-      --accent-amber-dim: rgba(232,114,42,0.08);
-      --accent-purple: #8B5CF6;
-      --accent-purple-dim: rgba(139,92,246,0.08);
-      --accent-slate: #64748B;
-      --accent-slate-dim: rgba(100,116,139,0.08);
+      --accent-coral: #dc3e3e;
+      --accent-coral-dim: rgba(220,62,62,0.1);
+      --accent-blue: #2d6fcc;
+      --accent-blue-dim: rgba(45,111,204,0.1);
+      --accent-amber: #c4611e;
+      --accent-amber-dim: rgba(196,97,30,0.1);
+      --accent-purple: #7448d6;
+      --accent-purple-dim: rgba(116,72,214,0.1);
+      --accent-slate: #5a6370;
+      --accent-slate-dim: rgba(90,99,112,0.08);
 
-      --accent-blue-border: rgba(59,130,246,0.25);
-      --accent-blue-focus: 0 0 0 3px rgba(59,130,246,0.12);
-      --accent-blue-subtle: rgba(59,130,246,0.04);
-      --accent-coral-border: rgba(239,68,68,0.2);
-      --accent-coral-subtle: rgba(239,68,68,0.06);
-      --accent-amber-border: rgba(232,114,42,0.2);
+      --accent-blue-border: rgba(45,111,204,0.25);
+      --accent-blue-focus: 0 0 0 3px rgba(45,111,204,0.12);
+      --accent-blue-subtle: rgba(45,111,204,0.04);
+      --accent-coral-border: rgba(220,62,62,0.2);
+      --accent-coral-subtle: rgba(220,62,62,0.06);
+      --accent-amber-border: rgba(196,97,30,0.2);
 
-      --border: rgba(0,0,0,0.06);
-      --border-active: rgba(0,0,0,0.12);
-      --border-glow: rgba(59,130,246,0.1);
-      --glass: rgba(255,255,255,0.7);
+      --border: rgba(0,0,0,0.08);
+      --border-active: rgba(0,0,0,0.15);
+      --border-glow: rgba(45,111,204,0.12);
+      --glass: rgba(240,238,233,0.75);
 
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
-      --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
-      --shadow-lg: 0 12px 40px rgba(0,0,0,0.1);
-      --shadow-glow-coral: 0 0 20px rgba(239,68,68,0.08);
-      --shadow-glow-blue: 0 0 20px rgba(59,130,246,0.08);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.07);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
+      --shadow-glow-coral: 0 0 20px rgba(220,62,62,0.08);
+      --shadow-glow-blue: 0 0 20px rgba(45,111,204,0.08);
       --glow-coral: none;
       --glow-blue: none;
       --glow-amber: none;
 
-      --body-texture-1: rgba(59,130,246,0.02);
-      --body-texture-2: rgba(239,68,68,0.015);
-      --body-texture-3: rgba(139,92,246,0.015);
+      --body-texture-1: rgba(45,111,204,0.02);
+      --body-texture-2: rgba(220,62,62,0.015);
+      --body-texture-3: rgba(116,72,214,0.015);
 
-      --spotlight-color: rgba(59,130,246,0.04);
-      --noise-opacity: 0;
+      --spotlight-color: rgba(45,111,204,0.03);
+      --noise-opacity: 0.012;
 
       color-scheme: light;
     }
@@ -967,46 +967,30 @@
     }
 
     /* ============================================
-       PANEL EXPAND BUTTON
+       CLICK-TO-EXPAND PANELS
        ============================================ */
-    .panel-expand-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      min-height: 0;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text-muted);
-      font-size: 14px;
-      line-height: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      opacity: 0;
-      transition: opacity var(--transition-fast), background var(--transition-fast);
-      z-index: 10;
-    }
-    /* Ensure expand btn stays visible on flex/scroll containers */
-    .email-sections > .panel-expand-btn {
-      position: sticky;
-      top: 4px;
-      align-self: flex-end;
-      margin-top: -28px;
-      margin-right: 4px;
-      margin-bottom: -4px;
-    }
-    .expandable-panel:hover .panel-expand-btn,
-    .expandable-panel.panel-expanded .panel-expand-btn { opacity: 1; }
-    .panel-expand-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
-
     .expandable-panel {
       position: relative;
+      cursor: pointer;
     }
+    .expandable-panel:hover {
+      border-color: var(--border-active);
+    }
+    /* Restore default cursor on interactive children */
+    .expandable-panel a,
+    .expandable-panel button,
+    .expandable-panel .email-item,
+    .expandable-panel .section-header,
+    .expandable-panel .sender-row,
+    .expandable-panel .cat-row,
+    .expandable-panel .vol-bar-group,
+    .expandable-panel .action-item-row,
+    .expandable-panel .bubble-map-viewport { cursor: default; }
+    .expandable-panel a { cursor: pointer; }
+    .expandable-panel button { cursor: pointer; }
+    .expandable-panel .section-header { cursor: pointer; }
+    .expandable-panel .sender-row { cursor: pointer; }
+    .expandable-panel .bubble-map-viewport { cursor: grab; }
 
     /* ============================================
        EXPANDED PANEL OVERLAY — Full-screen modal
@@ -1029,6 +1013,9 @@
       -webkit-backdrop-filter: blur(8px);
       animation: expandBackdropIn 0.3s ease;
     }
+    [data-theme="light"] .expanded-backdrop {
+      background: rgba(0,0,0,0.45);
+    }
     @keyframes expandBackdropIn {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -1048,6 +1035,9 @@
       flex-direction: column;
       box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 1px rgba(255,255,255,0.1);
       animation: expandPanelIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    [data-theme="light"] .expanded-panel {
+      box-shadow: 0 24px 80px rgba(0,0,0,0.18), 0 0 1px rgba(0,0,0,0.08);
     }
     .expanded-panel.panel-landscape {
       max-width: calc(100vh - 48px);
@@ -1365,6 +1355,31 @@
       justify-content: center;
       overflow: hidden;
     }
+    .landscape-legend-strip {
+      width: 180px;
+      flex-shrink: 0;
+      border-left: 1px solid var(--border);
+      background: var(--bg-card);
+      overflow-y: auto;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .landscape-legend-strip-title {
+      font-family: var(--font-ui);
+      font-size: 0.72em;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    @media (max-width: 600px) {
+      .landscape-legend-strip { width: 120px; padding: 10px 8px; }
+    }
     .landscape-canvas {
       border-radius: var(--radius-md);
       cursor: crosshair;
@@ -1463,39 +1478,37 @@
       padding: 12px 20px;
     }
 
-    /* Legend overlay on canvas */
+    /* Legend in side strip */
     .landscape-legend {
-      position: absolute;
-      bottom: 16px;
-      left: 16px;
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      flex-direction: column;
+      gap: 4px;
       font-size: 0.75em;
       font-family: var(--font-ui);
       color: var(--text-secondary);
-      pointer-events: auto;
     }
     .landscape-legend-item {
       display: flex;
       align-items: center;
       gap: 6px;
-      background: var(--glass);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      padding: 4px 10px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
+      background: transparent;
+      padding: 5px 8px;
+      border-radius: 8px;
+      border: 1px solid transparent;
       cursor: pointer;
       transition: all var(--transition-fast);
       user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .landscape-legend-item:hover { border-color: var(--border-active); color: var(--text-primary); }
+    .landscape-legend-item:hover { background: var(--bg-card-hover); border-color: var(--border); color: var(--text-primary); }
     .landscape-legend-item.legend-hidden { opacity: 0.3; text-decoration: line-through; }
     .landscape-legend-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
+      flex-shrink: 0;
     }
 
     /* Tooltip for hover */
@@ -2835,7 +2848,6 @@
 
           <!-- Row 1: Briefing (3 cols) + Action Items (1 col) -->
           <div class="briefing-card bento-card card-3 expandable-panel glass-spotlight" id="briefing-card">
-            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="briefing-header">
               <div class="briefing-icon">&#9998;</div>
               <div>
@@ -2849,7 +2861,6 @@
           </div>
 
           <div class="viz-card bento-card card-1 expandable-panel glass-spotlight" id="action-items-card">
-            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="viz-title">Action Items</div>
             <div id="action-items"></div>
           </div>
@@ -2857,7 +2868,6 @@
           <!-- Row 2: Left stack (landscape, senders, volume, breakdown) + Emails -->
           <div class="left-viz-stack bento-card card-2">
             <div class="viz-card expandable-panel glass-spotlight" id="bubble-card">
-              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
               <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
               <button class="bubble-back-btn" id="bubble-back-btn" onclick="bubbleGoBack()" title="Back">&#8592;</button>
               <div class="bubble-map-viewport" id="bubble-viewport">
@@ -2866,26 +2876,22 @@
             </div>
 
             <div class="viz-card expandable-panel glass-spotlight" id="top-senders-card">
-              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
               <div class="viz-title">Top Senders</div>
               <div id="top-senders"></div>
             </div>
 
             <div class="viz-card expandable-panel glass-spotlight" id="volume-card">
-              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
               <div class="viz-title">Volume</div>
               <div class="volume-chart" id="volume-chart"></div>
             </div>
 
             <div class="viz-card expandable-panel glass-spotlight" id="breakdown-card">
-              <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
               <div class="viz-title">Breakdown</div>
               <div class="cat-breakdown" id="cat-breakdown"></div>
             </div>
           </div>
 
           <div class="email-sections bento-card card-2 expandable-panel anim-stagger glass-spotlight" id="email-sections">
-            <button class="panel-expand-btn" onclick="togglePanelExpand(this)" title="Expand">&#x26F6;</button>
             <div class="email-section section-reply">
               <div class="section-header open" onclick="toggleSection(this)">
                 <div class="section-title-area">
@@ -5250,8 +5256,10 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
       header.classList.toggle('open');
     }
 
-    function togglePanelExpand(btn) {
-      const panel = btn.closest('.expandable-panel');
+    function togglePanelExpand(panelOrBtn) {
+      // Accept either a panel element directly or a child element
+      const panel = panelOrBtn.classList && panelOrBtn.classList.contains('expandable-panel')
+        ? panelOrBtn : panelOrBtn.closest('.expandable-panel');
       if (!panel) return;
 
       // If there's already an expanded overlay, close it
@@ -5425,6 +5433,9 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           '<div class="landscape-tooltip" id="landscape-tooltip"><span class="landscape-tooltip-name"></span><span class="landscape-tooltip-count"></span></div>' +
           '<div class="landscape-zoom-indicator" id="landscape-zoom">1.0x</div>' +
           '<div class="landscape-hint" id="landscape-hint">Scroll to zoom \u00b7 Drag to pan \u00b7 Click a bubble to drill in</div>' +
+          '</div>' +
+          '<div class="landscape-legend-strip">' +
+          '<div class="landscape-legend-strip-title">Topics</div>' +
           '<div class="landscape-legend" id="landscape-legend"></div>' +
           '</div>' +
           '<div class="landscape-sidebar" id="landscape-sidebar">' +
@@ -6307,6 +6318,21 @@ Browser: ${diagnostic.browser}
 
     init();
 
+    // Click-to-expand: clicking a panel opens expanded overlay
+    // Skip if click target is interactive (links, buttons, inputs, email items, section headers, bubbles, cleaning elements)
+    document.querySelectorAll('.expandable-panel').forEach(panel => {
+      panel.addEventListener('click', function(e) {
+        // Don't expand if an overlay is already open
+        if (document.getElementById('expanded-overlay')) return;
+        // Don't expand during cleaning mode
+        if (document.body.classList.contains('cleaning-active')) return;
+        // Don't expand if click was on an interactive element or inside one
+        const interactive = e.target.closest('a, button, input, select, textarea, .email-item, .section-header, .section-body, .bubble, .bubble-map, .bubble-map-viewport, .slide-over, .action-item, .action-item-row, .sender-row, .cat-row, .vol-bar-group, .bubble-back-btn');
+        if (interactive) return;
+        togglePanelExpand(panel);
+      });
+    });
+
     // ==========================================
     // VISUAL EFFECTS — Dot Grid + Spotlight
     // ==========================================
@@ -6359,7 +6385,7 @@ Browser: ${diagnostic.browser}
             ctx.globalAlpha = baseAlpha;
           }
 
-          ctx.fillStyle = isDark ? '#8494AD' : '#64748B';
+          ctx.fillStyle = isDark ? '#8494AD' : '#8891a0';
           ctx.beginPath();
           ctx.arc(d.x, d.y, 1, 0, Math.PI * 2);
           ctx.fill();

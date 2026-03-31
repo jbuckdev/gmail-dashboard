@@ -4,7 +4,7 @@
 AI-powered Gmail intelligence dashboard for Larry (~65yo CEO of a medical data analytics company, also runs community projects like condo board elevator replacement). Single `index.html`, no server, no database. He opens a URL, sees his emails sorted by importance with narrative briefings and interactive topic visualization. Includes Cleaning Mode to trash/archive emails directly.
 
 ## Current Status
-**Feature-complete + Phase 5 done. Deployed to GitHub Pages. Tested with James's Gmail. Ready for Larry onboarding.**
+**Bento grid redesign complete (2026-03-29). Layout user-approved. Zoom controls + drill navigation added. Deployed to GitHub Pages. Ready for Larry onboarding.**
 
 Live: https://jbuckdev.github.io/gmail-dashboard/
 Repo: https://github.com/jbuckdev/gmail-dashboard (public)
@@ -24,13 +24,21 @@ Repo: https://github.com/jbuckdev/gmail-dashboard (public)
 
 ## Features
 - Onboarding with privacy choice BEFORE login (Full Analysis vs Private Mode)
-- Dark command-center UI (DM Serif Display + DM Sans)
-- 50/50 split layout: left (briefing, emails, senders, charts) / right (large bubble map + drill)
+- Light/dark theme toggle (respects prefers-color-scheme, flash-prevention)
+- Bento grid layout (4-col responsive → 2-col → 1-col):
+  - Row 1: Briefing (3 cols) + Action Items (1 col)
+  - Row 2: Email Landscape (1 col) + Top Senders (1 col) + Emails (2 cols)
+  - Row 3: Volume (1 col) + Breakdown (1 col)
+  - Left-side cards in .left-viz-stack sub-grid (stacks independently of emails)
 - Expand button on every panel (fullscreen overlay toggle)
-- Hero briefing with 4 stat cards
+- Hero strip: greeting + time range picker (stat cards removed — redundant)
 - AI narrative briefing (daily/weekly/monthly, reads full email bodies, clickable links)
 - Smart body fetching (full body for important emails, snippet for noise)
-- Force-directed bubble map (organic AI topics, drill-down, scaled for wide view)
+- Force-directed bubble map with interactive zoom (scroll wheel + pinch, 0.025/tick, 0.4x–2.5x)
+- Click-drag panning on bubble map (pointerdown + setPointerCapture, drag vs click detection)
+- Back button on bubble map for drill navigation (sub-topic → topic → all)
+- Slide-over panel (480px right edge) for drill-down email lists
+- Bubble map stays interactive above slide-over backdrop (z-index elevation)
 - Top Senders, Volume Chart, Category Breakdown visualizations
 - Cleaning Mode (click/drag select, trash, archive, undo, lazy scope upgrade)
 - Smart filters in Cleaning Mode: Newsletters, Promotions, Social (bulk select)
