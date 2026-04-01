@@ -2444,7 +2444,7 @@
       border-radius: var(--radius-lg);
       padding: 14px 20px;
       box-shadow: var(--shadow-lg);
-      z-index: 60;
+      z-index: 501;
       align-items: center;
       gap: 14px;
       animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -2469,7 +2469,7 @@
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.5);
       backdrop-filter: blur(4px);
-      z-index: 55;
+      z-index: 500;
       align-items: center;
       justify-content: center;
     }
@@ -6389,7 +6389,7 @@ Browser: ${diagnostic.browser}
         // Don't expand during cleaning mode
         // (cleaning-active class no longer used — kept check harmless)
         // Don't expand if click was on an interactive element or inside one
-        const interactive = e.target.closest('a, button, input, select, textarea, .email-item, .section-header, .section-body, .bubble, .bubble-map, .bubble-map-viewport, .slide-over, .action-item, .action-item-row, .sender-row, .cat-row, .vol-bar-group, .bubble-back-btn, .email-actions');
+        const interactive = e.target.closest('a, button, input, select, textarea, [onclick], .email-item, .section-header, .section-body, .bubble, .bubble-map, .bubble-map-viewport, .slide-over, .action-item, .action-item-row, .sender-row, .cat-row, .vol-bar-group, .bubble-back-btn, .email-actions, .briefing-body');
         if (interactive) return;
         togglePanelExpand(panel);
       });
