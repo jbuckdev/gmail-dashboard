@@ -620,12 +620,15 @@
     .hero-meta-left {
       display: flex;
       gap: 6px;
+      flex-wrap: wrap;
     }
 
     .range-btn {
-      padding: 6px 14px;
+      padding: 6px 12px;
       min-height: 34px;
       font-size: 0.82em;
+      font-weight: 500;
+      font-family: var(--font-ui);
       background: transparent;
       border: 1px solid var(--border);
       color: var(--text-secondary);
@@ -2828,9 +2831,12 @@
             <span id="stat-skip" style="display:none"><span id="stat-skip-num">0</span></span>
             <div class="hero-meta">
               <div class="hero-meta-left">
-                <button class="range-btn active" data-range="1" onclick="setTimeRange(1, this)">Today</button>
-                <button class="range-btn" data-range="7" onclick="setTimeRange(7, this)">This Week</button>
-                <button class="range-btn" data-range="30" onclick="setTimeRange(30, this)">This Month</button>
+                <button class="range-btn active" data-range="1" onclick="setTimeRange(1, this)">1D</button>
+                <button class="range-btn" data-range="7" onclick="setTimeRange(7, this)">1W</button>
+                <button class="range-btn" data-range="30" onclick="setTimeRange(30, this)">1M</button>
+                <button class="range-btn" data-range="90" onclick="setTimeRange(90, this)">3M</button>
+                <button class="range-btn" data-range="180" onclick="setTimeRange(180, this)">6M</button>
+                <button class="range-btn" data-range="365" onclick="setTimeRange(365, this)">1Y</button>
               </div>
               <span class="hero-updated" id="last-updated"></span>
             </div>
@@ -3182,41 +3188,63 @@
     let activeFilter = null; // for stat card filtering
 
     /* ============================================
-       SESSION CACHE (sessionStorage)
-       Persists until tab closes. Keyed by time range.
+       CACHE — IndexedDB (no size limit)
+       Persists until tab closes or manual clear.
        ============================================ */
-    function getCacheKey() { return `inbox-intel-cache-${currentTimeRange}d`; }
+    const CACHE_DB_NAME = 'inbox-intel-cache';
+    const CACHE_DB_VERSION = 1;
+    let _cacheDb = null;
 
-    function getCachedEmails() {
+    function openCacheDb() {
+      if (_cacheDb) return Promise.resolve(_cacheDb);
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(CACHE_DB_NAME, CACHE_DB_VERSION);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('emails')) {
+            db.createObjectStore('emails');
+          }
+        };
+        req.onsuccess = () => { _cacheDb = req.result; resolve(_cacheDb); };
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function getCacheKey() { return `cache-${currentTimeRange}d`; }
+
+    async function getCachedEmails() {
       try {
-        const raw = sessionStorage.getItem(getCacheKey());
-        if (!raw) return null;
-        const data = JSON.parse(raw);
-        // Restore Date objects
-        data.emails.forEach(e => { e.date = new Date(e.date); });
-        return data;
+        const db = await openCacheDb();
+        return new Promise((resolve) => {
+          const tx = db.transaction('emails', 'readonly');
+          const store = tx.objectStore('emails');
+          const req = store.get(getCacheKey());
+          req.onsuccess = () => {
+            const data = req.result;
+            if (!data) return resolve(null);
+            data.emails.forEach(e => { e.date = new Date(e.date); });
+            resolve(data);
+          };
+          req.onerror = () => resolve(null);
+        });
       } catch { return null; }
     }
 
-    function setCachedEmails(emails) {
+    async function setCachedEmails(emails) {
       try {
-        const data = { emails, timestamp: Date.now() };
-        sessionStorage.setItem(getCacheKey(), JSON.stringify(data));
-      } catch (e) {
-        // sessionStorage full — clear old caches and retry
-        for (let i = 0; i < sessionStorage.length; i++) {
-          const key = sessionStorage.key(i);
-          if (key && key.startsWith('inbox-intel-cache-')) sessionStorage.removeItem(key);
-        }
-        try { sessionStorage.setItem(getCacheKey(), JSON.stringify({ emails, timestamp: Date.now() })); } catch {}
-      }
+        const db = await openCacheDb();
+        const tx = db.transaction('emails', 'readwrite');
+        const store = tx.objectStore('emails');
+        store.put({ emails, timestamp: Date.now() }, getCacheKey());
+      } catch {}
     }
 
-    function clearAllCaches() {
-      for (let i = sessionStorage.length - 1; i >= 0; i--) {
-        const key = sessionStorage.key(i);
-        if (key && key.startsWith('inbox-intel-cache-')) sessionStorage.removeItem(key);
-      }
+    async function clearAllCaches() {
+      try {
+        const db = await openCacheDb();
+        const tx = db.transaction('emails', 'readwrite');
+        tx.objectStore('emails').clear();
+      } catch {}
     }
 
     /* ============================================
@@ -3394,14 +3422,23 @@
       return resp.json();
     }
 
+    // Max emails to fetch per range (Gmail API budget)
+    function getMaxEmails() {
+      if (currentTimeRange <= 7) return 500;
+      if (currentTimeRange <= 30) return 2000;
+      if (currentTimeRange <= 90) return 5000;
+      return 15000; // 6m/12m
+    }
+
+    // AI classification cutoff: only last 30 days get sent to Claude
+    const AI_CLASSIFY_DAYS = 30;
+
     async function loadEmails() {
-      const prefs = getPrefs();
       const days = currentTimeRange;
-      currentTimeRange = days;
       updateRangeButtons();
 
-      // Check cache for incremental refresh
-      const cached = getCachedEmails();
+      // Check cache for incremental refresh (async — IndexedDB)
+      const cached = await getCachedEmails();
       const cachedIds = cached ? new Set(cached.emails.map(e => e.id)) : new Set();
       const hasCachedData = cached && cached.emails.length > 0;
 
@@ -3417,37 +3454,42 @@
       afterDate.setDate(afterDate.getDate() - days);
       const afterStr = `${afterDate.getFullYear()}/${String(afterDate.getMonth()+1).padStart(2,'0')}/${String(afterDate.getDate()).padStart(2,'0')}`;
 
+      const maxEmails = getMaxEmails();
       let allMsgIds = [];
       let pageToken = null;
+      let pageNum = 0;
       do {
-        const params = new URLSearchParams({ q: `after:${afterStr}`, maxResults: '200' });
+        const params = new URLSearchParams({ q: `after:${afterStr}`, maxResults: '500' });
         if (pageToken) params.set('pageToken', pageToken);
         const data = await gmailFetch(`messages?${params}`);
         if (data.messages) allMsgIds.push(...data.messages.map(m => m.id));
         pageToken = data.nextPageToken || null;
-      } while (pageToken && allMsgIds.length < 500);
+        pageNum++;
+        if (allMsgIds.length > 500) {
+          updateLoadingStep(`Discovering emails... ${allMsgIds.length.toLocaleString()} found`);
+        }
+      } while (pageToken && allMsgIds.length < maxEmails);
 
       // Filter to only new (uncached) message IDs
       const newMsgIds = hasCachedData ? allMsgIds.filter(id => !cachedIds.has(id)) : allMsgIds;
-      // Also detect removed emails (trashed/archived since last cache)
       const currentIdSet = new Set(allMsgIds);
 
       if (hasCachedData && newMsgIds.length === 0) {
-        // No new emails — use cache directly, filter out removed
         allEmails = cached.emails.filter(e => currentIdSet.has(e.id));
         updateLoadingStep('No new emails. Using cached data.');
-        setCachedEmails(allEmails);
+        await setCachedEmails(allEmails);
         renderDashboard(allEmails);
         return;
       }
 
+      const totalToFetch = hasCachedData ? newMsgIds.length : allMsgIds.length;
       if (hasCachedData) {
-        updateLoadingStep(`Found ${newMsgIds.length} new email${newMsgIds.length !== 1 ? 's' : ''}. Reading...`);
+        updateLoadingStep(`Found ${totalToFetch.toLocaleString()} new email${totalToFetch !== 1 ? 's' : ''}. Reading...`);
       } else {
-        updateLoadingStep(`Found ${allMsgIds.length} emails. Reading details...`);
+        updateLoadingStep(`Found ${totalToFetch.toLocaleString()} emails. Reading details...`);
       }
 
-      // Fetch only new messages
+      // Fetch only new messages in batches of 20
       const idsToFetch = hasCachedData ? newMsgIds : allMsgIds;
       const newEmails = [];
       for (let i = 0; i < idsToFetch.length; i += 20) {
@@ -3456,16 +3498,38 @@
           batch.map(id => gmailFetch(`messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Reply-To&metadataHeaders=List-Unsubscribe&metadataHeaders=List-Id&metadataHeaders=Precedence&metadataHeaders=Content-Type&metadataHeaders=Auto-Submitted&metadataHeaders=X-Mailer&metadataHeaders=X-Auto-Response-Suppress&metadataHeaders=Feedback-ID&metadataHeaders=X-Priority&metadataHeaders=Importance`))
         );
         for (const msg of details) newEmails.push(parseMessage(msg));
-        updateLoadingStep(`Reading emails... ${Math.min(i + 20, idsToFetch.length)} of ${idsToFetch.length}`);
+        const done = Math.min(i + 20, idsToFetch.length);
+        updateLoadingStep(`Reading emails... ${done.toLocaleString()} of ${idsToFetch.length.toLocaleString()}`);
       }
 
-      // Classify only the new emails
+      // Classify: rules for all, then AI only for recent emails
       updateLoadingStep('Sorting by importance...');
       filterNoise(newEmails);
-      await aiAnalyze(newEmails);
+
+      // Split: recent emails (<=30 days) get AI, older get rules-only
+      const aiCutoff = new Date();
+      aiCutoff.setDate(aiCutoff.getDate() - AI_CLASSIFY_DAYS);
+      const recentEmails = newEmails.filter(e => e.date >= aiCutoff);
+      const olderEmails = newEmails.filter(e => e.date < aiCutoff);
+
+      // Rules-only for older emails (no API calls)
+      for (const e of olderEmails) {
+        if (!e.ruleClassified) {
+          e.category = e.category || 'read';
+          e.priority = e.priority || 3;
+          e.summary = e.snippet.substring(0, 120);
+          e.topic = guessTopicFromRules(e);
+          e.ruleClassified = true;
+        }
+      }
+
+      // AI classify only recent emails
+      if (recentEmails.length > 0) {
+        updateLoadingStep(`Analyzing ${recentEmails.length.toLocaleString()} recent emails...`);
+        await aiAnalyze(recentEmails);
+      }
 
       if (hasCachedData) {
-        // Merge: cached (minus removed) + newly classified
         const keptCached = cached.emails.filter(e => currentIdSet.has(e.id));
         allEmails = [...keptCached, ...newEmails];
         allEmails.sort((a, b) => b.date - a.date);
@@ -3473,8 +3537,7 @@
         allEmails = newEmails;
       }
 
-      // Save to cache
-      setCachedEmails(allEmails);
+      await setCachedEmails(allEmails);
       renderDashboard(allEmails);
     }
 
@@ -3876,8 +3939,9 @@ ${emailList}` }]
       const skip = emails.filter(e => e.category === 'skip').sort((a,b) => b.date - a.date);
 
       // Summary
-      const rl = currentTimeRange === 1 ? 'since yesterday' : currentTimeRange === 7 ? 'this week' : 'this month';
-      let parts = [`You received ${emails.length} emails ${rl}.`];
+      const rangeLabels = { 1: 'since yesterday', 7: 'this week', 30: 'this month', 90: 'in 3 months', 180: 'in 6 months', 365: 'this year' };
+      const rl = rangeLabels[currentTimeRange] || `in ${currentTimeRange} days`;
+      let parts = [`You received ${emails.length.toLocaleString()} emails ${rl}.`];
       if (reply.length) parts.push(`${reply.length} need${reply.length===1?'s':''} your reply.`);
       if (read.length) parts.push(`${read.length} worth reading.`);
       if (skip.length + fyi.length) parts.push(`${skip.length + fyi.length} you can skip.`);
@@ -4306,16 +4370,17 @@ ${emailList}` }]
       const subtitleEl = document.getElementById('briefing-subtitle');
 
       // Set title based on time range
-      if (currentTimeRange === 1) {
-        titleEl.textContent = "Today's Briefing";
-        subtitleEl.textContent = 'What happened in your inbox today';
-      } else if (currentTimeRange === 7) {
-        titleEl.textContent = 'Weekly Briefing';
-        subtitleEl.textContent = 'Your inbox this week at a glance';
-      } else {
-        titleEl.textContent = 'Monthly Briefing';
-        subtitleEl.textContent = 'The big picture from your inbox this month';
-      }
+      const rangeTitles = {
+        1: ["Today's Briefing", 'What happened in your inbox today'],
+        7: ['Weekly Briefing', 'Your inbox this week at a glance'],
+        30: ['Monthly Briefing', 'The big picture from your inbox this month'],
+        90: ['Quarterly Overview', 'Three months of inbox activity'],
+        180: ['Six-Month Overview', 'Half a year of inbox patterns'],
+        365: ['Annual Overview', 'A full year of your inbox'],
+      };
+      const [rTitle, rSub] = rangeTitles[currentTimeRange] || ['Briefing', 'Your inbox overview'];
+      titleEl.textContent = rTitle;
+      subtitleEl.textContent = rSub;
 
       if (!emails.length) {
         body.innerHTML = '<p>No emails in this time period.</p>';
@@ -4334,17 +4399,28 @@ ${emailList}` }]
         return;
       }
 
-      // Separate important emails (AI-classified) from noise (rule-classified)
-      const reply = emails.filter(e => e.category === 'reply');
-      const read = emails.filter(e => e.category === 'read');
-      const fyi = emails.filter(e => e.category === 'fyi');
-      const skip = emails.filter(e => e.category === 'skip');
-      // Include ALL reply + read emails — even noreply ones may be worth summarizing
-      // (e.g., "Your API access is turned off" is important to know about)
+      // For wide ranges (>30 days), only brief on recent AI-classified emails
+      // Older emails were rules-only — not worth narratively briefing
+      const aiCutoff = new Date();
+      aiCutoff.setDate(aiCutoff.getDate() - AI_CLASSIFY_DAYS);
+      const briefingPool = currentTimeRange > 30
+        ? emails.filter(e => e.date >= aiCutoff)
+        : emails;
+
+      const reply = briefingPool.filter(e => e.category === 'reply');
+      const read = briefingPool.filter(e => e.category === 'read');
+      const fyi = briefingPool.filter(e => e.category === 'fyi');
+      const skip = briefingPool.filter(e => e.category === 'skip');
       const important = [...reply, ...read];
 
-      const rl = currentTimeRange === 1 ? 'today' : currentTimeRange === 7 ? 'this week' : 'this month';
+      const rlMap = { 1: 'today', 7: 'this week', 30: 'this month', 90: 'this quarter', 180: 'in 6 months', 365: 'this year' };
+      const rl = rlMap[currentTimeRange] || `in ${currentTimeRange} days`;
       const noiseCount = fyi.length + skip.length;
+
+      // For wide ranges, add context about what the briefing covers
+      const wideRangeNote = currentTimeRange > 30
+        ? `<div style="background:var(--accent-blue-dim);border:1px solid var(--accent-blue-border);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:16px;font-size:0.85em;color:var(--text-secondary)">Briefing covers the last 30 days (AI-analyzed). The charts and visualizations below reflect all ${emails.length.toLocaleString()} emails ${rl}.</div>`
+        : '';
 
       // Not enough substance for a written briefing
       if (important.length === 0) {
@@ -4369,9 +4445,8 @@ ${emailList}` }]
         return;
       }
 
-      // Large inbox warning for monthly view
       if (important.length > 100) {
-        body.innerHTML = `<div class="briefing-loading">Reading your ${important.length} important emails &mdash; this may take a moment for a monthly view...</div>`;
+        body.innerHTML = `<div class="briefing-loading">Reading your ${important.length.toLocaleString()} important emails &mdash; this may take a moment...</div>`;
       } else {
         body.innerHTML = `<div class="briefing-loading">Reading ${important.length} important emails...</div>`;
       }
@@ -4454,8 +4529,9 @@ ${emailList}` }]
         emailContent = emailContent.substring(0, 80000) + '\n\n[Content truncated for length]';
       }
 
-      const rangeLabel = currentTimeRange === 1 ? 'today' : currentTimeRange === 7 ? 'this week' : 'this month';
-      const rangeType = currentTimeRange === 1 ? 'daily' : currentTimeRange === 7 ? 'weekly' : 'monthly';
+      const rangeLabel = rlMap[currentTimeRange] || `in ${currentTimeRange} days`;
+      const rangeTypes = { 1: 'daily', 7: 'weekly', 30: 'monthly', 90: 'quarterly', 180: 'six-month', 365: 'annual' };
+      const rangeType = rangeTypes[currentTimeRange] || 'periodic';
 
       try {
         const promptContent = `You are writing a ${rangeType} email briefing for a CEO. Your job is to READ the emails below and tell him what people said — in your own words, as flowing prose.
@@ -4552,7 +4628,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           </div>` + html;
         }
 
-        body.innerHTML = html;
+        body.innerHTML = wideRangeNote + html;
       } catch (err) {
         console.error('Briefing error:', err);
         const errMsg = (err.message || '').toLowerCase();
@@ -5534,7 +5610,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     }
 
     async function refreshDashboard() {
-      const hasCached = getCachedEmails() !== null;
+      const hasCached = (await getCachedEmails()) !== null;
       if (hasCached) {
         // Show dashboard with a subtle "refreshing" indicator instead of full loading screen
         const updatedEl = document.getElementById('last-updated');
