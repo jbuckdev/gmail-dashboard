@@ -2366,6 +2366,14 @@
       border-color: var(--accent-coral-border);
     }
     .email-actions-btn.btn-delete-all:hover { background: var(--accent-coral-dim); }
+    .email-actions-btn.btn-unsub {
+      color: var(--accent-amber);
+      border-color: var(--accent-amber-border);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    .email-actions-btn.btn-unsub:hover { background: var(--accent-amber-dim); opacity: 1; }
     .email-actions-btn.btn-delete-selected {
       background: var(--accent-coral);
       border-color: var(--accent-coral);
@@ -5819,13 +5827,31 @@ Browser: ${diagnostic.browser}
       cancelBtn.className = 'email-actions-btn btn-cancel-select';
       cancelBtn.textContent = 'Cancel';
 
+      // Unsubscribe nudge — show if any emails in this grouping have List-Unsubscribe
+      const ids = getEmailIds();
+      const groupEmails = allEmails.filter(e => ids.includes(e.id));
+      const unsubEmail = groupEmails.find(e => e.hasUnsubscribe || e.hasListId);
+
+      const unsubBtn = document.createElement('a');
+      unsubBtn.className = 'email-actions-btn btn-unsub';
+      unsubBtn.textContent = 'Unsubscribe';
+      unsubBtn.title = 'Open in Gmail to unsubscribe';
+      if (unsubEmail) {
+        unsubBtn.href = 'https://mail.google.com/mail/u/0/#inbox/' + unsubEmail.id;
+        unsubBtn.target = '_blank';
+        unsubBtn.rel = 'noopener';
+        unsubBtn.style.display = '';
+      } else {
+        unsubBtn.style.display = 'none';
+      }
+
       const spacer = document.createElement('span');
       spacer.className = 'email-actions-spacer';
 
       const countEl = document.createElement('span');
       countEl.className = 'email-actions-count';
 
-      bar.append(deleteAllBtn, selectBtn, deleteSelectedBtn, cancelBtn, spacer, countEl);
+      bar.append(deleteAllBtn, selectBtn, unsubBtn, deleteSelectedBtn, cancelBtn, spacer, countEl);
 
       let selecting = false;
       const localSelected = new Set();
