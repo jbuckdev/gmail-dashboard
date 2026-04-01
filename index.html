@@ -176,8 +176,8 @@
     }
     .theme-ready .hero, .theme-ready .viz-card, .theme-ready .briefing-card,
     .theme-ready .email-sections, .theme-ready .topbar,
-    .theme-ready button, .theme-ready input, .theme-ready .cleaning-banner,
-    .theme-ready .clean-action-bar, .theme-ready .email-item, .theme-ready .slide-over {
+    .theme-ready button, .theme-ready input,
+    .theme-ready .email-item, .theme-ready .slide-over {
       transition: background-color 0.3s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.3s ease;
     }
 
@@ -3050,8 +3050,7 @@
     let currentTimeRange = 1;
     let allEmails = [];
     let hasModifyScope = false;
-    let cleaningMode = false;
-    let selectedEmails = new Set(); // set of email IDs
+    let selectedEmails = new Set(); // legacy — kept for undo compatibility
     let activeFilter = null; // for stat card filtering
 
     /* ============================================
@@ -5307,33 +5306,6 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
       container.insertBefore(actionBar, container.firstChild);
     }
 
-    function selectAllInDrill() {
-      const items = document.querySelectorAll('#drill-panel-emails .email-item');
-      items.forEach(item => setEmailSelected(item, true));
-    }
-
-    function rerenderDrillIfOpen() {
-      if (drillState.level === 0) return;
-      // Re-trigger current drill to re-render emails in correct mode
-      if (drillState.level === 2 && drillState.subTopic) {
-        drillIntoSubTopic(drillState.subTopic);
-      } else if (drillState.level === 1 && drillState.topic) {
-        // Could be a topic, sender, or category drill
-        const t = drillState.topic;
-        if (t.startsWith('From: ')) {
-          const email = allEmails.find(e => `From: ${e.fromName}` === t);
-          if (email) drillIntoSender(email.from);
-        } else {
-          const catNames = { 'Needs Reply': 'reply', 'Worth Reading': 'read', 'Quick Scan': 'fyi', 'Safe to Skip': 'skip' };
-          if (catNames[t]) {
-            drillIntoCategory(catNames[t]);
-          } else {
-            drillIntoTopic(t);
-          }
-        }
-      }
-    }
-
     function filterByCategory(cat) {
       drillDown('category', cat);
     }
@@ -5738,264 +5710,6 @@ Browser: ${diagnostic.browser}
        ============================================ */
     let lastUndoData = null;
     let undoTimeout = null;
-    let isDragging = false;
-    let dragSelecting = true; // true = selecting, false = deselecting
-
-    async function toggleCleaningMode() {
-      if (!cleaningMode) {
-        // Entering cleaning mode — check if we need modify scope
-        if (!hasModifyScope) {
-          // Request upgraded scope
-          const modifyClient = google.accounts.oauth2.initTokenClient({
-            client_id: GOOGLE_CLIENT_ID,
-            scope: GMAIL_SCOPES_MODIFY,
-            callback: (response) => {
-              if (response.error) {
-                alert('Could not get permission to modify emails. Cleaning mode requires this.');
-                return;
-              }
-              accessToken = response.access_token;
-              tokenTimestamp = Date.now();
-              hasModifyScope = true;
-              activateCleaningMode();
-            },
-          });
-          modifyClient.requestAccessToken();
-          return;
-        }
-        activateCleaningMode();
-      } else {
-        deactivateCleaningMode();
-      }
-    }
-
-    function activateCleaningMode() {
-      cleaningMode = true;
-      selectedEmails.clear();
-      document.body.classList.add('cleaning-mode');
-      document.getElementById('cleaning-banner').classList.add('active');
-      document.getElementById('clean-btn').classList.add('active-clean');
-      document.getElementById('clean-btn').textContent = 'Exit Clean';
-      updateActionBar();
-      addCleaningListeners();
-      injectSelectAllRows();
-      rerenderDrillIfOpen();
-    }
-
-    function deactivateCleaningMode() {
-      cleaningMode = false;
-      selectedEmails.clear();
-      document.body.classList.remove('cleaning-mode');
-      document.getElementById('cleaning-banner').classList.remove('active');
-      document.getElementById('clean-btn').classList.remove('active-clean');
-      document.getElementById('clean-btn').textContent = 'Clean';
-      document.getElementById('clean-action-bar').classList.remove('visible');
-      removeCleaningListeners();
-      // Remove selection highlights
-      document.querySelectorAll('.email-item.selected').forEach(el => el.classList.remove('selected'));
-      // Remove select-all rows
-      document.querySelectorAll('.select-all-row').forEach(el => el.remove());
-      rerenderDrillIfOpen();
-    }
-
-    function addCleaningListeners() {
-      // Intercept all clicks on email items to prevent navigation
-      document.addEventListener('click', onCleanClick, true); // capture phase
-      document.addEventListener('mousedown', onCleanMouseDown);
-      document.addEventListener('mousemove', onCleanMouseMove);
-      document.addEventListener('mouseup', onCleanMouseUp);
-    }
-
-    function removeCleaningListeners() {
-      document.removeEventListener('click', onCleanClick, true);
-      document.removeEventListener('mousedown', onCleanMouseDown);
-      document.removeEventListener('mousemove', onCleanMouseMove);
-      document.removeEventListener('mouseup', onCleanMouseUp);
-    }
-
-    // Capture-phase click handler — prevents anchor navigation in cleaning mode
-    function onCleanClick(e) {
-      if (!cleaningMode) return;
-      const item = e.target.closest('.email-item');
-      if (item) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }
-
-    let dragMoved = false; // track if mouse moved during drag
-
-    function onCleanMouseDown(e) {
-      const item = e.target.closest('.email-item');
-      if (!item || !cleaningMode) return;
-      e.preventDefault();
-      isDragging = true;
-      dragMoved = false;
-      dragSelecting = !item.classList.contains('selected');
-      // Don't toggle yet — wait for mouseup to distinguish click from drag
-      item._cleanTarget = true;
-    }
-
-    function onCleanMouseMove(e) {
-      if (!isDragging || !cleaningMode) return;
-      dragMoved = true;
-
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      const item = el ? el.closest('.email-item') : null;
-      if (item) {
-        // During drag, also select/deselect the originating item if not done yet
-        const origin = document.querySelector('.email-item[data-clean-origin]');
-        if (!origin) {
-          const origItem = document.querySelector('._cleanTarget') ||
-            document.querySelector('.email-item._cleanTarget');
-          // Select the first item on first move
-          document.querySelectorAll('.email-item').forEach(el => {
-            if (el._cleanTarget) {
-              setEmailSelected(el, dragSelecting);
-              el._cleanTarget = false;
-            }
-          });
-        }
-
-        if (dragSelecting) {
-          setEmailSelected(item, true);
-        } else {
-          setEmailSelected(item, false);
-        }
-      }
-
-      // Auto-scroll when near edges
-      const threshold = 60;
-      if (e.clientY < threshold) {
-        window.scrollBy(0, -10);
-      } else if (e.clientY > window.innerHeight - threshold) {
-        window.scrollBy(0, 10);
-      }
-    }
-
-    function onCleanMouseUp(e) {
-      if (!cleaningMode) return;
-
-      // If no drag happened, this was a single click — toggle the item
-      if (isDragging && !dragMoved) {
-        const item = e.target.closest('.email-item');
-        if (item) {
-          setEmailSelected(item, dragSelecting);
-        }
-      }
-
-      // Clean up
-      document.querySelectorAll('.email-item').forEach(el => { el._cleanTarget = false; });
-      isDragging = false;
-      dragMoved = false;
-    }
-
-    function setEmailSelected(itemEl, selected) {
-      const link = itemEl.getAttribute('href') || '';
-      const idMatch = link.match(/#inbox\/(.+)$/);
-      if (!idMatch) return;
-      const emailId = idMatch[1];
-
-      if (selected) {
-        selectedEmails.add(emailId);
-        itemEl.classList.add('selected');
-      } else {
-        selectedEmails.delete(emailId);
-        itemEl.classList.remove('selected');
-      }
-      updateActionBar();
-    }
-
-    function updateActionBar() {
-      const bar = document.getElementById('clean-action-bar');
-      const count = selectedEmails.size;
-      if (cleaningMode) {
-        bar.classList.add('visible');
-        document.getElementById('clean-count').textContent = count > 0 ? `${count} selected` : 'Select emails or use filters';
-      } else {
-        bar.classList.remove('visible');
-      }
-    }
-
-    function clearSelection() {
-      selectedEmails.clear();
-      document.querySelectorAll('.email-item.selected').forEach(el => el.classList.remove('selected'));
-      // Clear active filter highlights
-      document.querySelectorAll('.clean-filter-btn.active-filter').forEach(el => el.classList.remove('active-filter'));
-      updateActionBar();
-    }
-
-    function smartSelect(type) {
-      // Toggle behavior: if this filter is already active, clear it
-      const btn = document.getElementById(`filter-${type}`);
-      if (btn && btn.classList.contains('active-filter')) {
-        clearSelection();
-        return;
-      }
-
-      // Clear current selection first
-      selectedEmails.clear();
-      document.querySelectorAll('.email-item.selected').forEach(el => el.classList.remove('selected'));
-      document.querySelectorAll('.clean-filter-btn.active-filter').forEach(el => el.classList.remove('active-filter'));
-
-      // Find matching emails from allEmails
-      const matchingIds = new Set();
-      for (const e of allEmails) {
-        let match = false;
-        if (type === 'newsletters') {
-          match = e.hasUnsubscribe || e.hasListId || e.isBulk || e.hasEspHeaders;
-        } else if (type === 'promotions') {
-          match = e.gmailCategory === 'CATEGORY_PROMOTIONS';
-        } else if (type === 'social') {
-          match = e.gmailCategory === 'CATEGORY_SOCIAL';
-        }
-        if (match) matchingIds.add(e.id);
-      }
-
-      if (matchingIds.size === 0) {
-        showToast(`No ${type} found in current view`);
-        return;
-      }
-
-      // Select matching .email-item elements in the DOM
-      document.querySelectorAll('.email-item').forEach(el => {
-        const href = el.getAttribute('href') || '';
-        const idMatch = href.match(/#inbox\/(.+)/);
-        if (idMatch && matchingIds.has(idMatch[1])) {
-          setEmailSelected(el, true);
-        }
-      });
-
-      if (btn) btn.classList.add('active-filter');
-      updateActionBar();
-    }
-
-    function injectSelectAllRows() {
-      // Add Select All row to FYI and Skip sections
-      const sections = [
-        { bodyId: 'fyi-emails', label: 'FYI' },
-        { bodyId: 'skip-emails', label: 'Safe to Skip' },
-      ];
-      for (const sec of sections) {
-        const body = document.getElementById(sec.bodyId);
-        if (!body) continue;
-        const existing = body.querySelector('.select-all-row');
-        if (existing) continue;
-        const items = body.querySelectorAll('.email-item');
-        if (!items.length) continue;
-        const row = document.createElement('div');
-        row.className = 'select-all-row';
-        row.innerHTML = `<span class="selected-badge" data-section="${sec.bodyId}"></span><button class="select-all-btn" onclick="selectAllInSection('${sec.bodyId}')">Select all ${items.length}</button>`;
-        body.insertBefore(row, body.firstChild);
-      }
-    }
-
-    function selectAllInSection(bodyId) {
-      const body = document.getElementById(bodyId);
-      if (!body) return;
-      const items = body.querySelectorAll('.email-item');
-      items.forEach(item => setEmailSelected(item, true));
-    }
 
     /* ============================================
        INLINE EMAIL ACTION BAR SYSTEM
@@ -6224,110 +5938,6 @@ Browser: ${diagnostic.browser}
 
       panel.classList.add('open');
       document.getElementById('slide-over-backdrop').classList.add('open');
-    }
-
-    /* ============================================
-       CLEANING ACTIONS (Gmail API) — legacy, kept for undo
-       ============================================ */
-    async function cleanAction(action) {
-      const count = selectedEmails.size;
-      if (!count) return;
-
-      // Confirmation for large batches
-      if (count >= 10) {
-        const confirmed = await showConfirm(
-          action === 'trash' ? 'Move to Trash?' : 'Archive?',
-          `${count} email${count !== 1 ? 's' : ''} will be ${action === 'trash' ? 'moved to Trash (recoverable for 30 days)' : 'archived (removed from inbox, still searchable)'}.`,
-          count >= 50
-        );
-        if (!confirmed) return;
-      }
-
-      const ids = [...selectedEmails];
-      const actionLabel = action === 'trash' ? 'trashed' : 'archived';
-
-      try {
-        let failCount = 0;
-
-        // Batch modify in groups of 50 (Gmail API limit)
-        for (let i = 0; i < ids.length; i += 50) {
-          const batch = ids.slice(i, i + 50);
-          if (action === 'trash') {
-            // Trash each message — check responses
-            const results = await Promise.all(batch.map(id =>
-              fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${accessToken}` }
-              }).then(r => {
-                if (!r.ok) { console.error(`Trash failed for ${id}: ${r.status}`); failCount++; }
-                return r;
-              }).catch(err => { console.error(`Trash error for ${id}:`, err); failCount++; return null; })
-            ));
-
-            // If ALL failed, likely a scope issue
-            if (failCount === batch.length) {
-              throw new Error(results[0] ? `API returned ${results[0].status}` : 'All requests failed');
-            }
-          } else {
-            // Archive — remove INBOX label
-            const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                ids: batch,
-                removeLabelIds: ['INBOX']
-              })
-            });
-            if (!resp.ok) {
-              throw new Error(`Archive failed: ${resp.status}`);
-            }
-          }
-        }
-
-        // Store undo data
-        lastUndoData = { action, ids };
-
-        // Remove from UI with animation
-        for (const id of ids) {
-          const el = document.querySelector(`.email-item[href*="${id}"], .email-item[onclick*="${id}"]`);
-          if (el) {
-            el.style.transition = 'opacity 0.3s, max-height 0.3s, padding 0.3s, margin 0.3s';
-            el.style.opacity = '0';
-            el.style.maxHeight = '0';
-            el.style.padding = '0 24px';
-            el.style.overflow = 'hidden';
-            setTimeout(() => el.remove(), 300);
-          }
-        }
-
-        // Remove from allEmails
-        allEmails = allEmails.filter(e => !ids.includes(e.id));
-
-        // Clear selection
-        selectedEmails.clear();
-        updateActionBar();
-
-        // Show toast with undo
-        showToast(`${ids.length} email${ids.length !== 1 ? 's' : ''} ${actionLabel}`, true);
-
-        // Update counts
-        setTimeout(() => {
-          updateSectionCounts();
-        }, 350);
-
-      } catch (err) {
-        console.error('Clean action error:', err);
-        const errDetail = err.message || '';
-        if (errDetail.includes('403') || errDetail.includes('401')) {
-          showToast('Permission issue — try exiting Clean mode and clicking Clean again to re-authorize.', false);
-          hasModifyScope = false; // force re-auth next time
-        } else {
-          showToast(`Could not ${action} emails. ${errDetail || 'Check your connection.'}`, false);
-        }
-      }
     }
 
     async function undoClean() {
@@ -6659,7 +6269,7 @@ Browser: ${diagnostic.browser}
         // Don't expand if an overlay is already open
         if (document.getElementById('expanded-overlay')) return;
         // Don't expand during cleaning mode
-        if (document.body.classList.contains('cleaning-active')) return;
+        // (cleaning-active class no longer used — kept check harmless)
         // Don't expand if click was on an interactive element or inside one
         const interactive = e.target.closest('a, button, input, select, textarea, .email-item, .section-header, .section-body, .bubble, .bubble-map, .bubble-map-viewport, .slide-over, .action-item, .action-item-row, .sender-row, .cat-row, .vol-bar-group, .bubble-back-btn, .email-actions');
         if (interactive) return;
