@@ -1097,6 +1097,65 @@
       flex: 1;
       overflow-y: auto;
       padding: 24px 28px;
+      position: relative;
+    }
+
+    /* In-overlay sender sidebar */
+    .overlay-sender-sidebar {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 380px;
+      max-width: 50%;
+      height: 100%;
+      background: var(--bg-deep);
+      border-left: 1px solid var(--border);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      animation: sidebarSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes sidebarSlideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .overlay-sender-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .overlay-sender-title {
+      font-family: var(--font-ui);
+      font-weight: 600;
+      font-size: 0.95em;
+    }
+    .overlay-sender-count {
+      font-family: var(--font-mono);
+      font-size: 0.78em;
+      color: var(--text-muted);
+    }
+    .overlay-sender-close {
+      width: 28px;
+      height: 28px;
+      min-height: 28px;
+      padding: 0;
+      font-size: 1em;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .overlay-sender-close:hover { color: var(--text-primary); }
+    .overlay-sender-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+    .overlay-sender-body .email-item {
+      padding: 12px 20px;
     }
 
     /* Expanded Briefing — two-column reading layout */
@@ -5900,42 +5959,75 @@ Browser: ${diagnostic.browser}
       setTimeout(updateSectionCounts, 350);
     }
 
-    // Open a slide-over showing emails from a specific sender, with action bar
+    // Open a sidebar showing emails from a specific sender, with action bar
+    // If inside an expanded overlay, renders within it. Otherwise uses main slide-over.
     function openSenderEmails(senderName) {
       const senderEmails = allEmails.filter(e => (e.fromName || e.from) === senderName);
       if (!senderEmails.length) return;
       const sorted = senderEmails.sort((a, b) => b.date - a.date);
+      const emailIds = sorted.map(e => e.id);
 
+      // Build email list HTML
+      function buildEmailList(container) {
+        const actionBar = createEmailActionBar(container, () => emailIds);
+        container.appendChild(actionBar);
+        sorted.forEach(e => {
+          const url = 'https://mail.google.com/mail/u/0/#inbox/' + e.id;
+          const item = document.createElement('a');
+          item.href = url;
+          item.target = '_blank';
+          item.rel = 'noopener';
+          item.className = 'email-item';
+          item.innerHTML = '<div class="email-top"><span class="email-sender">' + esc(e.subject) + '</span>' +
+            '<span class="email-date">' + fmtDate(e.date) + '</span></div>' +
+            (e.summary ? '<div class="email-summary">' + esc(e.summary) + '</div>' : '') +
+            '<div class="email-subject" style="font-size:0.78em;color:var(--text-muted)">' + esc(e.topic || 'General') + '</div>';
+          container.appendChild(item);
+        });
+      }
+
+      // Check if an expanded overlay is open — render sidebar inside it
+      const overlay = document.getElementById('expanded-overlay');
+      if (overlay) {
+        // Remove any existing sender sidebar
+        const existing = overlay.querySelector('.overlay-sender-sidebar');
+        if (existing) existing.remove();
+
+        const panelBody = overlay.querySelector('.expanded-panel-body');
+        if (!panelBody) return;
+
+        const sidebar = document.createElement('div');
+        sidebar.className = 'overlay-sender-sidebar';
+
+        const header = document.createElement('div');
+        header.className = 'overlay-sender-header';
+        header.innerHTML = '<div><div class="overlay-sender-title">' + esc(senderName) + '</div>' +
+          '<div class="overlay-sender-count">' + sorted.length + ' email' + (sorted.length !== 1 ? 's' : '') + '</div></div>';
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'overlay-sender-close';
+        closeBtn.innerHTML = '\u2715';
+        closeBtn.onclick = function() { sidebar.remove(); };
+        header.appendChild(closeBtn);
+
+        const body = document.createElement('div');
+        body.className = 'overlay-sender-body';
+        buildEmailList(body);
+
+        sidebar.appendChild(header);
+        sidebar.appendChild(body);
+        panelBody.appendChild(sidebar);
+        return;
+      }
+
+      // Fallback: use main page slide-over
       const panel = document.getElementById('slide-over');
       const headerEl = panel.querySelector('.slide-over-breadcrumb') || document.querySelector('.slide-over-breadcrumb');
       const bodyEl = document.getElementById('slide-over-body');
-
-      if (headerEl) headerEl.textContent = esc(senderName) + ' — ' + sorted.length + ' emails';
-
-      // Build email list with action bar
-      const listContainer = document.createElement('div');
-      listContainer.className = 'sender-email-list';
-
-      const actionBar = createEmailActionBar(listContainer, () => sorted.map(e => e.id));
-      listContainer.appendChild(actionBar);
-
-      sorted.forEach(e => {
-        const url = 'https://mail.google.com/mail/u/0/#inbox/' + e.id;
-        const item = document.createElement('a');
-        item.href = url;
-        item.target = '_blank';
-        item.rel = 'noopener';
-        item.className = 'email-item';
-        item.innerHTML = '<div class="email-top"><span class="email-sender">' + esc(e.subject) + '</span>' +
-          '<span class="email-date">' + fmtDate(e.date) + '</span></div>' +
-          (e.summary ? '<div class="email-summary">' + esc(e.summary) + '</div>' : '') +
-          '<div class="email-subject" style="font-size:0.78em;color:var(--text-muted)">' + esc(e.topic || 'General') + '</div>';
-        listContainer.appendChild(item);
-      });
-
+      if (headerEl) headerEl.textContent = esc(senderName) + ' \u2014 ' + sorted.length + ' emails';
       bodyEl.innerHTML = '';
+      const listContainer = document.createElement('div');
+      buildEmailList(listContainer);
       bodyEl.appendChild(listContainer);
-
       panel.classList.add('open');
       document.getElementById('slide-over-backdrop').classList.add('open');
     }
