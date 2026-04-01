@@ -3404,16 +3404,20 @@
     /* ============================================
        GMAIL API
        ============================================ */
-    async function gmailFetch(endpoint) {
+    async function gmailFetch(endpoint, retries = 0) {
       let resp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${endpoint}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (resp.status === 401) {
-        // Token expired mid-request — try silent refresh once
         await ensureValidToken();
         resp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${endpoint}`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
+      }
+      if (resp.status === 429 && retries < 2) {
+        // Rate limited — exponential backoff
+        await new Promise(r => setTimeout(r, (retries + 1) * 2000));
+        return gmailFetch(endpoint, retries + 1);
       }
       if (!resp.ok) {
         if (resp.status === 401) throw new Error('AUTH_EXPIRED');
@@ -3489,17 +3493,49 @@
         updateLoadingStep(`Found ${totalToFetch.toLocaleString()} emails. Reading details...`);
       }
 
-      // Fetch only new messages in batches of 20
+      // Fetch only new messages — batch size adapts to avoid Gmail rate limits
       const idsToFetch = hasCachedData ? newMsgIds : allMsgIds;
       const newEmails = [];
-      for (let i = 0; i < idsToFetch.length; i += 20) {
-        const batch = idsToFetch.slice(i, i + 20);
+      const batchSize = idsToFetch.length > 1000 ? 10 : 20; // smaller batches for large fetches
+      const metaFields = 'format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Reply-To&metadataHeaders=List-Unsubscribe&metadataHeaders=List-Id&metadataHeaders=Precedence&metadataHeaders=Content-Type&metadataHeaders=Auto-Submitted&metadataHeaders=X-Mailer&metadataHeaders=X-Auto-Response-Suppress&metadataHeaders=Feedback-ID&metadataHeaders=X-Priority&metadataHeaders=Importance';
+      let fetchErrors = 0;
+      for (let i = 0; i < idsToFetch.length; i += batchSize) {
+        const batch = idsToFetch.slice(i, i + batchSize);
         const details = await Promise.all(
-          batch.map(id => gmailFetch(`messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Reply-To&metadataHeaders=List-Unsubscribe&metadataHeaders=List-Id&metadataHeaders=Precedence&metadataHeaders=Content-Type&metadataHeaders=Auto-Submitted&metadataHeaders=X-Mailer&metadataHeaders=X-Auto-Response-Suppress&metadataHeaders=Feedback-ID&metadataHeaders=X-Priority&metadataHeaders=Importance`))
+          batch.map(id => gmailFetch(`messages/${id}?${metaFields}`).catch(err => {
+            // 429 = rate limited — back off and retry once
+            if (err.message && err.message.includes('429')) return '__RATE_LIMITED__';
+            fetchErrors++;
+            return null;
+          }))
         );
-        for (const msg of details) newEmails.push(parseMessage(msg));
-        const done = Math.min(i + 20, idsToFetch.length);
+        // Handle rate limiting: pause and retry failed ones
+        const rateLimited = [];
+        for (let j = 0; j < details.length; j++) {
+          if (details[j] === '__RATE_LIMITED__') {
+            rateLimited.push(batch[j]);
+          } else if (details[j]) {
+            newEmails.push(parseMessage(details[j]));
+          }
+        }
+        if (rateLimited.length > 0) {
+          // Back off, then retry
+          updateLoadingStep(`Rate limited — pausing briefly...`);
+          await new Promise(r => setTimeout(r, 2000));
+          const retries = await Promise.all(
+            rateLimited.map(id => gmailFetch(`messages/${id}?${metaFields}`).catch(() => { fetchErrors++; return null; }))
+          );
+          for (const msg of retries) { if (msg) newEmails.push(parseMessage(msg)); }
+        }
+        const done = Math.min(i + batchSize, idsToFetch.length);
         updateLoadingStep(`Reading emails... ${done.toLocaleString()} of ${idsToFetch.length.toLocaleString()}`);
+        // Small pause between batches for large fetches to avoid rate limits
+        if (idsToFetch.length > 500 && i + batchSize < idsToFetch.length) {
+          await new Promise(r => setTimeout(r, 100));
+        }
+      }
+      if (fetchErrors > 0) {
+        console.warn(`${fetchErrors} emails could not be fetched (skipped)`);
       }
 
       // Classify: rules for all, then AI only for recent emails
@@ -5626,9 +5662,14 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           showScreen('dashboard');
           document.getElementById('summary-text').textContent = 'Your Google sign-in expired. Please reload the page.';
         } else {
-          console.error(err);
+          console.error('Dashboard refresh error:', err);
           showScreen('dashboard');
-          document.getElementById('summary-text').textContent = 'Could not refresh. Check your internet connection.';
+          const msg = err.message || '';
+          if (msg.includes('429')) {
+            document.getElementById('summary-text').textContent = 'Gmail rate limit hit. Wait a minute and try again, or use a shorter time range.';
+          } else {
+            document.getElementById('summary-text').textContent = 'Could not refresh. Check your internet connection.';
+          }
         }
       }
     }
