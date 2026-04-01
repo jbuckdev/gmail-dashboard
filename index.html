@@ -2279,205 +2279,89 @@
     }
 
     /* ============================================
-       CLEANING MODE
+       EMAIL LIST ACTION BAR — inline per grouping
        ============================================ */
-    .cleaning-banner {
-      display: none;
-      background: linear-gradient(135deg, var(--accent-coral-dim), var(--accent-coral-subtle));
-      border: 1px solid var(--accent-coral-border);
-      border-radius: var(--radius-md);
-      padding: 14px 20px;
-      margin-bottom: 20px;
+    .email-actions {
+      display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+      gap: 8px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-ui);
+      flex-shrink: 0;
     }
-    .cleaning-banner.active { display: flex; }
-    .cleaning-banner-text {
-      font-size: 0.9em;
-      color: var(--accent-coral);
+    .email-actions-btn {
+      padding: 5px 14px;
+      min-height: 30px;
+      font-size: 0.78em;
       font-weight: 500;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: 16px;
+      white-space: nowrap;
     }
-    .cleaning-banner-exit {
-      background: transparent;
-      border: 1px solid var(--accent-coral);
+    .email-actions-btn:hover { border-color: var(--border-active); color: var(--text-primary); }
+    .email-actions-btn.btn-delete-all {
       color: var(--accent-coral);
-      padding: 6px 16px;
-      min-height: 36px;
-      font-size: 0.82em;
-      border-radius: 20px;
+      border-color: var(--accent-coral-border);
     }
-    .cleaning-banner-exit:hover { background: var(--accent-coral-dim); }
-
-    .topbar-clean.active-clean {
+    .email-actions-btn.btn-delete-all:hover { background: var(--accent-coral-dim); }
+    .email-actions-btn.btn-delete-selected {
       background: var(--accent-coral);
-      color: var(--bg-deep);
       border-color: var(--accent-coral);
+      color: white;
+      font-weight: 600;
+      display: none;
+    }
+    .email-actions-btn.btn-delete-selected:hover { filter: brightness(1.1); }
+    .email-actions-btn.btn-cancel-select {
+      display: none;
+    }
+    .email-actions-spacer { flex: 1; }
+    .email-actions-count {
+      font-size: 0.78em;
+      color: var(--accent-coral);
+      font-weight: 600;
+      display: none;
     }
 
-    /* Email items in cleaning mode */
-    body.cleaning-mode .email-item {
+    /* Selectable email items */
+    .email-list-selecting .email-item {
       cursor: pointer;
       position: relative;
       padding-left: 48px;
     }
-    body.cleaning-mode .email-item::before {
+    .email-list-selecting .email-item::before {
       content: '';
       position: absolute;
       left: 18px;
       top: 50%;
       transform: translateY(-50%);
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       border-radius: 4px;
       border: 2px solid var(--border-active);
       background: transparent;
       transition: all var(--transition-fast);
     }
-    body.cleaning-mode .email-item.selected {
+    .email-list-selecting .email-item.selected {
       background: var(--accent-coral-subtle);
     }
-    body.cleaning-mode .email-item.selected::before {
+    .email-list-selecting .email-item.selected::before {
       background: var(--accent-coral);
       border-color: var(--accent-coral);
     }
-    body.cleaning-mode .email-item.selected::after {
+    .email-list-selecting .email-item.selected::after {
       content: '\2713';
       position: absolute;
       left: 21px;
       top: 50%;
       transform: translateY(-50%);
       color: white;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
     }
-
-    /* Prevent navigation in cleaning mode */
-    body.cleaning-mode .email-item { pointer-events: auto; }
-
-    /* Select All row */
-    .select-all-row {
-      display: none;
-      padding: 10px 24px;
-      border-bottom: 1px solid var(--border);
-      align-items: center;
-      justify-content: space-between;
-      font-size: 0.82em;
-    }
-    body.cleaning-mode .section-skip .select-all-row,
-    body.cleaning-mode .section-fyi .select-all-row {
-      display: flex;
-    }
-    /* Drill-panel selectable items in cleaning mode */
-    body.cleaning-mode .drill-email-item {
-      display: block;
-      padding: 10px 12px 10px 48px;
-      border-radius: var(--radius-sm);
-      color: inherit;
-      text-decoration: none;
-      transition: background var(--transition-fast);
-      margin-bottom: 2px;
-    }
-    body.cleaning-mode .drill-email-item:hover { background: var(--bg-card); }
-    body.cleaning-mode .drill-email-item .email-top { display: flex; justify-content: space-between; align-items: baseline; }
-    body.cleaning-mode .drill-email-item .email-sender { font-weight: 600; font-size: 0.85em; }
-    body.cleaning-mode .drill-email-item .email-date { font-size: 0.72em; color: var(--text-muted); font-family: var(--font-mono); }
-    body.cleaning-mode .drill-email-item .email-subject { font-size: 0.82em; color: var(--text-secondary); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    .drill-select-all {
-      margin-left: 8px;
-      vertical-align: middle;
-    }
-
-    .select-all-btn {
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      padding: 5px 14px;
-      min-height: 30px;
-      font-size: 0.9em;
-      border-radius: 16px;
-    }
-    .select-all-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
-    .selected-badge {
-      color: var(--accent-coral);
-      font-weight: 600;
-    }
-
-    /* Floating action bar */
-    .clean-action-bar {
-      display: none;
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--glass);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      padding: 12px 20px;
-      box-shadow: var(--shadow-lg), 0 0 40px rgba(0,0,0,0.3);
-      z-index: 50;
-      align-items: center;
-      gap: 16px;
-      animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .clean-action-bar.visible { display: flex; }
-    .clean-count {
-      font-size: 0.9em;
-      font-weight: 600;
-      color: var(--accent-coral);
-      white-space: nowrap;
-    }
-    .clean-btn-trash {
-      background: var(--accent-coral);
-      color: white;
-      font-weight: 600;
-      padding: 10px 20px;
-      min-height: 40px;
-      font-size: 0.88em;
-      border-radius: 20px;
-    }
-    .clean-btn-trash:hover { filter: brightness(1.1); }
-    .clean-btn-archive {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      color: var(--text-primary);
-      padding: 10px 16px;
-      min-height: 40px;
-      font-size: 0.88em;
-      border-radius: 20px;
-    }
-    .clean-btn-archive:hover { background: var(--bg-card-hover); }
-    .clean-btn-cancel {
-      background: none;
-      color: var(--text-muted);
-      padding: 10px 12px;
-      min-height: 40px;
-      font-size: 0.85em;
-    }
-    .clean-btn-cancel:hover { color: var(--text-primary); }
-
-    .clean-smart-filters {
-      display: flex;
-      gap: 6px;
-      border-right: 1px solid var(--border);
-      padding-right: 12px;
-    }
-    .clean-filter-btn {
-      padding: 6px 14px;
-      min-height: 34px;
-      font-size: 0.8em;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      border-radius: 16px;
-      white-space: nowrap;
-    }
-    .clean-filter-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
-    .clean-filter-btn.active-filter { background: var(--accent-blue-dim); border-color: var(--accent-blue-border); color: var(--accent-blue); }
-    .clean-actions-group { display: flex; gap: 8px; align-items: center; }
 
     /* Toast notification */
     .toast {
@@ -2807,7 +2691,7 @@
           </div>
           <div class="topbar-right">
             <button class="topbar-btn" onclick="refreshDashboard()">Refresh</button>
-            <button class="topbar-btn topbar-clean" id="clean-btn" onclick="toggleCleaningMode()">Clean</button>
+            <!-- Clean mode removed — delete actions now inline per email list -->
             <button class="topbar-btn" onclick="showHelp()">Help</button>
             <button class="topbar-btn" onclick="showPreferences()">Preferences</button>
             <button class="topbar-btn theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
@@ -2843,11 +2727,7 @@
           </div>
         </div>
 
-        <!-- Cleaning Mode Banner -->
-        <div class="cleaning-banner" id="cleaning-banner">
-          <span class="cleaning-banner-text">Cleaning Mode — click emails, bubbles, or categories to select, then trash or archive</span>
-          <button class="cleaning-banner-exit" onclick="toggleCleaningMode()">Exit</button>
-        </div>
+        <!-- Cleaning banner removed — inline delete actions per email list -->
 
         <!-- Bento Grid -->
         <div class="bento-grid">
@@ -2973,20 +2853,7 @@
       </div>
     </div>
 
-    <!-- Floating action bar for cleaning mode -->
-    <div class="clean-action-bar" id="clean-action-bar">
-      <span class="clean-count" id="clean-count">0 selected</span>
-      <div class="clean-smart-filters">
-        <button class="clean-filter-btn" onclick="smartSelect('newsletters')" id="filter-newsletters">Newsletters</button>
-        <button class="clean-filter-btn" onclick="smartSelect('promotions')" id="filter-promotions">Promotions</button>
-        <button class="clean-filter-btn" onclick="smartSelect('social')" id="filter-social">Social</button>
-      </div>
-      <div class="clean-actions-group">
-        <button class="clean-btn-trash" onclick="cleanAction('trash')">Trash</button>
-        <button class="clean-btn-archive" onclick="cleanAction('archive')">Archive</button>
-        <button class="clean-btn-cancel" onclick="clearSelection()">Clear</button>
-      </div>
-    </div>
+    <!-- Old floating action bar removed — inline actions per email list -->
 
     <!-- Toast notification -->
     <div class="toast" id="toast">
@@ -4023,7 +3890,9 @@ ${emailList}` }]
         container.innerHTML = '<div class="empty-state">Nothing here right now.</div>';
         return;
       }
-      container.innerHTML = emails.map(email => {
+
+      // Build email items HTML
+      const emailsHtml = emails.map(email => {
         const url = `https://mail.google.com/mail/u/0/#inbox/${email.id}`;
         const action = showActions && email.actionItem ? `<div class="email-action">${esc(email.actionItem)}</div>` : '';
         const summary = email.summary ? `<div class="email-summary">${esc(email.summary)}</div>` : '';
@@ -4033,6 +3902,13 @@ ${emailList}` }]
           ${summary}${action}
         </a>`;
       }).join('');
+
+      container.innerHTML = emailsHtml;
+
+      // Add action bar
+      const emailIds = emails.map(e => e.id);
+      const actionBar = createEmailActionBar(container, () => emailIds);
+      container.insertBefore(actionBar, container.firstChild);
     }
 
     /* ============================================
@@ -4501,7 +4377,8 @@ ${emailList}` }]
       html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">`;
       for (const [name, count] of topSenders) {
         const pct = Math.round((count / total) * 100);
-        html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-card);border-radius:var(--radius-sm)">
+        const escapedName = esc(name).replace(/'/g, '&#39;');
+        html += `<div onclick="openSenderEmails('${escapedName}')" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-card);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.15s ease;border:1px solid transparent" onmouseover="this.style.borderColor='var(--border-active)'" onmouseout="this.style.borderColor='transparent'">
           <span style="font-size:0.88em;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>
           <span style="font-size:0.82em;font-family:var(--font-mono);color:var(--text-muted);flex-shrink:0">${count} <span style="font-size:0.8em">(${pct}%)</span></span>
         </div>`;
@@ -4561,23 +4438,17 @@ ${emailList}` }]
         return;
       }
 
-      // Private Mode or no key: use template briefing
-      if (isPrivateMode()) {
-        body.innerHTML = renderTemplateBriefing(emails);
+      // Always show analytics briefing first
+      const analyticsHtml = renderAnalyticsBriefing(emails);
+
+      // For wide ranges or no AI: analytics only
+      if (currentTimeRange > 30 || isPrivateMode() || !getClaudeKey()) {
+        body.innerHTML = analyticsHtml;
         return;
       }
 
-      const claudeKey = getClaudeKey();
-      if (!claudeKey) {
-        body.innerHTML = renderTemplateBriefing(emails);
-        return;
-      }
-
-      // Wide ranges (>30 days): analytics briefing — no AI call needed
-      if (currentTimeRange > 30) {
-        body.innerHTML = renderAnalyticsBriefing(emails);
-        return;
-      }
+      // For ≤30d: show analytics now, then append AI narrative below
+      body.innerHTML = analyticsHtml + '<div id="ai-briefing-slot"><div class="briefing-loading" style="margin-top:20px">Writing your briefing...</div></div>';
 
       const reply = emails.filter(e => e.category === 'reply');
       const read = emails.filter(e => e.category === 'read');
@@ -4585,14 +4456,17 @@ ${emailList}` }]
       const skip = emails.filter(e => e.category === 'skip');
       const important = [...reply, ...read];
 
-      const rlMap = { 1: 'today', 7: 'this week', 30: 'this month', 90: 'this quarter', 180: 'in 6 months', 365: 'this year' };
-      const rl = rlMap[currentTimeRange] || `in ${currentTimeRange} days`;
+      const rlMap = { 1: 'today', 7: 'this week', 30: 'this month' };
+      const rl = rlMap[currentTimeRange] || 'recently';
       const noiseCount = fyi.length + skip.length;
       const wideRangeNote = '';
 
+      // Use the AI slot for the narrative portion
+      const aiSlot = document.getElementById('ai-briefing-slot');
+
       // Not enough substance for a written briefing
       if (important.length === 0) {
-        body.innerHTML = `<div style="background:var(--bg-card);border-radius:var(--radius-md);padding:20px 24px">
+        aiSlot.innerHTML = `<div style="background:var(--bg-card);border-radius:var(--radius-md);padding:20px 24px">
           <p style="color:var(--text-primary);font-size:0.95em;margin-bottom:8px">Quiet ${rl}.</p>
           <p style="color:var(--text-secondary);font-size:0.88em">No emails needed your attention. ${noiseCount > 0 ? `${noiseCount} emails were filtered as newsletters, promotions, or notifications.` : ''}</p>
         </div>`;
@@ -4606,17 +4480,16 @@ ${emailList}` }]
       );
 
       if (important.length <= 5 && conversational.length <= 2) {
-        // Not enough real conversation for a narrative
-        body.innerHTML = `<div style="background:var(--bg-card);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:16px">
-          <p style="color:var(--text-secondary);font-size:0.88em">Light ${rl} &mdash; ${important.length} email${important.length === 1 ? '' : 's'} worth a look${noiseCount > 0 ? `, plus ${noiseCount} filtered out` : ''}. Not enough conversation for a written briefing, but here is what came in:</p>
-        </div>` + renderTemplateBriefing(emails);
+        aiSlot.innerHTML = `<div style="background:var(--bg-card);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:16px">
+          <p style="color:var(--text-secondary);font-size:0.88em">Light ${rl} &mdash; ${important.length} email${important.length === 1 ? '' : 's'} worth a look${noiseCount > 0 ? `, plus ${noiseCount} filtered out` : ''}.</p>
+        </div>`;
         return;
       }
 
       if (important.length > 100) {
-        body.innerHTML = `<div class="briefing-loading">Reading your ${important.length.toLocaleString()} important emails &mdash; this may take a moment...</div>`;
+        aiSlot.innerHTML = `<div class="briefing-loading">Reading your ${important.length.toLocaleString()} important emails &mdash; this may take a moment...</div>`;
       } else {
-        body.innerHTML = `<div class="briefing-loading">Reading ${important.length} important emails...</div>`;
+        aiSlot.innerHTML = `<div class="briefing-loading">Reading ${important.length} important emails...</div>`;
       }
 
       // Fetch full body for important emails so the briefing can summarize CONTENT
@@ -4624,7 +4497,7 @@ ${emailList}` }]
       let fetchFailed = 0;
       for (let i = 0; i < important.length; i += 10) {
         const batch = important.slice(i, i + 10);
-        body.innerHTML = `<div class="briefing-loading">Reading emails... ${Math.min(i + 10, important.length)} of ${important.length}</div>`;
+        aiSlot.innerHTML = `<div class="briefing-loading">Reading emails... ${Math.min(i + 10, important.length)} of ${important.length}</div>`;
 
         let bodies;
         try {
@@ -4632,12 +4505,11 @@ ${emailList}` }]
             batch.map(e => gmailFetch(`messages/${e.id}?format=full`).catch(() => null))
           );
         } catch (gmailErr) {
-          // Gmail token likely expired — can't fetch bodies
           console.error('Gmail fetch error during briefing:', gmailErr);
-          body.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--accent-blue-border);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:16px">
+          aiSlot.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--accent-blue-border);border-radius:var(--radius-md);padding:16px 20px">
             <p style="color:var(--accent-blue);font-weight:600;font-size:0.9em;margin-bottom:6px">Google sign-in expired</p>
-            <p style="color:var(--text-secondary);font-size:0.85em">Your Gmail connection timed out while reading emails. Reload the page and sign in again to get the full written briefing.</p>
-          </div>` + renderTemplateBriefing(emails);
+            <p style="color:var(--text-secondary);font-size:0.85em">Your Gmail connection timed out. Reload to get the written briefing.</p>
+          </div>`;
           return;
         }
 
@@ -4667,7 +4539,7 @@ ${emailList}` }]
       // If most body fetches failed, the briefing will be thin — note it
       const mostFetchesFailed = fetchFailed > important.length * 0.7;
 
-      body.innerHTML = '<div class="briefing-loading">Writing your briefing...</div>';
+      aiSlot.innerHTML = '<div class="briefing-loading">Writing your briefing...</div>';
 
       // Build rich context for the briefing prompt
       const topicCounts = {};
@@ -4796,7 +4668,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           </div>` + html;
         }
 
-        body.innerHTML = wideRangeNote + html;
+        aiSlot.innerHTML = html;
       } catch (err) {
         console.error('Briefing error:', err);
         const errMsg = (err.message || '').toLowerCase();
@@ -4866,11 +4738,11 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           <button onclick="sendErrorReport(this)" data-diagnostic='${JSON.stringify(diagnostic).replace(/'/g, "&#39;")}' style="background:var(--bg-elevated);border:1px solid var(--border);color:var(--accent-blue);padding:10px 18px;border-radius:var(--radius-sm);font-size:0.85em;cursor:pointer;min-height:40px">Send Report</button>
         </div>`;
 
-        body.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--accent-amber-border);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:16px">
+        aiSlot.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--accent-amber-border);border-radius:var(--radius-md);padding:16px 20px">
           <p style="color:var(--accent-amber);font-weight:600;font-size:0.9em;margin-bottom:6px">${title}</p>
           <p style="color:var(--text-secondary);font-size:0.85em;margin-bottom:0">${explanation}</p>
           ${reportBtn}
-        </div>` + renderTemplateBriefing(emails);
+        </div>`;
       }
     }
 
@@ -5413,15 +5285,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
     function renderDrillEmails(emails, title) {
       emails.sort((a,b) => b.date - a.date);
       document.getElementById('drill-panel-title').textContent = title;
-
-      const countEl = document.getElementById('drill-panel-count');
-      const countText = `${emails.length} email${emails.length !== 1 ? 's' : ''}`;
-
-      if (cleaningMode && emails.length) {
-        countEl.innerHTML = `<span>${countText}</span> <button class="select-all-btn drill-select-all" onclick="selectAllInDrill()">Select all</button>`;
-      } else {
-        countEl.textContent = countText;
-      }
+      document.getElementById('drill-panel-count').textContent = `${emails.length} email${emails.length !== 1 ? 's' : ''}`;
 
       const container = document.getElementById('drill-panel-emails');
       if (!emails.length) {
@@ -5429,26 +5293,18 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
         return;
       }
 
-      if (cleaningMode) {
-        // Render as selectable email-items so cleaning mode handlers work
-        container.innerHTML = emails.map(email => {
-          const url = `https://mail.google.com/mail/u/0/#inbox/${email.id}`;
-          const sel = selectedEmails.has(email.id) ? ' selected' : '';
-          return `<a href="${url}" class="email-item drill-email-item${sel}">
-            <div class="email-top"><span class="email-sender">${esc(email.fromName)}</span><span class="email-date">${fmtDate(email.date)}</span></div>
-            <div class="email-subject">${esc(email.subject)}</div>
-          </a>`;
-        }).join('');
-      } else {
-        container.innerHTML = emails.map(email => {
-          const url = `https://mail.google.com/mail/u/0/#inbox/${email.id}`;
-          return `<a href="${url}" target="_blank" rel="noopener" class="drill-email">
-            <span class="drill-email-date">${fmtDate(email.date)}</span>
-            <div class="drill-email-sender">${esc(email.fromName)}</div>
-            <div class="drill-email-subject">${esc(email.subject)}</div>
-          </a>`;
-        }).join('');
-      }
+      const emailIds = emails.map(e => e.id);
+      container.innerHTML = emails.map(email => {
+        const url = `https://mail.google.com/mail/u/0/#inbox/${email.id}`;
+        return `<a href="${url}" target="_blank" rel="noopener" class="email-item">
+          <div class="email-top"><span class="email-sender">${esc(email.fromName)}</span><span class="email-date">${fmtDate(email.date)}</span></div>
+          <div class="email-subject">${esc(email.subject)}</div>
+        </a>`;
+      }).join('');
+
+      // Add action bar
+      const actionBar = createEmailActionBar(container, () => emailIds);
+      container.insertBefore(actionBar, container.firstChild);
     }
 
     function selectAllInDrill() {
@@ -6142,7 +5998,236 @@ Browser: ${diagnostic.browser}
     }
 
     /* ============================================
-       CLEANING ACTIONS (Gmail API)
+       INLINE EMAIL ACTION BAR SYSTEM
+       ============================================ */
+
+    // Ensure we have gmail.modify scope — returns a promise
+    function ensureModifyScope() {
+      return new Promise((resolve) => {
+        if (hasModifyScope) return resolve(true);
+        const modifyClient = google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: GMAIL_SCOPES_MODIFY,
+          callback: (response) => {
+            if (response.error) {
+              resolve(false);
+              return;
+            }
+            accessToken = response.access_token;
+            tokenTimestamp = Date.now();
+            hasModifyScope = true;
+            resolve(true);
+          },
+        });
+        modifyClient.requestAccessToken();
+      });
+    }
+
+    // Create an action bar for an email list container
+    // container: the DOM element containing .email-item elements
+    // getEmailIds: function that returns array of email IDs in this grouping
+    function createEmailActionBar(container, getEmailIds) {
+      const bar = document.createElement('div');
+      bar.className = 'email-actions';
+
+      const deleteAllBtn = document.createElement('button');
+      deleteAllBtn.className = 'email-actions-btn btn-delete-all';
+      deleteAllBtn.textContent = 'Delete All';
+
+      const selectBtn = document.createElement('button');
+      selectBtn.className = 'email-actions-btn btn-select';
+      selectBtn.textContent = 'Select';
+
+      const deleteSelectedBtn = document.createElement('button');
+      deleteSelectedBtn.className = 'email-actions-btn btn-delete-selected';
+      deleteSelectedBtn.textContent = 'Delete Selected';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'email-actions-btn btn-cancel-select';
+      cancelBtn.textContent = 'Cancel';
+
+      const spacer = document.createElement('span');
+      spacer.className = 'email-actions-spacer';
+
+      const countEl = document.createElement('span');
+      countEl.className = 'email-actions-count';
+
+      bar.append(deleteAllBtn, selectBtn, deleteSelectedBtn, cancelBtn, spacer, countEl);
+
+      let selecting = false;
+      const localSelected = new Set();
+
+      function updateUI() {
+        const count = localSelected.size;
+        countEl.textContent = count + ' selected';
+        countEl.style.display = count > 0 ? '' : 'none';
+        deleteSelectedBtn.style.display = count > 0 ? '' : 'none';
+        deleteSelectedBtn.textContent = 'Delete ' + count;
+      }
+
+      function enterSelectMode() {
+        selecting = true;
+        localSelected.clear();
+        container.classList.add('email-list-selecting');
+        selectBtn.style.display = 'none';
+        deleteAllBtn.style.display = 'none';
+        cancelBtn.style.display = '';
+        updateUI();
+        // Intercept clicks on email items
+        container.addEventListener('click', onItemClick, true);
+      }
+
+      function exitSelectMode() {
+        selecting = false;
+        localSelected.clear();
+        container.classList.remove('email-list-selecting');
+        container.querySelectorAll('.email-item.selected').forEach(el => el.classList.remove('selected'));
+        selectBtn.style.display = '';
+        deleteAllBtn.style.display = '';
+        cancelBtn.style.display = 'none';
+        deleteSelectedBtn.style.display = 'none';
+        countEl.style.display = 'none';
+        container.removeEventListener('click', onItemClick, true);
+      }
+
+      function onItemClick(e) {
+        if (!selecting) return;
+        const item = e.target.closest('.email-item');
+        if (!item) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const href = item.getAttribute('href') || item.dataset.emailId || '';
+        const idMatch = href.match(/#inbox\/(.+)$/) || [null, item.dataset.emailId];
+        if (!idMatch || !idMatch[1]) return;
+        const id = idMatch[1];
+        if (localSelected.has(id)) {
+          localSelected.delete(id);
+          item.classList.remove('selected');
+        } else {
+          localSelected.add(id);
+          item.classList.add('selected');
+        }
+        updateUI();
+      }
+
+      // Delete All — trash all emails in this grouping
+      deleteAllBtn.addEventListener('click', async function(e) {
+        e.stopPropagation();
+        const ids = getEmailIds();
+        if (!ids.length) return;
+        const ok = await ensureModifyScope();
+        if (!ok) { showToast('Need permission to delete emails', false); return; }
+        const confirmed = await showConfirm('Delete All?', `${ids.length} email${ids.length !== 1 ? 's' : ''} will be moved to Trash (recoverable for 30 days).`, ids.length >= 50);
+        if (!confirmed) return;
+        await trashEmails(ids);
+        showToast(`${ids.length} email${ids.length !== 1 ? 's' : ''} trashed`, true);
+      });
+
+      // Select button
+      selectBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        enterSelectMode();
+      });
+
+      // Cancel
+      cancelBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        exitSelectMode();
+      });
+
+      // Delete Selected
+      deleteSelectedBtn.addEventListener('click', async function(e) {
+        e.stopPropagation();
+        const ids = [...localSelected];
+        if (!ids.length) return;
+        const ok = await ensureModifyScope();
+        if (!ok) { showToast('Need permission to delete emails', false); return; }
+        if (ids.length >= 10) {
+          const confirmed = await showConfirm('Delete Selected?', `${ids.length} email${ids.length !== 1 ? 's' : ''} will be moved to Trash.`, ids.length >= 50);
+          if (!confirmed) return;
+        }
+        await trashEmails(ids);
+        exitSelectMode();
+        showToast(`${ids.length} email${ids.length !== 1 ? 's' : ''} trashed`, true);
+      });
+
+      return bar;
+    }
+
+    // Core trash function — reused by all delete actions
+    async function trashEmails(ids) {
+      let failCount = 0;
+      for (let i = 0; i < ids.length; i += 50) {
+        const batch = ids.slice(i, i + 50);
+        await Promise.all(batch.map(id =>
+          fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}` }
+          }).then(r => { if (!r.ok) failCount++; return r; })
+            .catch(() => { failCount++; return null; })
+        ));
+      }
+      // Remove from UI
+      for (const id of ids) {
+        const el = document.querySelector(`.email-item[href*="${id}"]`);
+        if (el) {
+          el.style.transition = 'opacity 0.3s, max-height 0.3s, padding 0.3s';
+          el.style.opacity = '0';
+          el.style.maxHeight = '0';
+          el.style.padding = '0';
+          el.style.overflow = 'hidden';
+          setTimeout(() => el.remove(), 300);
+        }
+      }
+      // Remove from allEmails
+      allEmails = allEmails.filter(e => !ids.includes(e.id));
+      lastUndoData = { action: 'trash', ids };
+      // Update counts
+      setTimeout(updateSectionCounts, 350);
+    }
+
+    // Open a slide-over showing emails from a specific sender, with action bar
+    function openSenderEmails(senderName) {
+      const senderEmails = allEmails.filter(e => (e.fromName || e.from) === senderName);
+      if (!senderEmails.length) return;
+      const sorted = senderEmails.sort((a, b) => b.date - a.date);
+
+      const panel = document.getElementById('slide-over');
+      const headerEl = panel.querySelector('.slide-over-breadcrumb') || document.querySelector('.slide-over-breadcrumb');
+      const bodyEl = document.getElementById('slide-over-body');
+
+      if (headerEl) headerEl.textContent = esc(senderName) + ' — ' + sorted.length + ' emails';
+
+      // Build email list with action bar
+      const listContainer = document.createElement('div');
+      listContainer.className = 'sender-email-list';
+
+      const actionBar = createEmailActionBar(listContainer, () => sorted.map(e => e.id));
+      listContainer.appendChild(actionBar);
+
+      sorted.forEach(e => {
+        const url = 'https://mail.google.com/mail/u/0/#inbox/' + e.id;
+        const item = document.createElement('a');
+        item.href = url;
+        item.target = '_blank';
+        item.rel = 'noopener';
+        item.className = 'email-item';
+        item.innerHTML = '<div class="email-top"><span class="email-sender">' + esc(e.subject) + '</span>' +
+          '<span class="email-date">' + fmtDate(e.date) + '</span></div>' +
+          (e.summary ? '<div class="email-summary">' + esc(e.summary) + '</div>' : '') +
+          '<div class="email-subject" style="font-size:0.78em;color:var(--text-muted)">' + esc(e.topic || 'General') + '</div>';
+        listContainer.appendChild(item);
+      });
+
+      bodyEl.innerHTML = '';
+      bodyEl.appendChild(listContainer);
+
+      panel.classList.add('open');
+      document.getElementById('slide-over-backdrop').classList.add('open');
+    }
+
+    /* ============================================
+       CLEANING ACTIONS (Gmail API) — legacy, kept for undo
        ============================================ */
     async function cleanAction(action) {
       const count = selectedEmails.size;
@@ -6576,7 +6661,7 @@ Browser: ${diagnostic.browser}
         // Don't expand during cleaning mode
         if (document.body.classList.contains('cleaning-active')) return;
         // Don't expand if click was on an interactive element or inside one
-        const interactive = e.target.closest('a, button, input, select, textarea, .email-item, .section-header, .section-body, .bubble, .bubble-map, .bubble-map-viewport, .slide-over, .action-item, .action-item-row, .sender-row, .cat-row, .vol-bar-group, .bubble-back-btn');
+        const interactive = e.target.closest('a, button, input, select, textarea, .email-item, .section-header, .section-body, .bubble, .bubble-map, .bubble-map-viewport, .slide-over, .action-item, .action-item-row, .sender-row, .cat-row, .vol-bar-group, .bubble-back-btn, .email-actions');
         if (interactive) return;
         togglePanelExpand(panel);
       });
@@ -7016,6 +7101,7 @@ Browser: ${diagnostic.browser}
       countEl.textContent = topic.count + ' email' + (topic.count !== 1 ? 's' : '');
 
       const sorted = topic.emails.sort((a, b) => b.date - a.date);
+      const emailIds = sorted.map(e => e.id);
       bodyEl.innerHTML = sorted.map(e => {
         const url = 'https://mail.google.com/mail/u/0/#inbox/' + e.id;
         return '<a href="' + url + '" target="_blank" rel="noopener" class="email-item">' +
@@ -7025,6 +7111,10 @@ Browser: ${diagnostic.browser}
           (e.summary ? '<div class="email-summary">' + esc(e.summary) + '</div>' : '') +
           '</a>';
       }).join('');
+
+      // Add action bar
+      const actionBar = createEmailActionBar(bodyEl, () => emailIds);
+      bodyEl.insertBefore(actionBar, bodyEl.firstChild);
 
       sidebar.classList.add('open');
     }
