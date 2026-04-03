@@ -4,7 +4,7 @@
 AI-powered Gmail intelligence dashboard for Larry (~65yo CEO of a medical data analytics company, also runs community projects like condo board elevator replacement). Single `index.html`, no server, no database. He opens a URL, sees his emails sorted by importance with narrative briefings and interactive topic visualization. Inline delete actions on every email list.
 
 ## Current Status
-**Visual upgrade + extended ranges complete (2026-03-31). 6 time ranges (1D–1Y). Hybrid classification. Analytics briefing on all ranges. Inline delete everywhere. Deployed to GitHub Pages.**
+**Bulk delete fix deployed (2026-04-03). 6 time ranges (1D–1Y). Hybrid classification. Analytics briefing on all ranges. Inline delete everywhere. Deployed to GitHub Pages.**
 
 Live: https://jbuckdev.github.io/gmail-dashboard/
 Repo: https://github.com/jbuckdev/gmail-dashboard (public)
@@ -54,7 +54,9 @@ Repo: https://github.com/jbuckdev/gmail-dashboard (public)
 - Trash only (30-day Gmail recovery), never permanent delete
 - Confirmation for 10+ emails, 3-second countdown for 50+
 - 10-second undo window via toast
-- `trashEmails()` core function, `ensureModifyScope()` for auth
+- `trashEmails()` uses Gmail `batchModify` API (up to 1000/call), with individual-request fallback
+- `ensureModifyScope()` for auth, `ensureValidToken()` refresh between batches
+- Failure reporting: user sees count of succeeded vs failed if any drop
 
 ## Expanded Panels
 - Full-screen modal overlays with cinematic animation
