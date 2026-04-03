@@ -5918,6 +5918,7 @@ Browser: ${diagnostic.browser}
         if (!ok) { showToast('Need permission to delete emails', false); return; }
         const confirmed = await showConfirm('Delete All?', `${ids.length} email${ids.length !== 1 ? 's' : ''} will be moved to Trash (recoverable for 30 days).`, ids.length >= 50);
         if (!confirmed) return;
+        if (ids.length >= 100) showToast(`Trashing ${ids.length} emails...`, false);
         await trashEmails(ids);
         showToast(`${ids.length} email${ids.length !== 1 ? 's' : ''} trashed`, true);
       });
@@ -5954,17 +5955,49 @@ Browser: ${diagnostic.browser}
     }
 
     // Core trash function — reused by all delete actions
+    // Uses batchModify API (up to 1000/call) instead of individual trash requests
     async function trashEmails(ids) {
+      await ensureValidToken();
       let failCount = 0;
-      for (let i = 0; i < ids.length; i += 50) {
-        const batch = ids.slice(i, i + 50);
-        await Promise.all(batch.map(id =>
-          fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`, {
+      const BATCH_SIZE = 1000;
+      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+        const batch = ids.slice(i, i + BATCH_SIZE);
+        try {
+          const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
             method: 'POST',
-            headers: { Authorization: `Bearer ${accessToken}` }
-          }).then(r => { if (!r.ok) failCount++; return r; })
-            .catch(() => { failCount++; return null; })
-        ));
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              ids: batch,
+              addLabelIds: ['TRASH'],
+              removeLabelIds: ['INBOX']
+            })
+          });
+          if (!resp.ok) {
+            // If batch fails, fall back to individual requests for this batch
+            console.warn('batchModify failed, falling back to individual requests:', resp.status);
+            for (let j = 0; j < batch.length; j += 50) {
+              const miniBatch = batch.slice(j, j + 50);
+              await Promise.all(miniBatch.map(id =>
+                fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`, {
+                  method: 'POST',
+                  headers: { Authorization: `Bearer ${accessToken}` }
+                }).then(r => { if (!r.ok) failCount++; return r; })
+                  .catch(() => { failCount++; return null; })
+              ));
+            }
+          }
+        } catch (err) {
+          console.error('batchModify error:', err);
+          failCount += batch.length;
+        }
+        // Refresh token between batches for very large operations
+        if (i + BATCH_SIZE < ids.length) await ensureValidToken();
+      }
+      if (failCount > 0) {
+        showToast(`${ids.length - failCount} trashed, ${failCount} failed — retry or check Gmail`, false);
       }
       // Remove from UI
       for (const id of ids) {
@@ -6063,13 +6096,24 @@ Browser: ${diagnostic.browser}
       const { action, ids } = lastUndoData;
 
       try {
+        await ensureValidToken();
         if (action === 'trash') {
-          await Promise.all(ids.map(id =>
-            fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/untrash`, {
+          // Undo trash — batch untrash via batchModify
+          for (let i = 0; i < ids.length; i += 1000) {
+            const batch = ids.slice(i, i + 1000);
+            await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
               method: 'POST',
-              headers: { Authorization: `Bearer ${accessToken}` }
-            })
-          ));
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                ids: batch,
+                removeLabelIds: ['TRASH'],
+                addLabelIds: ['INBOX']
+              })
+            });
+          }
         } else {
           await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
             method: 'POST',
