@@ -4,7 +4,7 @@
 AI-powered Gmail intelligence dashboard for Larry (~65yo CEO of a medical data analytics company, also runs community projects like condo board elevator replacement). Single `index.html`, no server, no database. He opens a URL, sees his emails sorted by importance with narrative briefings and interactive topic visualization. Inline delete actions on every email list.
 
 ## Current Status
-**Three bug fixes (2026-04-04): briefing API key, delete z-index, clickable expanded panels. Bulk delete fix deployed (2026-04-03). 6 time ranges (1D–1Y). Hybrid classification. Analytics briefing on all ranges. Inline delete everywhere. Deployed to GitHub Pages.**
+**Four bug fixes (2026-04-04): briefing API key, delete z-index, clickable expanded panels, unexpanded Top Senders click. Bulk delete fix deployed (2026-04-03). 6 time ranges (1D–1Y). Hybrid classification. Analytics briefing on all ranges. Inline delete everywhere. Deployed to GitHub Pages.**
 
 Live: https://jbuckdev.github.io/gmail-dashboard/
 Repo: https://github.com/jbuckdev/gmail-dashboard (public)
@@ -43,7 +43,7 @@ Repo: https://github.com/jbuckdev/gmail-dashboard (public)
 - **All ranges:** Analytics briefing — stat grid (total, avg/month, replies, topics), monthly volume bars, clickable top senders, topic bars, top domains, busiest day
 - **≤30 days:** AI narrative briefing appended below analytics. Reads full email bodies, writes prose summary with clickable [REF:id] links to Gmail.
 - **>30 days:** Analytics only (instant, zero API cost)
-- Clickable senders in analytics open slide-over with their emails + delete actions
+- Clickable senders everywhere: unexpanded Top Senders rows, expanded sender cards, analytics briefing senders — all use `openSenderEmails()` → slide-over or overlay sidebar with emails + delete actions
 - Expanded panel interactivity: sender cards, volume bars, category items all clickable → open email sidebar within overlay
 
 ## Delete System (replaced old Cleaning Mode)
