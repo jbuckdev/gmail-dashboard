@@ -4250,7 +4250,7 @@ ${emailList}` }]
         const initials = info.name.split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
         const pct = (info.count / max * 100).toFixed(0);
         const col = avatarColors[i];
-        return `<div class="sender-row" style="--sender-bar-glow:${col}60" onclick="drillDown('sender','${esc(email)}')">
+        return `<div class="sender-row" style="--sender-bar-glow:${col}60" data-email="${esc(email)}" data-name="${esc(info.name)}" onclick="openSenderEmails(this.dataset.name, this.dataset.email)">
           <div class="sender-avatar" style="background:${col}20;color:${col}">${initials}</div>
           <div class="sender-info">
             <div class="sender-name">${esc(info.name)}</div>
