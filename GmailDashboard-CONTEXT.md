@@ -4,7 +4,7 @@
 AI-powered Gmail intelligence dashboard for Larry (~65yo CEO of a medical data analytics company, also runs community projects like condo board elevator replacement). Single `index.html`, no server, no database. He opens a URL, sees his emails sorted by importance with narrative briefings and interactive topic visualization. Inline delete actions on every email list.
 
 ## Current Status
-**Bulk delete fix deployed (2026-04-03). 6 time ranges (1D–1Y). Hybrid classification. Analytics briefing on all ranges. Inline delete everywhere. Deployed to GitHub Pages.**
+**Three bug fixes (2026-04-04): briefing API key, delete z-index, clickable expanded panels. Bulk delete fix deployed (2026-04-03). 6 time ranges (1D–1Y). Hybrid classification. Analytics briefing on all ranges. Inline delete everywhere. Deployed to GitHub Pages.**
 
 Live: https://jbuckdev.github.io/gmail-dashboard/
 Repo: https://github.com/jbuckdev/gmail-dashboard (public)
@@ -44,6 +44,7 @@ Repo: https://github.com/jbuckdev/gmail-dashboard (public)
 - **≤30 days:** AI narrative briefing appended below analytics. Reads full email bodies, writes prose summary with clickable [REF:id] links to Gmail.
 - **>30 days:** Analytics only (instant, zero API cost)
 - Clickable senders in analytics open slide-over with their emails + delete actions
+- Expanded panel interactivity: sender cards, volume bars, category items all clickable → open email sidebar within overlay
 
 ## Delete System (replaced old Cleaning Mode)
 - Inline action bar on every email list: "Delete All" + "Select" buttons
@@ -53,6 +54,7 @@ Repo: https://github.com/jbuckdev/gmail-dashboard (public)
 - `gmail.modify` CANNOT send emails (verified)
 - Trash only (30-day Gmail recovery), never permanent delete
 - Confirmation for 10+ emails, 3-second countdown for 50+
+- `.confirm-overlay` z-index: 10000 (above slide-over at 901, above expanded panels)
 - 10-second undo window via toast
 - `trashEmails()` uses Gmail `batchModify` API (up to 1000/call), with individual-request fallback
 - `ensureModifyScope()` for auth, `ensureValidToken()` refresh between batches
@@ -63,11 +65,12 @@ Repo: https://github.com/jbuckdev/gmail-dashboard (public)
 - Per-type enhanced layouts:
   - Briefing: two-column reading layout
   - Email Sections: 2x2 grid, all sections expanded
-  - Top Senders: card grid (12), avatar + email + count + bar
-  - Volume: tall stacked bars (240px) with 14-day history + color legend
-  - Breakdown: donut ring chart (conic-gradient, animated spin-in) + category list
+  - Top Senders: card grid (12), avatar + email + count + bar. **Clickable** — opens sender emails in overlay sidebar via `openSenderEmails(name, email)`
+  - Volume: tall stacked bars (240px) with 14-day history + color legend. **Clickable** — each bar calls `openDayEmails(dateKey, label)` to show that day's emails
+  - Breakdown: donut ring chart (conic-gradient, animated spin-in) + category list. **Clickable** — each category calls `openCategoryEmails(key)`
   - Action Items: card grid with avatars, subjects, action text
   - Email Landscape: full-width canvas, force-directed physics, legend strip (150px), drill sidebar (320px), pan/zoom
+- `showEmailsPanel(title, emailList)` — generic function renders filtered emails in either overlay sidebar or slide-over drill panel (preserves DOM structure, no innerHTML destruction)
 
 ## Cache
 - IndexedDB (replaced sessionStorage — no size limit)
@@ -114,6 +117,8 @@ Binary toggle in Preferences:
 - Lazy scope upgrade for delete (don't scare with permissions on first visit)
 - gmail.modify not gmail.full (trash but NEVER send or permanent delete)
 - claude-haiku-4-5-20251001 (old ID was 404ing — critical fix)
+- Briefing API call uses `getClaudeKey()` not stored variable (was `claudeKey` → undefined)
+- Error handling: catches 529/overload, "load failed", shows actual error in fallback message
 - Hybrid classification: only last 30 days use AI, older = free rules-only
 - IndexedDB over sessionStorage for cache (year of emails exceeds 5MB)
 - Analytics briefing on all ranges; AI narrative only for ≤30 days

@@ -1382,6 +1382,13 @@
       display: flex;
       align-items: center;
       gap: 16px;
+      cursor: pointer;
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      transition: background var(--transition-fast);
+    }
+    .expanded-cat-item:hover {
+      background: var(--bg-card);
     }
     .expanded-cat-dot {
       width: 14px;
@@ -2469,7 +2476,7 @@
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.5);
       backdrop-filter: blur(4px);
-      z-index: 500;
+      z-index: 10000;
       align-items: center;
       justify-content: center;
     }
@@ -4687,7 +4694,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': claudeKey,
+            'x-api-key': getClaudeKey(),
             'anthropic-version': '2023-06-01',
             'anthropic-dangerous-direct-browser-access': 'true',
           },
@@ -4748,10 +4755,10 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
         } else if (errMsg.includes('401') || errMsg.includes('auth')) {
           title = 'Claude key issue';
           explanation = 'Your Claude key may be invalid or expired. Open Preferences to update it.';
-        } else if (errMsg.includes('429') || errMsg.includes('rate')) {
+        } else if (errMsg.includes('429') || errMsg.includes('rate') || errMsg.includes('529') || errMsg.includes('overload')) {
           title = 'Too many requests';
           explanation = 'The analysis service is temporarily busy. Wait a minute and hit Refresh.';
-        } else if (errMsg.includes('network') || errMsg.includes('fetch') || errMsg.includes('failed to fetch')) {
+        } else if (errMsg.includes('network') || errMsg.includes('fetch') || errMsg.includes('failed to fetch') || errMsg.includes('load failed') || errMsg === '0: ') {
           title = 'Connection issue';
           explanation = 'Could not reach the analysis service. Check your internet connection and try again.';
         } else if (errMsg.includes('402') || errMsg.includes('credit') || errMsg.includes('billing') || errMsg.includes('insufficient')) {
@@ -4775,8 +4782,8 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           explanation = 'The analysis service is experiencing issues on their end. This usually resolves within a few minutes.';
           userCanFix = false;
         } else {
-          title = 'Unexpected issue';
-          explanation = 'Something went wrong that we did not anticipate. Sending a report helps us fix it for you.';
+          title = 'Written briefing unavailable';
+          explanation = 'Error: ' + (err.message || 'unknown') + '. Try reloading. If this persists, open browser console (Cmd+Option+J) and share the red error.';
           userCanFix = false;
         }
 
@@ -5472,7 +5479,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           const initials = info.name.split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
           const pct = (info.count / max * 100).toFixed(0);
           const col = avatarColors[i % avatarColors.length];
-          return '<div class="expanded-sender-card" onclick="drillDown(\'sender\',\'' + esc(email) + '\');closeExpandedPanel();">' +
+          return '<div class="expanded-sender-card" data-email="' + esc(email) + '" data-name="' + esc(info.name) + '" onclick="openSenderEmails(this.dataset.name, this.dataset.email)">' +
             '<div class="expanded-sender-avatar" style="background:' + col + '20;color:' + col + '">' + initials + '</div>' +
             '<div class="expanded-sender-info">' +
             '<div class="expanded-sender-name">' + esc(info.name) + '</div>' +
@@ -5503,7 +5510,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
             const readH = d.read / maxTotal * maxH;
             const fyiH = d.fyi / maxTotal * maxH;
             const skipH = d.skip / maxTotal * maxH;
-            return '<div class="expanded-vol-group">' +
+            return '<div class="expanded-vol-group" onclick="openDayEmails(\'' + date + '\',\'' + esc(d.label) + '\')">' +
               '<div class="expanded-vol-count">' + d.total + '</div>' +
               '<div class="expanded-vol-stack" style="height:' + maxH + 'px">' +
               '<div class="expanded-vol-bar" style="height:' + skipH + 'px;background:var(--accent-slate)"></div>' +
@@ -5553,7 +5560,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           cats.map(c => {
             const count = counts[c.key];
             const pct = (count / total * 100).toFixed(0);
-            return '<div class="expanded-cat-item">' +
+            return '<div class="expanded-cat-item" onclick="openCategoryEmails(\'' + c.key + '\')">' +
               '<div class="expanded-cat-dot" style="background:' + c.color + '"></div>' +
               '<div class="expanded-cat-info"><div class="expanded-cat-name">' + c.name + '</div>' +
               '<div class="expanded-cat-pct">' + pct + '% of total</div></div>' +
@@ -6020,14 +6027,12 @@ Browser: ${diagnostic.browser}
 
     // Open a sidebar showing emails from a specific sender, with action bar
     // If inside an expanded overlay, renders within it. Otherwise uses main slide-over.
-    function openSenderEmails(senderName) {
-      const senderEmails = allEmails.filter(e => (e.fromName || e.from) === senderName);
-      if (!senderEmails.length) return;
-      const sorted = senderEmails.sort((a, b) => b.date - a.date);
+    // Generic: show a filtered list of emails in either the overlay sidebar or the slide-over
+    function showEmailsPanel(title, emailList) {
+      const sorted = emailList.slice().sort((a, b) => b.date - a.date);
       const emailIds = sorted.map(e => e.id);
 
-      // Build email list HTML
-      function buildEmailList(container) {
+      function buildEmailItems(container) {
         const actionBar = createEmailActionBar(container, () => emailIds);
         container.appendChild(actionBar);
         sorted.forEach(e => {
@@ -6045,10 +6050,9 @@ Browser: ${diagnostic.browser}
         });
       }
 
-      // Check if an expanded overlay is open — render sidebar inside it
+      // If expanded overlay is open, render sidebar inside it
       const overlay = document.getElementById('expanded-overlay');
       if (overlay) {
-        // Remove any existing sender sidebar
         const existing = overlay.querySelector('.overlay-sender-sidebar');
         if (existing) existing.remove();
 
@@ -6060,7 +6064,7 @@ Browser: ${diagnostic.browser}
 
         const header = document.createElement('div');
         header.className = 'overlay-sender-header';
-        header.innerHTML = '<div><div class="overlay-sender-title">' + esc(senderName) + '</div>' +
+        header.innerHTML = '<div><div class="overlay-sender-title">' + esc(title) + '</div>' +
           '<div class="overlay-sender-count">' + sorted.length + ' email' + (sorted.length !== 1 ? 's' : '') + '</div></div>';
         const closeBtn = document.createElement('button');
         closeBtn.className = 'overlay-sender-close';
@@ -6070,7 +6074,7 @@ Browser: ${diagnostic.browser}
 
         const body = document.createElement('div');
         body.className = 'overlay-sender-body';
-        buildEmailList(body);
+        buildEmailItems(body);
 
         sidebar.appendChild(header);
         sidebar.appendChild(body);
@@ -6078,17 +6082,34 @@ Browser: ${diagnostic.browser}
         return;
       }
 
-      // Fallback: use main page slide-over
-      const panel = document.getElementById('slide-over');
-      const headerEl = panel.querySelector('.slide-over-breadcrumb') || document.querySelector('.slide-over-breadcrumb');
-      const bodyEl = document.getElementById('slide-over-body');
-      if (headerEl) headerEl.textContent = esc(senderName) + ' \u2014 ' + sorted.length + ' emails';
-      bodyEl.innerHTML = '';
-      const listContainer = document.createElement('div');
-      buildEmailList(listContainer);
-      bodyEl.appendChild(listContainer);
-      panel.classList.add('open');
-      document.getElementById('slide-over-backdrop').classList.add('open');
+      // Fallback: use slide-over drill panel (preserves DOM structure)
+      openSlideOver(esc(title) + ' \u2014 ' + sorted.length + ' emails');
+      document.getElementById('drill-panel-title').textContent = title;
+      document.getElementById('drill-panel-count').textContent = sorted.length + ' email' + (sorted.length !== 1 ? 's' : '');
+      const container = document.getElementById('drill-panel-emails');
+      container.innerHTML = '';
+      buildEmailItems(container);
+    }
+
+    function openSenderEmails(senderName, filterEmail) {
+      const senderEmails = filterEmail
+        ? allEmails.filter(e => e.from === filterEmail)
+        : allEmails.filter(e => (e.fromName || e.from) === senderName);
+      if (!senderEmails.length) return;
+      showEmailsPanel(senderName, senderEmails);
+    }
+
+    function openCategoryEmails(categoryKey) {
+      const names = { reply: 'Needs Reply', read: 'Worth Reading', fyi: 'Quick Scan', skip: 'Safe to Skip' };
+      const catEmails = allEmails.filter(e => e.category === categoryKey);
+      if (!catEmails.length) return;
+      showEmailsPanel(names[categoryKey] || categoryKey, catEmails);
+    }
+
+    function openDayEmails(dateKey, label) {
+      const dayEmails = allEmails.filter(e => e.date.toISOString().split('T')[0] === dateKey);
+      if (!dayEmails.length) return;
+      showEmailsPanel(label, dayEmails);
     }
 
     async function undoClean() {
