@@ -1548,6 +1548,252 @@
       font-weight: 600;
     }
 
+    /* ============================================
+       MOBILE — phone-first overrides for ≤ 700px
+       Drops the fixed-viewport ops layout in favor of vertical sections,
+       a top app bar, and a bottom tab bar. Bubble map hidden (touch-bad).
+       ============================================ */
+    .mobile-topbar, .mobile-tabbar { display: none; }
+
+    @media (max-width: 700px) {
+      /* Show mobile chrome, hide desktop sidebar */
+      .sidebar { display: none !important; }
+      .mobile-topbar, .mobile-tabbar { display: flex !important; }
+
+      /* Hard-constrain everything to viewport width */
+      html, body { overflow-x: hidden !important; max-width: 100vw; }
+      .workspace { max-width: 100vw !important; padding: 0 !important; }
+      .tab-pane { max-width: 100%; overflow-x: hidden; }
+      .clean-table { table-layout: fixed; word-break: break-word; }
+      .clean-table td .row-sender-email { word-break: break-all; }
+
+      /* Disable the desktop fit-to-viewport lock */
+      .dash-container.ops-mode {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
+
+      .ops-grid {
+        grid-template-columns: 1fr !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      .ops-main {
+        grid-template-rows: auto auto auto !important;
+        overflow: visible !important;
+      }
+      .ops-middle {
+        grid-template-rows: auto auto !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      /* Top mono strip — scrollable horizontally */
+      .ops-strip {
+        padding: 8px 14px !important;
+        gap: 14px !important;
+        font-size: 9.5px !important;
+        position: sticky;
+        top: 48px; /* below the mobile-topbar */
+        z-index: 25;
+      }
+
+      /* Mobile top app bar */
+      .mobile-topbar {
+        position: sticky;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 30;
+        align-items: center;
+        gap: 10px;
+        padding: 0 16px;
+        height: 48px;
+        background: var(--bg-surface);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+      }
+      .mobile-topbar .mtb-brand-mark {
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 18px;
+        color: var(--accent-primary);
+        line-height: 1;
+      }
+      .mobile-topbar .mtb-brand {
+        font-family: var(--font-display);
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-primary);
+        letter-spacing: -0.005em;
+      }
+      .mobile-topbar .mtb-spacer { flex: 1; }
+      .mobile-topbar .mtb-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        width: 32px;
+        height: 32px;
+        border-radius: 7px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0;
+      }
+      .mobile-topbar .mtb-btn:active { transform: scale(0.94); }
+
+      /* Mobile bottom tab bar */
+      .mobile-tabbar {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 40;
+        height: 64px;
+        padding-bottom: env(safe-area-inset-bottom, 0);
+        background: var(--bg-surface);
+        backdrop-filter: blur(22px);
+        -webkit-backdrop-filter: blur(22px);
+        border-top: 1px solid var(--border);
+        align-items: stretch;
+        justify-content: space-around;
+      }
+      .mobile-tabbar .mtb-tab {
+        flex: 1;
+        background: transparent;
+        border: 0;
+        color: var(--text-muted);
+        font-family: var(--font-mono), monospace;
+        font-size: 9.5px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        cursor: pointer;
+        padding: 8px 4px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        transition: color 0.15s;
+        position: relative;
+      }
+      .mobile-tabbar .mtb-tab svg { display: block; }
+      .mobile-tabbar .mtb-tab.active {
+        color: var(--accent-primary);
+      }
+      .mobile-tabbar .mtb-tab.active::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 24%; right: 24%;
+        height: 2px;
+        background: var(--accent-primary);
+        border-radius: 2px;
+      }
+
+      /* Make room for bottom tab bar */
+      .ops-main, .ops-grid, .tab-pane {
+        padding-bottom: 80px !important;
+      }
+
+      /* HERO — stack columns vertically */
+      .ops-hero {
+        grid-template-columns: 1fr !important;
+        gap: 14px !important;
+        padding: 16px 16px 14px !important;
+        align-items: start !important;
+      }
+      .ops-hero-date { font-size: 26px !important; }
+      .ops-hero-greet { font-size: 16px !important; max-width: none; }
+      .ops-hero-range { display: grid; grid-template-columns: repeat(6, 1fr); width: 100%; }
+      .ops-hero-range button { padding: 7px 4px; }
+      /* Pulse strip — tighter on mobile */
+      .ops-strip { padding: 8px 12px !important; gap: 12px !important; }
+      .ops-strip .ops-strip-key { display: none; }
+      .ops-section-head { padding: 10px 16px 8px; }
+      .ops-senders-head { padding: 12px 16px 10px; }
+
+      /* LANDSCAPE — bubble map hidden on mobile (touch-unfriendly) */
+      .ops-landscape { display: none !important; }
+
+      /* TRIAGE — vertical stack of 4 sections, each capped */
+      .ops-triage .ops-section-body {
+        grid-template-columns: 1fr !important;
+        grid-auto-rows: auto;
+      }
+      .triage-pillar {
+        border-right: 0 !important;
+        border-bottom: 1px solid var(--border);
+        max-height: 240px;
+      }
+      .triage-pillar:last-child { border-bottom: 0; }
+      .triage-list { max-height: 200px; }
+
+      /* SPARKLINES — stack vertically too */
+      .ops-spark {
+        grid-template-columns: 1fr !important;
+        height: auto !important;
+      }
+      .ops-spark > div {
+        border-right: 0 !important;
+        border-bottom: 1px solid var(--border);
+        padding: 10px 16px;
+      }
+      .ops-spark > div:last-child { border-bottom: 0; }
+
+      /* SENDERS — flow inline as a regular section, not a fixed rail */
+      .ops-senders {
+        border-left: 0 !important;
+        border-top: 1px solid var(--border);
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      .ops-senders-list {
+        overflow: visible !important;
+        max-height: none !important;
+      }
+      .ops-sender-item { padding: 10px 16px; }
+
+      /* DEEP CLEAN — relax fixed widths, scroll the table */
+      .clean-controls { padding: 16px; gap: 10px; flex-direction: column; align-items: stretch; }
+      .clean-controls .scan-label { display: none; }
+      .clean-range { width: 100%; justify-content: space-between; }
+      .clean-range button { flex: 1; padding: 8px 4px; }
+      .clean-begin { width: 100%; margin-left: 0; }
+      .clean-table-head { flex-direction: column; align-items: stretch; }
+      .clean-filter { max-width: none; }
+      /* Drop the Domain + Latest + Unsub columns on mobile, keep Sender + Count */
+      .clean-table thead th:nth-child(3),
+      .clean-table thead th:nth-child(5),
+      .clean-table thead th:nth-child(6),
+      .clean-table tbody td:nth-child(3),
+      .clean-table tbody td:nth-child(5),
+      .clean-table tbody td:nth-child(6) { display: none; }
+      .clean-table { font-size: 12px; width: 100%; }
+      .clean-table thead th, .clean-table td { padding: 10px 8px; }
+      .clean-table td.num { font-size: 16px; }
+      .clean-table td .row-sender-name { font-size: 13px; }
+      .clean-bulk-bar { flex-wrap: wrap; gap: 8px; padding: 10px; font-size: 11.5px; }
+      .clean-bulk-bar button { padding: 5px 9px; font-size: 11px; }
+      .clean-title { font-size: 26px; }
+      .clean-hero { padding: 14px 14px 18px; }
+
+      /* READER — full-width on mobile */
+      .reader-overlay { padding: 0 !important; }
+      .reader-panel { max-height: 100vh !important; height: 100vh !important; border-radius: 0 !important; }
+
+      /* ONBOARDING — stack steps vertically, mission-control bones preserved */
+      .onboarding.screen, #onboarding {
+        padding: 14px;
+      }
+      .onboard-mc-card { padding: 22px 18px 20px !important; }
+      .onboard-mc-mast { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .onboard-mc-mast h1 { font-size: 28px !important; }
+      .onboard-mc-tag { text-align: left !important; }
+      .onboard-mc-grid { grid-template-columns: 1fr !important; }
+      .mc-step { min-height: auto !important; padding: 16px 16px 14px !important; }
+    }
+
     /* Onboarding redesign — single dense panel, mission-control aesthetic */
     .onboard-mc {
       max-width: 1080px;
@@ -4542,6 +4788,34 @@
          DASHBOARD
          ========================================== -->
     <div id="dashboard" class="screen">
+      <!-- Mobile top app bar (shown only ≤ 700px viewport) -->
+      <div class="mobile-topbar" id="mobile-topbar">
+        <span class="mtb-brand-mark">&#9993;</span>
+        <span class="mtb-brand">Inbox Intelligence</span>
+        <span class="mtb-spacer"></span>
+        <button class="mtb-btn" onclick="refreshDashboard()" title="Refresh" aria-label="Refresh">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+        <button class="mtb-btn" onclick="toggleTheme()" title="Theme" aria-label="Theme">
+          <span class="theme-icon-sun">&#9788;</span><span class="theme-icon-moon">&#9790;</span>
+        </button>
+        <button class="mtb-btn" onclick="showPreferences()" title="Preferences" aria-label="Preferences">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+
+      <!-- Mobile bottom tab bar (shown only ≤ 700px viewport) -->
+      <div class="mobile-tabbar" id="mobile-tabbar">
+        <button class="mtb-tab active" id="mtb-tab-dashboard" onclick="switchTab('dashboard')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button class="mtb-tab" id="mtb-tab-deep-clean" onclick="switchTab('deep-clean')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7l1.5 13a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2L21 7"/><path d="M9 7V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 7h20"/><path d="M10 12v6M14 12v6"/></svg>
+          <span>Deep Clean</span>
+        </button>
+      </div>
+
       <div class="dash-container ops-mode">
 
         <!-- Sidebar — editorial rail -->
@@ -6580,6 +6854,13 @@ ${emailList}` }]
       document.querySelectorAll('.sidebar-tab').forEach(b => {
         b.classList.toggle('active', b.dataset.tab === name);
       });
+      // Mobile bottom-tab-bar mirror
+      const mtbDash = document.getElementById('mtb-tab-dashboard');
+      const mtbClean = document.getElementById('mtb-tab-deep-clean');
+      if (mtbDash) mtbDash.classList.toggle('active', name === 'dashboard');
+      if (mtbClean) mtbClean.classList.toggle('active', name === 'deep-clean');
+      // Scroll to top on tab switch (mobile UX)
+      window.scrollTo({ top: 0, behavior: 'instant' });
       // Lazy-init on first deep-clean visit
       if (name === 'deep-clean') initDeepCleanIfNeeded();
     }
