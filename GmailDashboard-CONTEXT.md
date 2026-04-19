@@ -4,7 +4,7 @@
 AI-powered Gmail intelligence dashboard for Larry (~65yo CEO of a medical data analytics company, also runs community projects like condo board elevator replacement). Single `index.html`, no server, no database. He opens a URL, sees his emails sorted by importance with narrative briefings and interactive topic visualization. Inline delete actions on every email list.
 
 ## Current Status
-**Atelier redesign + iCloud provider + Deep Clean tab shipped 2026-04-19.** Sidebar workspace layout, editorial typography (Fraunces + DM Sans), burnished ochre accent, Top Senders centerpiece, in-dashboard email reader modal, 1Y–All deep scan with sender table + bulk trash + block sender. iCloud bridge backs the iCloud provider via local launchd service. Larry's Gmail flow preserved unchanged.
+**Ops redesign shipped 2026-04-19 (round 2).** Complete dashboard rebuild after first-round Atelier was deemed "still scattered cards." Mission-control density inspired by OSControlCenter: top mono pulse strip, single-screen no-scroll layout, bubble map hero, 4-pillar triage, sparkline strip at the bottom, fixed right-rail Top Senders column. Briefing card killed (no per-load Claude API cost). Onboarding rebuilt as 3-side-by-side mission-control panel. iCloud bridge + Deep Clean tab from earlier in the day still in place. Larry's Gmail flow preserved.
 
 Live: https://jbuckdev.github.io/gmail-dashboard/
 Repo: https://github.com/jbuckdev/gmail-dashboard (public)
