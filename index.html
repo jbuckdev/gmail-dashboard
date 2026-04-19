@@ -3583,6 +3583,19 @@
       return `https://mail.google.com/mail/u/0/#inbox/${id}`;
     }
 
+    // Parse a raw RFC 2369 List-Unsubscribe header into the best clickable URL.
+    // Header forms: "<https://...>" | "<mailto:...>" | "<mailto:...>, <https://...>"
+    // Prefers https. Returns null if no usable URL.
+    function parseUnsubscribeURL(raw) {
+      if (!raw) return null;
+      const matches = [...raw.matchAll(/<([^>]+)>/g)].map(m => m[1].trim());
+      const httpsURL = matches.find(u => /^https?:\/\//i.test(u));
+      if (httpsURL) return httpsURL;
+      const mailtoURL = matches.find(u => /^mailto:/i.test(u));
+      if (mailtoURL) return mailtoURL;
+      return null;
+    }
+
     // Max emails to fetch per range (Gmail API budget)
     function getMaxEmails() {
       if (currentTimeRange <= 7) return 500;
@@ -3804,6 +3817,7 @@
 
         // Header signals
         hasUnsubscribe: !!headers['list-unsubscribe'],
+        unsubscribeRaw: headers['list-unsubscribe'] || '',
         hasListId: !!headers['list-id'],
         isBulk: (headers['precedence'] || '').toLowerCase() === 'bulk' || (headers['precedence'] || '').toLowerCase() === 'list',
         hasCalendar: (headers['content-type'] || '').includes('calendar'),
@@ -6069,17 +6083,23 @@ Browser: ${diagnostic.browser}
       cancelBtn.className = 'email-actions-btn btn-cancel-select';
       cancelBtn.textContent = 'Cancel';
 
-      // Unsubscribe nudge — show if any emails in this grouping have List-Unsubscribe
+      // Unsubscribe nudge — prefer a real List-Unsubscribe URL on any email in
+      // this grouping; fall back to opening the email in the mail app so the
+      // user can use the provider's built-in unsubscribe button.
       const ids = getEmailIds();
       const groupEmails = allEmails.filter(e => ids.includes(e.id));
-      const unsubEmail = groupEmails.find(e => e.hasUnsubscribe || e.hasListId);
+      const unsubEmail = groupEmails.find(e => parseUnsubscribeURL(e.unsubscribeRaw))
+        || groupEmails.find(e => e.hasUnsubscribe || e.hasListId);
 
       const unsubBtn = document.createElement('a');
       unsubBtn.className = 'email-actions-btn btn-unsub';
       unsubBtn.textContent = 'Unsubscribe';
-      unsubBtn.title = 'Open in Gmail to unsubscribe';
       if (unsubEmail) {
-        unsubBtn.href = messageURL(unsubEmail.id);
+        const directURL = parseUnsubscribeURL(unsubEmail.unsubscribeRaw);
+        unsubBtn.href = directURL || messageURL(unsubEmail.id);
+        unsubBtn.title = directURL
+          ? (directURL.startsWith('mailto:') ? 'Send unsubscribe email' : 'Open the unsubscribe page')
+          : 'Open in mail app to unsubscribe';
         unsubBtn.target = '_blank';
         unsubBtn.rel = 'noopener';
         unsubBtn.style.display = '';
