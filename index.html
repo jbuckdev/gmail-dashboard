@@ -1027,6 +1027,748 @@
     .expandable-panel .bubble-map-viewport { cursor: grab; }
 
     /* ============================================
+       OPS LAYOUT — single-screen mission control
+       Body stays scrollable for onboarding/prefs; dashboard locks to viewport.
+       ============================================ */
+    body.app-locked { overflow: hidden; height: 100vh; }
+    #dashboard.screen.active ~ * { /* nothing — placeholder for future */ }
+    .dash-container.ops-mode {
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Top mono strip — system pulse */
+    .ops-strip {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      padding: 7px 24px 7px 22px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      height: 34px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .ops-strip .pulse-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent-primary);
+      box-shadow: 0 0 8px var(--accent-primary);
+      animation: pulse 1.6s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.55; transform: scale(1); }
+      50%      { opacity: 1;    transform: scale(1.2); }
+    }
+    .ops-strip-item { display: flex; align-items: center; gap: 7px; }
+    .ops-strip-key   { color: var(--text-muted); font-size: 9.5px; opacity: 0.75; }
+    .ops-strip-val   { color: var(--text-primary); font-weight: 500; letter-spacing: 0.04em; }
+    .ops-strip-sep   { color: var(--text-muted); opacity: 0.4; }
+
+    /* Main grid: workspace + sender rail */
+    .ops-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 0;
+      height: calc(100vh - 34px);
+      overflow: hidden;
+    }
+    @media (max-width: 1100px) { .ops-grid { grid-template-columns: minmax(0, 1fr) 280px; } }
+    @media (max-width: 900px)  { .ops-grid { grid-template-columns: 1fr; } .ops-senders { display: none !important; } }
+
+    .ops-main {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 0;
+      padding: 0;
+      overflow: hidden;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    /* HERO row — date, greeting, range, key counts */
+    .ops-hero {
+      display: grid;
+      grid-template-columns: 200px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 32px;
+      padding: 18px 28px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .ops-hero-date {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 28px;
+      line-height: 1.05;
+      color: var(--text-primary);
+      letter-spacing: -0.005em;
+    }
+    .ops-hero-date .ops-dow {
+      display: block;
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent-primary);
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+    .ops-hero-greet {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 18px;
+      color: var(--text-primary);
+      line-height: 1.3;
+      letter-spacing: -0.003em;
+    }
+    .ops-hero-greet em {
+      font-style: normal;
+      color: var(--text-muted);
+      font-family: var(--font-ui);
+      font-size: 12.5px;
+      display: block;
+      margin-top: 4px;
+      letter-spacing: 0.005em;
+    }
+    .ops-hero-range {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg-card);
+    }
+    .ops-hero-range button {
+      padding: 5px 11px;
+      border: 0;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      border-right: 1px solid var(--border);
+      transition: all 0.12s;
+    }
+    .ops-hero-range button:last-child { border-right: 0; }
+    .ops-hero-range button:hover { color: var(--text-primary); background: var(--bg-card-hover); }
+    .ops-hero-range button.active {
+      color: var(--accent-primary);
+      background: var(--accent-primary-subtle);
+      box-shadow: inset 0 -2px 0 var(--accent-primary);
+    }
+
+    /* MIDDLE — landscape (bubble map) takes the dominant slot */
+    .ops-middle {
+      display: grid;
+      grid-template-rows: minmax(0, 0.95fr) minmax(0, 1.05fr);
+      gap: 0;
+      overflow: hidden;
+      min-height: 0;
+      height: 100%;
+    }
+
+    .ops-section {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .ops-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 28px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .ops-section-title {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .ops-section-title strong {
+      color: var(--accent-primary);
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    .ops-section-meta {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    .ops-section-meta strong {
+      color: var(--text-primary);
+      font-family: var(--font-numeric);
+      font-weight: 500;
+      font-size: 16px;
+      letter-spacing: 0;
+      vertical-align: middle;
+    }
+    .ops-section-body {
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
+      position: relative;
+    }
+
+    /* LANDSCAPE — emphasize the bubble map */
+    .ops-landscape .ops-section-body {
+      padding: 0;
+      overflow: hidden;
+    }
+    .ops-landscape .bubble-map-viewport {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      background: transparent;
+      overflow: hidden;
+    }
+    .ops-landscape .bubble-map {
+      width: 100% !important;
+      height: 100% !important;
+      position: relative;
+    }
+    .ops-landscape .bubble-back-btn {
+      position: absolute;
+      top: 12px;
+      left: 18px;
+      z-index: 4;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: none;
+    }
+    .ops-landscape .bubble-back-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-card-hover);
+    }
+
+    /* TRIAGE pillars */
+    .ops-triage .ops-section-body {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0;
+      padding: 0;
+      height: 100%;
+    }
+    .triage-pillar {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .triage-pillar:last-child { border-right: 0; }
+    .triage-pillar-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px 9px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .triage-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .triage-pillar.p-reply .triage-dot { background: var(--accent-coral); box-shadow: 0 0 8px var(--accent-coral); }
+    .triage-pillar.p-read  .triage-dot { background: var(--accent-primary); box-shadow: 0 0 8px var(--accent-primary); }
+    .triage-pillar.p-fyi   .triage-dot { background: var(--accent-amber);  box-shadow: 0 0 8px var(--accent-amber); }
+    .triage-pillar.p-skip  .triage-dot { background: var(--accent-slate); }
+    .triage-label {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .triage-count {
+      font-family: var(--font-numeric);
+      font-weight: 500;
+      font-size: 18px;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+    .triage-list {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0;
+      min-height: 0;
+    }
+    .triage-list .email-item {
+      display: block;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.12s;
+      cursor: pointer;
+    }
+    .triage-list .email-item:hover { background: var(--accent-primary-subtle); }
+    .triage-list .email-item .email-top {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+    }
+    .triage-list .email-item .email-sender {
+      font-family: var(--font-display);
+      font-size: 13px;
+      color: var(--text-primary);
+      font-weight: 400;
+      letter-spacing: -0.003em;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .triage-list .email-item .email-date {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+    }
+    .triage-list .email-item .email-summary,
+    .triage-list .email-item .email-subject {
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      margin-top: 3px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .triage-empty {
+      padding: 24px 14px;
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      text-align: center;
+      font-style: italic;
+    }
+
+    /* SPARKLINE strip — volume + breakdown inline at the bottom */
+    .ops-spark {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 0;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      height: 96px;
+    }
+    .ops-spark > div {
+      padding: 12px 22px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+    }
+    .ops-spark > div:last-child { border-right: 0; }
+    .ops-spark .spark-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ops-spark .spark-title {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .ops-spark .spark-total {
+      font-family: var(--font-numeric);
+      font-weight: 500;
+      font-size: 18px;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .ops-spark .spark-canvas {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .ops-spark .spark-canvas .volume-chart,
+    .ops-spark .spark-canvas .cat-breakdown {
+      height: 100%;
+      max-height: 50px;
+    }
+
+    /* SENDERS RAIL — right column, scrollable within itself */
+    .ops-senders {
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--border);
+      background: var(--bg-surface);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      min-height: 0;
+      overflow: hidden;
+    }
+    .ops-senders-head {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .ops-senders-head .ops-section-title { padding: 0; border: 0; }
+    .ops-senders-meta {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      margin-top: 6px;
+    }
+    .ops-senders-meta strong {
+      font-family: var(--font-numeric);
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--text-primary);
+      letter-spacing: 0;
+      margin-right: 4px;
+    }
+    .ops-senders-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0 12px;
+    }
+    .ops-sender-item {
+      display: grid;
+      grid-template-columns: 16px minmax(0, 1fr) 44px;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 18px 9px 20px;
+      cursor: pointer;
+      transition: background 0.12s;
+      border-bottom: 1px solid var(--border);
+    }
+    .ops-sender-item:hover { background: var(--accent-primary-subtle); }
+    .ops-sender-rank {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .ops-sender-info { min-width: 0; }
+    .ops-sender-name {
+      font-family: var(--font-display);
+      font-size: 13.5px;
+      color: var(--text-primary);
+      font-weight: 400;
+      letter-spacing: -0.003em;
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ops-sender-email {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+    .ops-sender-bar-track {
+      height: 4px;
+      background: var(--accent-primary-subtle);
+      border: 1px solid var(--accent-primary-border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 5px;
+      position: relative;
+    }
+    .ops-sender-bar-fill {
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: var(--bar-w, 0%);
+      background: var(--accent-primary);
+    }
+    .ops-sender-count {
+      font-family: var(--font-numeric);
+      font-weight: 500;
+      font-size: 17px;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    .ops-senders-foot {
+      padding: 10px 20px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ops-senders-foot a {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--accent-primary);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    /* Onboarding redesign — single dense panel, mission-control aesthetic */
+    .onboard-mc {
+      max-width: 1080px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0;
+    }
+    .onboard-mc-strip {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 9px 22px;
+      border: 1px solid var(--border);
+      border-radius: 10px 10px 0 0;
+      border-bottom: 0;
+      background: var(--bg-surface);
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .onboard-mc-strip .pulse-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent-primary);
+      box-shadow: 0 0 8px var(--accent-primary);
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    .onboard-mc-card {
+      border: 1px solid var(--border);
+      border-radius: 0 0 10px 10px;
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      padding: 30px 36px 28px;
+    }
+    .onboard-mc-mast {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 22px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .onboard-mc-mast h1 {
+      font-family: var(--font-display);
+      font-size: 38px;
+      font-weight: 400;
+      color: var(--text-primary);
+      letter-spacing: -0.012em;
+      line-height: 1;
+    }
+    .onboard-mc-mast small {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .onboard-mc-tag {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      color: var(--text-secondary);
+      max-width: 380px;
+      text-align: right;
+      line-height: 1.5;
+    }
+    .onboard-mc-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    @media (max-width: 880px) { .onboard-mc-grid { grid-template-columns: 1fr; } }
+    .mc-step {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 18px 16px;
+      background: var(--bg-card);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 230px;
+      position: relative;
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .mc-step.is-active {
+      border-color: var(--accent-primary-border);
+      box-shadow: 0 0 0 1px var(--accent-primary-border), var(--accent-primary-glow);
+    }
+    .mc-step.is-done {
+      border-color: var(--border);
+      background: var(--accent-primary-subtle);
+    }
+    .mc-step-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .mc-step-num {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      letter-spacing: 0.2em;
+      color: var(--accent-primary);
+      font-weight: 600;
+    }
+    .mc-step-title {
+      font-family: var(--font-display);
+      font-size: 17px;
+      color: var(--text-primary);
+      font-weight: 400;
+      letter-spacing: -0.005em;
+    }
+    .mc-step-status {
+      margin-left: auto;
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .mc-step.is-active .mc-step-status { color: var(--accent-primary); }
+    .mc-step.is-done .mc-step-status { color: var(--accent-primary); }
+    .mc-step-body {
+      flex: 1;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .mc-step-body p { margin-bottom: 10px; }
+    .mc-step-actions { display: flex; flex-direction: column; gap: 8px; }
+    .mc-toggle-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .mc-toggle {
+      border: 1px solid var(--border);
+      background: transparent;
+      padding: 10px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: var(--font-ui);
+      text-align: left;
+      color: var(--text-secondary);
+    }
+    .mc-toggle:hover { border-color: var(--border-active); color: var(--text-primary); }
+    .mc-toggle.selected {
+      border-color: var(--accent-primary-border);
+      background: var(--accent-primary-subtle);
+      color: var(--text-primary);
+    }
+    .mc-toggle-title {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mc-toggle-title::before {
+      content: '';
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent-primary);
+      opacity: 0.4;
+    }
+    .mc-toggle.selected .mc-toggle-title::before { opacity: 1; box-shadow: 0 0 6px var(--accent-primary); }
+    .mc-toggle-desc {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .mc-key-input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      background: transparent;
+      border-radius: 7px;
+      color: var(--text-primary);
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+    .mc-key-input:focus {
+      outline: none;
+      border-color: var(--accent-primary-border);
+      box-shadow: var(--accent-primary-focus);
+    }
+    .mc-cta {
+      padding: 10px 14px;
+      border: 0;
+      background: var(--accent-primary);
+      color: #fff;
+      font-family: var(--font-ui);
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.15s;
+    }
+    .mc-cta:hover { transform: translateY(-1px); box-shadow: var(--accent-primary-glow); }
+    .mc-cta:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .mc-help { font-family: var(--font-ui); font-size: 10.5px; color: var(--text-muted); }
+    .mc-help a { color: var(--accent-primary); }
+    .onboard-mc-trust {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* ============================================
        ATELIER LAYOUT — Sidebar workspace
        Editorial rail on the left, tab content on the right.
        ============================================ */
@@ -3669,85 +4411,120 @@
          ONBOARDING
          ========================================== -->
     <div id="onboarding" class="screen active">
-      <div class="onboard-container">
-        <div class="onboard-brand">
-          <div class="logo">&#9993;</div>
-          <h1>Inbox Intelligence</h1>
-          <p>See what matters. Skip what doesn't.</p>
+      <div class="onboard-mc">
+        <div class="onboard-mc-strip">
+          <span class="pulse-dot"></span>
+          <span>Inbox Intelligence · Atelier · v2</span>
+          <span style="margin-left:auto">Setup · 3 steps</span>
         </div>
-
-        <!-- Email-provider picker. Hidden unless the local iCloud bridge is reachable
-             (i.e. only James, on his Mac, sees this). Larry never sees it — Gmail-only
-             flow is entirely unchanged. -->
-        <div class="setup-card glass-spotlight" id="step-provider" style="display:none">
-          <div class="setup-card-header">
-            <div class="step-badge" id="stepProvider-badge">1</div>
-            <h2>Choose your email account</h2>
-          </div>
-          <p>Sign in to the inbox you want to analyze.</p>
-          <div class="privacy-toggle" id="onboard-provider-toggle">
-            <div class="privacy-option" data-provider="gmail" onclick="selectOnboardProvider('gmail')">
-              <div class="privacy-option-title"><span class="privacy-dot dot-full"></span> Gmail</div>
-              <div class="privacy-option-desc">Sign in with Google. Works anywhere — phone, any browser.</div>
+        <div class="onboard-mc-card">
+          <div class="onboard-mc-mast">
+            <div>
+              <h1>Inbox Intelligence</h1>
+              <small>Mission control for your email</small>
             </div>
-            <div class="privacy-option" data-provider="icloud" onclick="selectOnboardProvider('icloud')">
-              <div class="privacy-option-title"><span class="privacy-dot dot-private"></span> iCloud</div>
-              <div class="privacy-option-desc" id="provider-icloud-desc">Connects through the local bridge on this Mac.</div>
+            <div class="onboard-mc-tag">Sort what matters · skip what doesn't · clean years of inbox in one sweep.</div>
+          </div>
+          <div class="onboard-mc-grid">
+
+            <!-- Provider step (only shown when iCloud bridge is reachable) -->
+            <div class="mc-step is-active" id="step-provider" style="display:none">
+              <div class="mc-step-head">
+                <span class="mc-step-num">01 / Account</span>
+                <span class="mc-step-status">Required</span>
+              </div>
+              <div class="mc-step-title">Pick your inbox</div>
+              <div class="mc-step-body">
+                <p>Sign in to the email account you want to analyze.</p>
+              </div>
+              <div class="mc-step-actions">
+                <div class="mc-toggle-row" id="onboard-provider-toggle">
+                  <button class="mc-toggle" data-provider="gmail" onclick="selectOnboardProvider('gmail')">
+                    <div class="mc-toggle-title">Gmail</div>
+                    <div class="mc-toggle-desc">Phone or any browser.</div>
+                  </button>
+                  <button class="mc-toggle" data-provider="icloud" onclick="selectOnboardProvider('icloud')">
+                    <div class="mc-toggle-title">iCloud</div>
+                    <div class="mc-toggle-desc" id="provider-icloud-desc">Local bridge on this Mac.</div>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <div class="setup-card glass-spotlight" id="step-privacy">
-          <div class="setup-card-header">
-            <div class="step-badge" id="step0-badge">1</div>
-            <h2>Choose your privacy level</h2>
-          </div>
-          <p>This cannot be changed after sign-in without re-scanning your emails.</p>
-          <div class="privacy-toggle" id="onboard-privacy-toggle">
-            <div class="privacy-option" data-mode="full" onclick="selectOnboardPrivacy('full')">
-              <div class="privacy-option-title"><span class="privacy-dot dot-full"></span> Full Analysis</div>
-              <div class="privacy-option-desc">AI reads your emails for the best sorting and written summaries. Email content is sent to Anthropic's AI service.</div>
+            <!-- Privacy mode -->
+            <div class="mc-step is-active" id="step-privacy">
+              <div class="mc-step-head">
+                <span class="mc-step-num">02 / Privacy</span>
+                <span class="mc-step-status">Required</span>
+              </div>
+              <div class="mc-step-title">How private?</div>
+              <div class="mc-step-body">
+                <p>Cannot change after sign-in without re-scanning.</p>
+              </div>
+              <div class="mc-step-actions">
+                <div class="mc-toggle-row" id="onboard-privacy-toggle">
+                  <button class="mc-toggle" data-mode="full" onclick="selectOnboardPrivacy('full')">
+                    <div class="mc-toggle-title">Full</div>
+                    <div class="mc-toggle-desc">AI reads emails for sorting + summaries.</div>
+                  </button>
+                  <button class="mc-toggle" data-mode="private" onclick="selectOnboardPrivacy('private')">
+                    <div class="mc-toggle-title">Private</div>
+                    <div class="mc-toggle-desc">Nothing leaves your browser. Rules-only.</div>
+                  </button>
+                </div>
+              </div>
             </div>
-            <div class="privacy-option" data-mode="private" onclick="selectOnboardPrivacy('private')">
-              <div class="privacy-option-title"><span class="privacy-dot dot-private"></span> Private Mode</div>
-              <div class="privacy-option-desc">Everything stays on this computer. No email data leaves your browser. Sorting is less precise but fully private.</div>
+
+            <!-- Claude key (only visible in full mode) -->
+            <div class="mc-step" id="step-claude" style="display:none">
+              <div class="mc-step-head">
+                <span class="mc-step-num">03 / Key</span>
+                <span class="mc-step-status">Anthropic</span>
+              </div>
+              <div class="mc-step-title">Claude API key</div>
+              <div class="mc-step-body">
+                <p>Stored on this computer only — never sent anywhere except Anthropic.</p>
+              </div>
+              <div class="mc-step-actions">
+                <input type="password" class="mc-key-input" id="claude-key-input" placeholder="sk-ant-…" autocomplete="off">
+                <button class="mc-cta" id="save-key-btn" onclick="saveClaudeKey()">Save key</button>
+                <span class="mc-help"><a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Get a key →</a></span>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <div class="setup-card glass-spotlight" id="step-claude" style="display:none">
-          <div class="setup-card-header">
-            <div class="step-badge" id="step1-badge">2</div>
-            <h2>Paste your Claude key</h2>
-          </div>
-          <p>This lets the page sort your emails by importance. Your key stays on this computer only.</p>
-          <input type="password" id="claude-key-input" placeholder="sk-ant-..." autocomplete="off">
-          <button class="btn-primary" id="save-key-btn" onclick="saveClaudeKey()">Save Key</button>
-          <a class="help-link" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">
-            Get your key at console.anthropic.com
-          </a>
-        </div>
+            <!-- Connect step -->
+            <div class="mc-step" id="step-google">
+              <div class="mc-step-head">
+                <span class="mc-step-num" id="step-connect-num">03 / Connect</span>
+                <span class="mc-step-status">Read + Trash</span>
+              </div>
+              <div class="mc-step-title" id="step-google-title">Sign in with Google</div>
+              <div class="mc-step-body">
+                <p id="step-google-desc">Read-only on subjects + senders. Cannot send. Trash only after explicit action.</p>
+              </div>
+              <div class="mc-step-actions">
+                <button class="mc-cta" id="google-signin-btn" onclick="handleGoogleSignIn()" disabled style="display:flex;align-items:center;gap:8px;justify-content:center">
+                  <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                  Sign in with Google
+                </button>
+                <button class="mc-cta" id="icloud-connect-btn" onclick="handleIcloudConnect()" style="display:none" disabled>
+                  Continue with iCloud
+                </button>
+              </div>
+            </div>
 
-        <div class="setup-card glass-spotlight" id="step-google">
-          <div class="setup-card-header">
-            <div class="step-badge" id="step2-badge">3</div>
-            <h2 id="step-google-title">Sign in with Google</h2>
           </div>
-          <p id="step-google-desc">Read-only access to your email subjects and senders. Cannot send, move, or delete anything.</p>
-          <button class="btn-google" id="google-signin-btn" onclick="handleGoogleSignIn()" disabled>
-            <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Sign in with Google
-          </button>
-          <button class="btn-primary" id="icloud-connect-btn" onclick="handleIcloudConnect()" style="display:none" disabled>
-            Continue with iCloud
-          </button>
-        </div>
 
-        <div class="trust-line" id="trust-line-text">
-          Your emails stay in Gmail. This page reads them temporarily to sort them,<br>
-          then forgets everything when you close the tab.
+          <div class="onboard-mc-trust" id="trust-line-text">
+            Your emails stay in their original mailbox. This page reads them temporarily, then forgets everything when you close the tab.
+          </div>
         </div>
       </div>
+      <!-- Hidden compatibility shells (legacy renumbering targets) -->
+      <span id="step0-badge" style="display:none">1</span>
+      <span id="step1-badge" style="display:none">2</span>
+      <span id="step2-badge" style="display:none">3</span>
+      <span id="stepProvider-badge" style="display:none">1</span>
     </div>
 
     <!-- ==========================================
@@ -3765,7 +4542,7 @@
          DASHBOARD
          ========================================== -->
     <div id="dashboard" class="screen">
-      <div class="dash-container">
+      <div class="dash-container ops-mode">
 
         <!-- Sidebar — editorial rail -->
         <aside class="sidebar" id="sidebar">
@@ -3825,154 +4602,164 @@
         <!-- Workspace -->
         <div class="workspace" id="workspace">
 
-          <!-- ============ TAB: DASHBOARD ============ -->
+          <!-- ============ TAB: DASHBOARD (Ops redesign) ============ -->
           <div class="tab-pane" id="tab-dashboard">
 
-            <!-- Editorial hero strip -->
-            <div class="hero-strip">
-              <div class="hero-date" id="hero-date"></div>
-              <div class="hero-greet">
-                <h1 class="hero-greeting" id="greeting">Good morning.</h1>
-                <p class="hero-summary" id="summary-text"></p>
-              </div>
-              <!-- hidden compatibility spans for legacy stat ids -->
-              <span id="stat-reply" style="display:none"><span id="stat-reply-num">0</span></span>
-              <span id="stat-read" style="display:none"><span id="stat-read-num">0</span></span>
-              <span id="stat-fyi" style="display:none"><span id="stat-fyi-num">0</span></span>
-              <span id="stat-skip" style="display:none"><span id="stat-skip-num">0</span></span>
-              <div class="hero-controls">
-                <div class="hero-range">
-                  <button class="range-btn active" data-range="1" onclick="setTimeRange(1, this)">1D</button>
-                  <button class="range-btn" data-range="7" onclick="setTimeRange(7, this)">1W</button>
-                  <button class="range-btn" data-range="30" onclick="setTimeRange(30, this)">1M</button>
-                  <button class="range-btn" data-range="90" onclick="setTimeRange(90, this)">3M</button>
-                  <button class="range-btn" data-range="180" onclick="setTimeRange(180, this)">6M</button>
-                  <button class="range-btn" data-range="365" onclick="setTimeRange(365, this)">1Y</button>
+            <!-- TOP STRIP — system pulse / mono status ticker -->
+            <div class="ops-strip" id="ops-strip">
+              <span class="pulse-dot"></span>
+              <span class="ops-strip-item"><span class="ops-strip-key">Inbox</span><span class="ops-strip-val" id="ops-pulse-inbox">—</span></span>
+              <span class="ops-strip-sep">·</span>
+              <span class="ops-strip-item"><span class="ops-strip-key">Range</span><span class="ops-strip-val" id="ops-pulse-range">1D</span></span>
+              <span class="ops-strip-sep">·</span>
+              <span class="ops-strip-item"><span class="ops-strip-key">Reply</span><span class="ops-strip-val" id="ops-pulse-reply" style="color:var(--accent-coral)">0</span></span>
+              <span class="ops-strip-sep">·</span>
+              <span class="ops-strip-item"><span class="ops-strip-key">Read</span><span class="ops-strip-val" id="ops-pulse-read">0</span></span>
+              <span class="ops-strip-sep">·</span>
+              <span class="ops-strip-item"><span class="ops-strip-key">FYI</span><span class="ops-strip-val" id="ops-pulse-fyi">0</span></span>
+              <span class="ops-strip-sep">·</span>
+              <span class="ops-strip-item"><span class="ops-strip-key">Skip</span><span class="ops-strip-val" id="ops-pulse-skip">0</span></span>
+              <span class="ops-strip-sep">·</span>
+              <span class="ops-strip-item"><span class="ops-strip-key">Senders</span><span class="ops-strip-val" id="ops-pulse-senders">0</span></span>
+              <span class="ops-strip-sep">·</span>
+              <span class="ops-strip-item"><span class="ops-strip-key">Sync</span><span class="ops-strip-val" id="last-updated">—</span></span>
+            </div>
+
+            <div class="ops-grid">
+
+              <!-- Main workspace -->
+              <div class="ops-main">
+
+                <!-- HERO row -->
+                <div class="ops-hero">
+                  <div class="ops-hero-date" id="hero-date"></div>
+                  <div class="ops-hero-greet">
+                    <span id="greeting">Good morning.</span>
+                    <em id="summary-text"></em>
+                  </div>
+                  <!-- hidden legacy stat ids for back-compat -->
+                  <span id="stat-reply" style="display:none"><span id="stat-reply-num">0</span></span>
+                  <span id="stat-read" style="display:none"><span id="stat-read-num">0</span></span>
+                  <span id="stat-fyi" style="display:none"><span id="stat-fyi-num">0</span></span>
+                  <span id="stat-skip" style="display:none"><span id="stat-skip-num">0</span></span>
+                  <div class="ops-hero-range">
+                    <button class="range-btn active" data-range="1" onclick="setTimeRange(1, this)">1D</button>
+                    <button class="range-btn" data-range="7" onclick="setTimeRange(7, this)">1W</button>
+                    <button class="range-btn" data-range="30" onclick="setTimeRange(30, this)">1M</button>
+                    <button class="range-btn" data-range="90" onclick="setTimeRange(90, this)">3M</button>
+                    <button class="range-btn" data-range="180" onclick="setTimeRange(180, this)">6M</button>
+                    <button class="range-btn" data-range="365" onclick="setTimeRange(365, this)">1Y</button>
+                  </div>
                 </div>
-                <span class="hero-updated" id="last-updated"></span>
-              </div>
-            </div>
 
-            <!-- Top Senders — Atelier centerpiece -->
-            <section class="senders-section">
-              <div class="senders-section-head">
-                <div class="senders-section-title">Top Senders<sup>Centerpiece</sup></div>
-                <button class="senders-deeplink" onclick="switchTab('deep-clean')">Open in Deep Clean →</button>
-              </div>
-              <div class="senders-grid">
-                <div class="senders-list" id="atelier-senders-list">
-                  <div style="padding:30px 0;font-family:var(--font-ui);font-size:13px;color:var(--text-muted)">Pick a time range above to see your top senders.</div>
+                <!-- MIDDLE — landscape + triage pillars -->
+                <div class="ops-middle">
+
+                  <section class="ops-section ops-landscape" id="bubble-card">
+                    <div class="ops-section-head">
+                      <div class="ops-section-title" id="bubble-viz-title"><strong>›</strong> Email Landscape</div>
+                      <div class="ops-section-meta">Topic clusters · click to drill</div>
+                    </div>
+                    <div class="ops-section-body">
+                      <button class="bubble-back-btn" id="bubble-back-btn" onclick="bubbleGoBack()" title="Back">&#8592;</button>
+                      <div class="bubble-map-viewport" id="bubble-viewport">
+                        <div class="bubble-map" id="bubble-map"></div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="ops-section ops-triage" id="email-sections">
+                    <div class="ops-section-head">
+                      <div class="ops-section-title"><strong>›</strong> Triage</div>
+                      <div class="ops-section-meta">Click an email to read inline</div>
+                    </div>
+                    <div class="ops-section-body">
+
+                      <div class="triage-pillar p-reply email-section section-reply">
+                        <div class="triage-pillar-head">
+                          <span class="triage-dot"></span>
+                          <span class="triage-label">Needs Reply</span>
+                          <span class="triage-count" id="reply-count">0</span>
+                        </div>
+                        <div class="triage-list section-body expanded" id="reply-emails"></div>
+                      </div>
+
+                      <div class="triage-pillar p-read email-section section-read">
+                        <div class="triage-pillar-head">
+                          <span class="triage-dot"></span>
+                          <span class="triage-label">Worth Reading</span>
+                          <span class="triage-count" id="read-count">0</span>
+                        </div>
+                        <div class="triage-list section-body expanded" id="read-emails"></div>
+                      </div>
+
+                      <div class="triage-pillar p-fyi email-section section-fyi">
+                        <div class="triage-pillar-head">
+                          <span class="triage-dot"></span>
+                          <span class="triage-label">FYI · Scan</span>
+                          <span class="triage-count" id="fyi-count">0</span>
+                        </div>
+                        <div class="triage-list section-body expanded" id="fyi-emails"></div>
+                      </div>
+
+                      <div class="triage-pillar p-skip email-section section-skip">
+                        <div class="triage-pillar-head">
+                          <span class="triage-dot"></span>
+                          <span class="triage-label">Safe to Skip</span>
+                          <span class="triage-count" id="skip-count">0</span>
+                        </div>
+                        <div class="triage-list section-body expanded" id="skip-emails"></div>
+                      </div>
+
+                    </div>
+                  </section>
                 </div>
-                <div class="senders-summary" id="atelier-senders-summary">
-                  <h4>Inbox at a glance</h4>
-                  <div class="summary-stat"><span class="summary-stat-label">Senders</span><span class="summary-stat-value" id="stat-total-senders">—</span></div>
-                  <div class="summary-stat"><span class="summary-stat-label">Total emails</span><span class="summary-stat-value" id="stat-total-emails">—</span></div>
-                  <div class="summary-stat"><span class="summary-stat-label">From top 10</span><span class="summary-stat-value" id="stat-top-pct">—</span></div>
-                  <div class="summary-stat"><span class="summary-stat-label">Time range</span><span class="summary-stat-value" id="stat-range-label">—</span></div>
+
+                <!-- BOTTOM — sparkline strip -->
+                <div class="ops-spark">
+                  <div>
+                    <div class="spark-head">
+                      <span class="spark-title">Volume · 14d</span>
+                      <span class="spark-total" id="spark-volume-total">—</span>
+                    </div>
+                    <div class="spark-canvas"><div class="volume-chart" id="volume-chart"></div></div>
+                  </div>
+                  <div>
+                    <div class="spark-head">
+                      <span class="spark-title">Breakdown</span>
+                      <span class="spark-total" id="spark-breakdown-total"></span>
+                    </div>
+                    <div class="spark-canvas"><div class="cat-breakdown" id="cat-breakdown"></div></div>
+                  </div>
                 </div>
               </div>
-            </section>
+              <!-- /ops-main -->
 
-            <!-- Supporting bento grid — quieter cards -->
-            <div class="bento-grid">
-
-          <!-- Row 1: Briefing (3 cols) + Action Items (1 col) -->
-          <div class="briefing-card bento-card card-3 expandable-panel glass-spotlight" id="briefing-card">
-            <div class="briefing-header">
-              <div class="briefing-icon">&#9998;</div>
-              <div>
-                <div class="briefing-title" id="briefing-title">Today's Briefing</div>
-                <div class="briefing-subtitle" id="briefing-subtitle">A quick look at what matters</div>
-              </div>
-            </div>
-            <div class="briefing-body" id="briefing-body">
-              <div class="briefing-loading">Preparing your briefing...</div>
-            </div>
-          </div>
-
-          <div class="viz-card bento-card card-1 expandable-panel glass-spotlight" id="action-items-card">
-            <div class="viz-title">Action Items</div>
-            <div id="action-items"></div>
-          </div>
-
-          <!-- Row 2: Left stack (landscape, senders, volume, breakdown) + Emails -->
-          <div class="left-viz-stack bento-card card-2">
-            <div class="viz-card expandable-panel glass-spotlight" id="bubble-card">
-              <div class="viz-title" id="bubble-viz-title">Email Landscape</div>
-              <button class="bubble-back-btn" id="bubble-back-btn" onclick="bubbleGoBack()" title="Back">&#8592;</button>
-              <div class="bubble-map-viewport" id="bubble-viewport">
-                <div class="bubble-map" id="bubble-map"></div>
-              </div>
-            </div>
-
-            <div class="viz-card expandable-panel glass-spotlight" id="top-senders-card">
-              <div class="viz-title">Top Senders</div>
-              <div id="top-senders"></div>
-            </div>
-
-            <div class="viz-card expandable-panel glass-spotlight" id="volume-card">
-              <div class="viz-title">Volume</div>
-              <div class="volume-chart" id="volume-chart"></div>
-            </div>
-
-            <div class="viz-card expandable-panel glass-spotlight" id="breakdown-card">
-              <div class="viz-title">Breakdown</div>
-              <div class="cat-breakdown" id="cat-breakdown"></div>
-            </div>
-          </div>
-
-          <div class="email-sections bento-card card-2 expandable-panel anim-stagger glass-spotlight" id="email-sections">
-            <div class="email-section section-reply">
-              <div class="section-header open" onclick="toggleSection(this)">
-                <div class="section-title-area">
-                  <div class="section-dot"></div>
-                  <span class="section-label">Needs Your Reply</span>
-                  <span class="section-count" id="reply-count">0</span>
+              <!-- SENDER rail -->
+              <aside class="ops-senders" id="top-senders-card">
+                <div class="ops-senders-head">
+                  <div class="ops-section-title"><strong>›</strong> Top Senders</div>
+                  <div class="ops-senders-meta"><strong id="senders-rail-count">—</strong> unique · <span id="senders-rail-range">1D</span></div>
                 </div>
-                <span class="section-chevron">&#9662;</span>
-              </div>
-              <div class="section-body expanded" id="reply-emails"></div>
-            </div>
-
-            <div class="email-section section-read">
-              <div class="section-header" onclick="toggleSection(this)">
-                <div class="section-title-area">
-                  <div class="section-dot"></div>
-                  <span class="section-label">Worth Reading</span>
-                  <span class="section-count" id="read-count">0</span>
+                <div class="ops-senders-list" id="top-senders-rail">
+                  <div style="padding:22px 20px;font-family:var(--font-ui);font-size:12px;color:var(--text-muted);text-align:center">Loading senders…</div>
                 </div>
-                <span class="section-chevron">&#9662;</span>
-              </div>
-              <div class="section-body" id="read-emails"></div>
-            </div>
-
-            <div class="email-section section-fyi">
-              <div class="section-header" onclick="toggleSection(this)">
-                <div class="section-title-area">
-                  <div class="section-dot"></div>
-                  <span class="section-label">FYI &mdash; Quick Scan</span>
-                  <span class="section-count" id="fyi-count">0</span>
+                <div class="ops-senders-foot">
+                  <a onclick="switchTab('deep-clean')">Open in Deep Clean →</a>
                 </div>
-                <span class="section-chevron">&#9662;</span>
-              </div>
-              <div class="section-body" id="fyi-emails"></div>
-            </div>
+              </aside>
 
-            <div class="email-section section-skip">
-              <div class="section-header" onclick="toggleSection(this)">
-                <div class="section-title-area">
-                  <div class="section-dot"></div>
-                  <span class="section-label">Safe to Skip</span>
-                  <span class="section-count" id="skip-count">0</span>
-                </div>
-                <span class="section-chevron">&#9662;</span>
-              </div>
-              <div class="section-body" id="skip-emails"></div>
-            </div>
-          </div>
+              <!-- Hidden slots — kept for compatibility with legacy renderers -->
+              <div id="action-items" style="display:none"></div>
+              <div id="top-senders" style="display:none"></div>
+              <span id="atelier-senders-list" style="display:none"></span>
+              <span id="stat-total-senders" style="display:none"></span>
+              <span id="stat-total-emails" style="display:none"></span>
+              <span id="stat-top-pct" style="display:none"></span>
+              <span id="stat-range-label" style="display:none"></span>
 
-        </div>
-        <!-- /bento-grid -->
+            </div>
+            <!-- /ops-grid -->
 
           </div>
           <!-- /tab-dashboard -->
@@ -4379,13 +5166,16 @@
     // Provider picker (Step 1, only rendered when iCloud bridge is available).
     function selectOnboardProvider(provider) {
       setProvider(provider);
-      document.querySelectorAll('#onboard-provider-toggle .privacy-option').forEach(el => {
+      // Support both legacy .privacy-option and new .mc-toggle markup
+      document.querySelectorAll('#onboard-provider-toggle [data-provider]').forEach(el => {
         el.classList.toggle('selected', el.dataset.provider === provider);
       });
-      document.getElementById('step-provider').classList.add('completed');
+      const card = document.getElementById('step-provider');
+      if (card) { card.classList.add('completed', 'is-done'); card.classList.remove('is-active'); }
+      const status = card?.querySelector('.mc-step-status');
+      if (status) status.textContent = '✓ ' + (provider === 'icloud' ? 'iCloud' : 'Gmail');
       const b = document.getElementById('stepProvider-badge');
-      b.textContent = '\u2713';
-      b.classList.add('done');
+      if (b) { b.textContent = '\u2713'; b.classList.add('done'); }
       applyProviderUI();
     }
 
@@ -4472,16 +5262,18 @@
       p.privacyMode = mode;
       savePrefs(p);
 
-      // Highlight selected option in onboarding toggle
-      document.querySelectorAll('#onboard-privacy-toggle .privacy-option').forEach(el => {
+      // Support both legacy .privacy-option and new .mc-toggle
+      document.querySelectorAll('#onboard-privacy-toggle [data-mode]').forEach(el => {
         el.classList.toggle('selected', el.dataset.mode === mode);
       });
 
-      // Mark step 0 done
-      document.getElementById('step-privacy').classList.add('completed');
+      // Mark privacy step done
+      const pCard = document.getElementById('step-privacy');
+      if (pCard) { pCard.classList.add('completed', 'is-done'); pCard.classList.remove('is-active'); }
+      const ps = pCard?.querySelector('.mc-step-status');
+      if (ps) ps.textContent = '✓ ' + (mode === 'private' ? 'Private' : 'Full');
       const b0 = document.getElementById('step0-badge');
-      b0.textContent = '\u2713';
-      b0.classList.add('done');
+      if (b0) { b0.textContent = '\u2713'; b0.classList.add('done'); }
 
       if (mode === 'private') {
         // Skip Claude key step entirely — go straight to sign-in
@@ -4514,18 +5306,23 @@
     }
 
     function markStep1Done() {
-      document.getElementById('step-claude').classList.add('completed');
+      const cCard = document.getElementById('step-claude');
+      if (cCard) { cCard.classList.add('completed', 'is-done'); cCard.classList.remove('is-active'); }
+      const cs = cCard?.querySelector('.mc-step-status');
+      if (cs) cs.textContent = '✓ Saved';
       const b = document.getElementById('step1-badge');
-      b.textContent = '\u2713';
-      b.classList.add('done');
-      document.getElementById('claude-key-input').value = '';
-      document.getElementById('claude-key-input').placeholder = 'Key saved';
-      document.getElementById('claude-key-input').disabled = true;
-      document.getElementById('save-key-btn').disabled = true;
-      document.getElementById('save-key-btn').textContent = 'Saved';
-      document.getElementById('google-signin-btn').disabled = false;
+      if (b) { b.textContent = '\u2713'; b.classList.add('done'); }
+      const inp = document.getElementById('claude-key-input');
+      if (inp) { inp.value = ''; inp.placeholder = 'Key saved'; inp.disabled = true; }
+      const saveBtn = document.getElementById('save-key-btn');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saved'; }
+      const gBtn = document.getElementById('google-signin-btn');
+      if (gBtn) gBtn.disabled = false;
       const icloudBtn = document.getElementById('icloud-connect-btn');
       if (icloudBtn) icloudBtn.disabled = false;
+      // Mark connect step as active
+      const connectCard = document.getElementById('step-google');
+      if (connectCard) connectCard.classList.add('is-active');
     }
 
     /* ============================================
@@ -5324,39 +6121,94 @@ ${emailList}` }]
       // Visualizations
       renderBubbleMap(emails);
       renderTopSenders(emails);
+      renderSendersRail(emails);
       renderVolumeChart(emails);
       renderCatBreakdown(emails);
-      renderActionItems(emails);
+      updateOpsStrip(emails, reply, read, fyi, skip);
 
-      // Generate AI briefing (async, renders when ready)
-      generateBriefing(emails);
+      // Briefing removed (2026-04-19 redesign) — will be replaced by a
+      // scheduled email workflow (n8n). No per-page-load Claude API cost.
+      // generateBriefing(emails);   ← intentionally disabled
+    }
+
+    // Update the mono system-pulse strip at the top of the dashboard tab.
+    function updateOpsStrip(emails, reply, read, fyi, skip) {
+      const rangeLabels = { 1: '1D', 7: '1W', 30: '1M', 90: '3M', 180: '6M', 365: '1Y' };
+      const setIf = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setIf('ops-pulse-inbox', emails.length.toLocaleString());
+      setIf('ops-pulse-range', rangeLabels[currentTimeRange] || `${currentTimeRange}D`);
+      setIf('ops-pulse-reply', reply.length);
+      setIf('ops-pulse-read', read.length);
+      setIf('ops-pulse-fyi', fyi.length);
+      setIf('ops-pulse-skip', skip.length);
+      // Unique senders
+      const senderSet = new Set(emails.map(e => e.from));
+      setIf('ops-pulse-senders', senderSet.size);
+      setIf('senders-rail-count', senderSet.size);
+      setIf('senders-rail-range', rangeLabels[currentTimeRange] || `${currentTimeRange}D`);
+      // Spark totals
+      setIf('spark-volume-total', emails.length.toLocaleString());
+      const topCat = ({reply: reply.length, read: read.length, fyi: fyi.length, skip: skip.length});
+      const total = emails.length || 1;
+      const biggest = Object.entries(topCat).sort((a,b) => b[1] - a[1])[0];
+      setIf('spark-breakdown-total', biggest ? `${((biggest[1]/total)*100).toFixed(0)}% ${biggest[0]}` : '');
+    }
+
+    // Populate the sender right-rail (replaces the atelier centerpiece).
+    function renderSendersRail(emails) {
+      const list = document.getElementById('top-senders-rail');
+      if (!list) return;
+      const senders = {};
+      for (const e of emails) {
+        if (!senders[e.from]) senders[e.from] = { name: e.fromName, email: e.from, latestId: e.id, latestDate: e.date, count: 0 };
+        senders[e.from].count++;
+        if (e.date > senders[e.from].latestDate) {
+          senders[e.from].latestDate = e.date;
+          senders[e.from].latestId = e.id;
+        }
+      }
+      const sorted = Object.values(senders).sort((a, b) => b.count - a.count).slice(0, 50);
+      const max = sorted[0]?.count || 1;
+      if (!sorted.length) {
+        list.innerHTML = '<div style="padding:22px 20px;font-family:var(--font-ui);font-size:12px;color:var(--text-muted);text-align:center">No senders in this range.</div>';
+        return;
+      }
+      list.innerHTML = sorted.map((s, i) => {
+        const pct = ((s.count / max) * 100).toFixed(1);
+        const rankStr = String(i + 1).padStart(2, '0');
+        return `
+          <div class="ops-sender-item" onclick="openEmailReader('${esc(s.latestId)}', 'Most recent email from ${esc(s.name)}.')">
+            <div class="ops-sender-rank">${rankStr}</div>
+            <div class="ops-sender-info">
+              <div class="ops-sender-name">${esc(s.name)}</div>
+              <div class="ops-sender-email">${esc(s.email)}</div>
+              <div class="ops-sender-bar-track"><div class="ops-sender-bar-fill" style="--bar-w:${pct}%"></div></div>
+            </div>
+            <div class="ops-sender-count">${s.count.toLocaleString()}</div>
+          </div>`;
+      }).join('');
     }
 
     function renderEmailList(containerId, emails, showActions) {
       const container = document.getElementById(containerId);
       if (!emails.length) {
-        container.innerHTML = '<div class="empty-state">Nothing here right now.</div>';
+        container.innerHTML = '<div class="triage-empty">Nothing here.</div>';
         return;
       }
 
-      // Build email items HTML
+      // Build email items — click opens the in-dashboard reader, not an external tab.
+      // No inline action bar on dashboard; cleanup lives in the Deep Clean tab.
       const emailsHtml = emails.map(email => {
-        const url = messageURL(email.id);
         const action = showActions && email.actionItem ? `<div class="email-action">${esc(email.actionItem)}</div>` : '';
         const summary = email.summary ? `<div class="email-summary">${esc(email.summary)}</div>` : '';
-        return `<a href="${url}" target="_blank" rel="noopener" class="email-item">
+        return `<div class="email-item" onclick="openEmailReader('${esc(email.id)}')" role="button" tabindex="0">
           <div class="email-top"><span class="email-sender">${esc(email.fromName)}</span><span class="email-date">${fmtDate(email.date)}</span></div>
           <div class="email-subject">${esc(email.subject)}</div>
           ${summary}${action}
-        </a>`;
+        </div>`;
       }).join('');
 
       container.innerHTML = emailsHtml;
-
-      // Add action bar
-      const emailIds = emails.map(e => e.id);
-      const actionBar = createEmailActionBar(container, () => emailIds);
-      container.insertBefore(actionBar, container.firstChild);
     }
 
     /* ============================================
@@ -5700,7 +6552,7 @@ ${emailList}` }]
       const d = new Date();
       const dow = d.toLocaleDateString(undefined, { weekday: 'long' });
       const monthDay = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
-      el.innerHTML = `<span class="day-of-week">${dow}</span>${monthDay}`;
+      el.innerHTML = `<span class="ops-dow day-of-week">${dow}</span>${monthDay}`;
     }
 
     function updateSidebarAccount() {
