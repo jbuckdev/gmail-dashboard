@@ -1406,54 +1406,71 @@
       font-style: italic;
     }
 
-    /* SPARKLINE strip — volume + breakdown inline at the bottom */
-    .ops-spark {
-      display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-      gap: 0;
+    /* ACTIVITY section — combined Volume + Breakdown in a single collapsible window */
+    .ops-activity {
       border-top: 1px solid var(--border);
       flex-shrink: 0;
-      height: 96px;
     }
-    .ops-spark > div {
-      padding: 12px 22px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      overflow: hidden;
+    .ops-activity-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+      gap: 0;
+    }
+    .ops-activity-body > div {
+      padding: 12px 22px 14px;
       border-right: 1px solid var(--border);
+      min-width: 0;
     }
-    .ops-spark > div:last-child { border-right: 0; }
-    .ops-spark .spark-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .ops-spark .spark-title {
+    .ops-activity-body > div:last-child { border-right: 0; }
+    .activity-sub-title {
       font-family: var(--font-mono), 'JetBrains Mono', monospace;
       font-size: 9.5px;
       font-weight: 600;
       letter-spacing: 0.22em;
       text-transform: uppercase;
       color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
     }
-    .ops-spark .spark-total {
+    .activity-sub-title .sub-total {
       font-family: var(--font-numeric);
       font-weight: 500;
-      font-size: 18px;
+      font-size: 17px;
       color: var(--text-primary);
       font-variant-numeric: tabular-nums;
+      letter-spacing: 0;
+      text-transform: none;
     }
-    .ops-spark .spark-canvas {
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
+    .activity-volume .volume-chart,
+    .activity-breakdown .cat-breakdown {
+      height: auto;
+      max-height: none;
     }
-    .ops-spark .spark-canvas .volume-chart,
-    .ops-spark .spark-canvas .cat-breakdown {
-      height: 100%;
-      max-height: 50px;
+
+    /* Collapsible ops-section — generic */
+    .ops-section-head {
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.12s;
     }
+    .ops-section-head:hover { background: var(--accent-primary-subtle); }
+    .ops-section-chevron {
+      font-family: var(--font-mono), monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-left: 12px;
+      transition: transform 0.18s ease;
+      line-height: 1;
+    }
+    .ops-section.is-collapsed .ops-section-chevron { transform: rotate(-90deg); }
+    .ops-section.is-collapsed > .ops-section-body { display: none !important; }
+    .ops-section.is-collapsed { flex: 0 0 auto !important; height: auto !important; }
+    /* Collapsed sender rail header keeps its bordered section appearance */
+    .ops-senders.is-collapsed .ops-senders-list,
+    .ops-senders.is-collapsed .ops-senders-foot { display: none !important; }
+    .ops-senders.is-collapsed .ops-senders-head .ops-section-chevron { transform: rotate(-90deg); }
 
     /* SENDERS RAIL — right column, scrollable within itself */
     .ops-senders {
@@ -1781,17 +1798,16 @@
         overflow-y: auto !important;
       }
 
-      /* SPARKLINES — stack vertically too */
-      .ops-spark {
+      /* ACTIVITY — stack volume + breakdown vertically on mobile */
+      .ops-activity-body {
         grid-template-columns: 1fr !important;
-        height: auto !important;
       }
-      .ops-spark > div {
+      .ops-activity-body > div {
         border-right: 0 !important;
         border-bottom: 1px solid var(--border);
         padding: 10px 16px;
       }
-      .ops-spark > div:last-child { border-bottom: 0; }
+      .ops-activity-body > div:last-child { border-bottom: 0; }
 
       /* SENDERS — flow inline as a regular section, not a fixed rail */
       .ops-senders {
@@ -4989,9 +5005,10 @@
                 <div class="ops-middle">
 
                   <section class="ops-section ops-landscape" id="bubble-card">
-                    <div class="ops-section-head">
+                    <div class="ops-section-head" onclick="toggleOpsSection(this)" title="Click to collapse / expand">
                       <div class="ops-section-title" id="bubble-viz-title"><strong>›</strong> Email Landscape</div>
                       <div class="ops-section-meta">Topic clusters · click to drill</div>
+                      <span class="ops-section-chevron" aria-hidden="true">&#9662;</span>
                     </div>
                     <div class="ops-section-body">
                       <button class="bubble-back-btn" id="bubble-back-btn" onclick="bubbleGoBack()" title="Back">&#8592;</button>
@@ -5002,9 +5019,10 @@
                   </section>
 
                   <section class="ops-section ops-triage" id="email-sections">
-                    <div class="ops-section-head">
+                    <div class="ops-section-head" onclick="toggleOpsSection(this)" title="Click to collapse / expand all priority levels">
                       <div class="ops-section-title"><strong>›</strong> Triage</div>
                       <div class="ops-section-meta">Click an email to read inline</div>
+                      <span class="ops-section-chevron" aria-hidden="true">&#9662;</span>
                     </div>
                     <div class="ops-section-body">
 
@@ -5052,31 +5070,35 @@
                   </section>
                 </div>
 
-                <!-- BOTTOM — sparkline strip -->
-                <div class="ops-spark">
-                  <div>
-                    <div class="spark-head">
-                      <span class="spark-title">Volume · 14d</span>
-                      <span class="spark-total" id="spark-volume-total">—</span>
-                    </div>
-                    <div class="spark-canvas"><div class="volume-chart" id="volume-chart"></div></div>
+                <!-- BOTTOM — combined Activity section (Volume + Breakdown) -->
+                <section class="ops-section ops-activity" id="activity-section">
+                  <div class="ops-section-head" onclick="toggleOpsSection(this)" title="Click to collapse / expand">
+                    <div class="ops-section-title"><strong>›</strong> Activity</div>
+                    <div class="ops-section-meta"><strong id="spark-volume-total">—</strong> emails · 14d</div>
+                    <span class="ops-section-chevron" aria-hidden="true">&#9662;</span>
                   </div>
-                  <div>
-                    <div class="spark-head">
-                      <span class="spark-title">Breakdown</span>
-                      <span class="spark-total" id="spark-breakdown-total"></span>
+                  <div class="ops-section-body ops-activity-body">
+                    <div class="activity-volume">
+                      <div class="activity-sub-title">Volume · 14 days</div>
+                      <div class="volume-chart" id="volume-chart"></div>
                     </div>
-                    <div class="spark-canvas"><div class="cat-breakdown" id="cat-breakdown"></div></div>
+                    <div class="activity-breakdown">
+                      <div class="activity-sub-title">Breakdown <span class="sub-total" id="spark-breakdown-total"></span></div>
+                      <div class="cat-breakdown" id="cat-breakdown"></div>
+                    </div>
                   </div>
-                </div>
+                </section>
               </div>
               <!-- /ops-main -->
 
               <!-- SENDER rail -->
-              <aside class="ops-senders" id="top-senders-card">
-                <div class="ops-senders-head">
-                  <div class="ops-section-title"><strong>›</strong> Top Senders</div>
-                  <div class="ops-senders-meta"><strong id="senders-rail-count">—</strong> unique · <span id="senders-rail-range">1D</span></div>
+              <aside class="ops-senders ops-section" id="top-senders-card">
+                <div class="ops-senders-head ops-section-head" onclick="toggleOpsSection(this)" title="Click to collapse / expand">
+                  <div>
+                    <div class="ops-section-title"><strong>›</strong> Top Senders</div>
+                    <div class="ops-senders-meta"><strong id="senders-rail-count">—</strong> unique · <span id="senders-rail-range">1D</span></div>
+                  </div>
+                  <span class="ops-section-chevron" aria-hidden="true" style="margin-left:auto">&#9662;</span>
                 </div>
                 <div class="ops-senders-list" id="top-senders-rail">
                   <div style="padding:22px 20px;font-family:var(--font-ui);font-size:12px;color:var(--text-muted);text-align:center">Loading senders…</div>
@@ -6640,6 +6662,16 @@ ${emailList}` }]
       pillar.classList.toggle('is-collapsed');
     }
 
+    // Generic ops-section collapse — used by Email Landscape, Triage,
+    // Activity (volume + breakdown), and the Top Senders rail. Toggles
+    // is-collapsed on the parent .ops-section, hiding its body and
+    // rotating the chevron via CSS.
+    function toggleOpsSection(headEl) {
+      const sec = headEl?.closest('.ops-section');
+      if (!sec) return;
+      sec.classList.toggle('is-collapsed');
+    }
+
     function renderEmailList(containerId, emails, showActions) {
       const container = document.getElementById(containerId);
       if (!emails.length) {
@@ -7479,16 +7511,19 @@ ${emailList}` }]
 
     function renderCatBreakdown(emails) {
       const container = document.getElementById('cat-breakdown');
+      // Colors mirror the Triage pillar dots so the same category looks
+      // the same in both places (Worth Reading was blue here, ochre in
+      // pillars — confusing).
       const cats = [
         { key: 'reply', name: 'Needs Reply', color: 'var(--accent-coral)' },
-        { key: 'read', name: 'Worth Reading', color: 'var(--accent-blue)' },
-        { key: 'fyi', name: 'Quick Scan', color: 'var(--accent-amber)' },
+        { key: 'read', name: 'Worth Reading', color: 'var(--accent-primary)' },
+        { key: 'fyi', name: 'FYI · Scan', color: 'var(--accent-amber)' },
         { key: 'skip', name: 'Safe to Skip', color: 'var(--accent-slate)' },
       ];
       const total = emails.length || 1;
 
       const glowMap = {
-        reply: 'rgba(248,113,113,0.4)', read: 'rgba(96,165,250,0.4)',
+        reply: 'rgba(248,113,113,0.4)', read: 'rgba(201,137,43,0.4)',
         fyi: 'rgba(250,204,21,0.3)', skip: 'rgba(148,163,184,0.3)'
       };
       container.innerHTML = cats.map(c => {
