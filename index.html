@@ -1297,7 +1297,22 @@
       padding: 10px 14px 9px;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.12s;
     }
+    .triage-pillar-head:hover { background: var(--accent-primary-subtle); }
+    .triage-chevron {
+      font-family: var(--font-mono), monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      transition: transform 0.18s ease;
+      margin-left: 4px;
+      line-height: 1;
+    }
+    .triage-pillar.is-collapsed .triage-chevron { transform: rotate(-90deg); }
+    .triage-pillar.is-collapsed .triage-list { display: none !important; }
+    .triage-pillar.is-collapsed { border-bottom: 1px solid var(--border); }
     .triage-dot {
       width: 8px; height: 8px;
       border-radius: 50%;
@@ -4994,37 +5009,41 @@
                     <div class="ops-section-body">
 
                       <div class="triage-pillar p-reply email-section section-reply">
-                        <div class="triage-pillar-head">
+                        <div class="triage-pillar-head" onclick="toggleTriagePillar(this)" title="Click to collapse / expand">
                           <span class="triage-dot"></span>
                           <span class="triage-label">Needs Reply</span>
                           <span class="triage-count" id="reply-count">0</span>
+                          <span class="triage-chevron" aria-hidden="true">&#9662;</span>
                         </div>
                         <div class="triage-list section-body expanded" id="reply-emails"></div>
                       </div>
 
-                      <div class="triage-pillar p-read email-section section-read">
-                        <div class="triage-pillar-head">
+                      <div class="triage-pillar p-read email-section section-read is-collapsed">
+                        <div class="triage-pillar-head" onclick="toggleTriagePillar(this)" title="Click to collapse / expand">
                           <span class="triage-dot"></span>
                           <span class="triage-label">Worth Reading</span>
                           <span class="triage-count" id="read-count">0</span>
+                          <span class="triage-chevron" aria-hidden="true">&#9662;</span>
                         </div>
                         <div class="triage-list section-body expanded" id="read-emails"></div>
                       </div>
 
-                      <div class="triage-pillar p-fyi email-section section-fyi">
-                        <div class="triage-pillar-head">
+                      <div class="triage-pillar p-fyi email-section section-fyi is-collapsed">
+                        <div class="triage-pillar-head" onclick="toggleTriagePillar(this)" title="Click to collapse / expand">
                           <span class="triage-dot"></span>
                           <span class="triage-label">FYI · Scan</span>
                           <span class="triage-count" id="fyi-count">0</span>
+                          <span class="triage-chevron" aria-hidden="true">&#9662;</span>
                         </div>
                         <div class="triage-list section-body expanded" id="fyi-emails"></div>
                       </div>
 
-                      <div class="triage-pillar p-skip email-section section-skip">
-                        <div class="triage-pillar-head">
+                      <div class="triage-pillar p-skip email-section section-skip is-collapsed">
+                        <div class="triage-pillar-head" onclick="toggleTriagePillar(this)" title="Click to collapse / expand">
                           <span class="triage-dot"></span>
                           <span class="triage-label">Safe to Skip</span>
                           <span class="triage-count" id="skip-count">0</span>
+                          <span class="triage-chevron" aria-hidden="true">&#9662;</span>
                         </div>
                         <div class="triage-list section-body expanded" id="skip-emails"></div>
                       </div>
@@ -6611,6 +6630,14 @@ ${emailList}` }]
             <div class="ops-sender-count">${s.count.toLocaleString()}</div>
           </div>`;
       }).join('');
+    }
+
+    // Click handler for triage pillar headers — toggles collapse/expand.
+    // Default-collapsed state is set in markup (Worth Reading / FYI / Skip).
+    function toggleTriagePillar(headEl) {
+      const pillar = headEl?.closest('.triage-pillar');
+      if (!pillar) return;
+      pillar.classList.toggle('is-collapsed');
     }
 
     function renderEmailList(containerId, emails, showActions) {
