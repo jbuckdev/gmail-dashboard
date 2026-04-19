@@ -5657,8 +5657,78 @@
     }
 
     function handleGoogleSignIn() {
+      // Mobile: use a redirect-based OAuth flow so the same tab navigates
+      // to Google and back. Avoids iOS Safari's popup→new-tab behavior
+      // where the user gets dumped onto whichever Google tab they already
+      // had open (Gmail, Drive, etc.).
+      // Desktop: keep GIS popup — works cleanly there.
+      if (useGoogleRedirectFlow()) {
+        signInWithGoogleRedirect(GMAIL_SCOPES_READONLY);
+        return;
+      }
       if (!tokenClient) { alert('Google sign-in is still loading. Please wait.'); return; }
       tokenClient.requestAccessToken();
+    }
+
+    function useGoogleRedirectFlow() {
+      // Treat anything with touch + small viewport as mobile.
+      try {
+        return window.matchMedia('(max-width: 800px)').matches
+          || ('ontouchstart' in window && window.innerWidth < 1000);
+      } catch { return false; }
+    }
+
+    // Redirect-based OAuth 2.0 implicit flow. Builds the auth URL and does
+    // a same-tab navigation. Google sends the user back to redirect_uri
+    // with `#access_token=...` in the URL fragment, which we parse on load
+    // (handleGoogleAuthRedirect, fired before init()).
+    function signInWithGoogleRedirect(scope) {
+      const redirectUri = location.origin + location.pathname;
+      const state = btoa(JSON.stringify({
+        ts: Date.now(),
+        nonce: Math.random().toString(36).slice(2),
+        ret: location.pathname + location.search
+      }));
+      try { localStorage.setItem('emailDashOAuthState', state); } catch {}
+      const params = new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        response_type: 'token',
+        scope: scope || GMAIL_SCOPES_READONLY,
+        redirect_uri: redirectUri,
+        state,
+        prompt: 'consent select_account',
+        include_granted_scopes: 'true',
+      });
+      window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+    }
+
+    // Parses the `#access_token=...` fragment Google leaves on redirect-back.
+    // Returns true if a token was found + stored. Called BEFORE init() so we
+    // skip onboarding cleanly on the first paint after redirect.
+    function handleGoogleAuthRedirect() {
+      if (!location.hash || location.hash.length < 2) return false;
+      const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+      const params = new URLSearchParams(hash);
+      const token = params.get('access_token');
+      if (!token) return false;
+      const state = params.get('state');
+      let savedState = null;
+      try { savedState = localStorage.getItem('emailDashOAuthState'); localStorage.removeItem('emailDashOAuthState'); } catch {}
+      if (savedState && state && savedState !== state) {
+        console.warn('OAuth state mismatch — ignoring redirect');
+        history.replaceState(null, '', location.pathname + location.search);
+        return false;
+      }
+      const expiresIn = parseInt(params.get('expires_in') || '3600', 10);
+      const ts = Date.now();
+      accessToken = token;
+      tokenTimestamp = ts;
+      const grantedScope = params.get('scope') || '';
+      if (grantedScope.includes('gmail.modify')) hasModifyScope = true;
+      persistGmailToken(token, ts);
+      // Clean the URL so the token isn't sitting in history.
+      history.replaceState(null, '', location.pathname + location.search);
+      return true;
     }
 
     function handleAuthResponse(response) {
@@ -8880,6 +8950,12 @@ Browser: ${diagnostic.browser}
       return new Promise((resolve) => {
         if (isIcloud()) return resolve(true);
         if (hasModifyScope) return resolve(true);
+        if (useGoogleRedirectFlow()) {
+          // Mobile redirect path — same-tab navigation to upgrade scope.
+          // The redirect-handler on next page load will set hasModifyScope.
+          signInWithGoogleRedirect(GMAIL_SCOPES_MODIFY);
+          return; // navigation in flight; promise effectively never resolves on this page load
+        }
         const modifyClient = google.accounts.oauth2.initTokenClient({
           client_id: GOOGLE_CLIENT_ID,
           scope: GMAIL_SCOPES_MODIFY,
@@ -9753,6 +9829,10 @@ Browser: ${diagnostic.browser}
         console.warn('Silent Google auth skipped:', e);
       }
     }
+
+    // Catch the OAuth redirect-back FIRST — needs to happen before init()
+    // so the auto-resume logic sees the freshly-stored token.
+    handleGoogleAuthRedirect();
 
     init();
 
