@@ -3432,6 +3432,7 @@
 
     // Silent token refresh — re-requests token without user interaction
     async function ensureValidToken() {
+      if (isIcloud()) return; // bridge auth lives in Keychain, no browser token
       if (!accessToken) return;
       const elapsed = Date.now() - tokenTimestamp;
       const TOKEN_LIFETIME = 50 * 60 * 1000; // refresh at 50 min (tokens last ~60 min)
@@ -6020,9 +6021,12 @@ Browser: ${diagnostic.browser}
        INLINE EMAIL ACTION BAR SYSTEM
        ============================================ */
 
-    // Ensure we have gmail.modify scope — returns a promise
+    // Ensure we have gmail.modify scope — returns a promise.
+    // No-op for iCloud: the bridge already has full read/write via the
+    // app-specific password in Keychain. No browser-side scope upgrade exists.
     function ensureModifyScope() {
       return new Promise((resolve) => {
+        if (isIcloud()) return resolve(true);
         if (hasModifyScope) return resolve(true);
         const modifyClient = google.accounts.oauth2.initTokenClient({
           client_id: GOOGLE_CLIENT_ID,
