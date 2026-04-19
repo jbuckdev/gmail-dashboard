@@ -1753,10 +1753,12 @@
         border-radius: 2px;
       }
 
-      /* Make room for bottom tab bar */
-      .ops-main, .ops-grid, .tab-pane {
-        padding-bottom: 80px !important;
-      }
+      /* Make room for bottom tab bar — apply ONLY to the outer tab-pane.
+         Adding it to ops-main/ops-grid too created 80px of dead space
+         between Activity and Top Senders (ops-main extended past its
+         content, then opsSenders rendered after that padding). */
+      .tab-pane { padding-bottom: 80px !important; }
+      .ops-main, .ops-grid { padding-bottom: 0 !important; }
 
       /* HERO — stack columns vertically */
       .ops-hero {
