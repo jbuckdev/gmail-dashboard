@@ -4,18 +4,21 @@
 AI-powered Gmail intelligence dashboard for Larry (~65yo CEO of a medical data analytics company, also runs community projects like condo board elevator replacement). Single `index.html`, no server, no database. He opens a URL, sees his emails sorted by importance with narrative briefings and interactive topic visualization. Inline delete actions on every email list.
 
 ## Current Status
-**Four bug fixes (2026-04-04): briefing API key, delete z-index, clickable expanded panels, unexpanded Top Senders click. Bulk delete fix deployed (2026-04-03). 6 time ranges (1D–1Y). Hybrid classification. Analytics briefing on all ranges. Inline delete everywhere. Deployed to GitHub Pages.**
+**Atelier redesign + iCloud provider + Deep Clean tab shipped 2026-04-19.** Sidebar workspace layout, editorial typography (Fraunces + DM Sans), burnished ochre accent, Top Senders centerpiece, in-dashboard email reader modal, 1Y–All deep scan with sender table + bulk trash + block sender. iCloud bridge backs the iCloud provider via local launchd service. Larry's Gmail flow preserved unchanged.
 
 Live: https://jbuckdev.github.io/gmail-dashboard/
 Repo: https://github.com/jbuckdev/gmail-dashboard (public)
 
 ## Architecture
-- Single `index.html` (~6500 lines, all inline HTML/CSS/JS)
-- Google OAuth2 (readonly for dashboard, lazy upgrade to modify for delete)
-- Gmail API (client-side)
+- Single `index.html` (~8500 lines, all inline HTML/CSS/JS)
+- Provider-aware fetch layer (`mailFetch`, `mailFetchBatchMetadata`, `messageURL`, `isIcloud`):
+  - **Gmail path:** Google OAuth2 (readonly → modify lazy upgrade); Gmail API client-side
+  - **iCloud path:** local FastAPI bridge at `127.0.0.1:4851` (`~/OS/services/icloud-bridge/`, launchd KeepAlive). App-specific password in macOS Keychain. Bridge emits Gmail-API-shaped JSON so the dashboard's `parseMessage` works unchanged. See `reference/reference_icloud_bridge.md` in memory for full details.
 - Claude Haiku API (`claude-haiku-4-5-20251001`) — classification, organic topics, narrative briefing
 - GitHub Pages hosting (free HTTPS)
-- All processing in Larry's browser
+- All processing in user's browser
+- Sandboxed-iframe email reader modal renders full HTML email body via `format=full` fetch
+- IndexedDB caches: main `inbox-intel-cache` (schema v2, parseMessage shape) + `inbox-intel-deep-clean` (sender-aggregated scans)
 
 ## Classification Engine (v3 + hybrid)
 - **Stage 1: Noise filter (rules)** — catches ~40-50%: OOO, bounces, calendar responses, platform notifications, Gmail Promotions/Social, noreply newsletters
@@ -106,9 +109,24 @@ Binary toggle in Preferences:
 - **Full Mode:** AI reads emails. Content sent to Claude. Anthropic retains up to 30 days for safety. Never used for training.
 - **Private Mode:** Zero external API calls. Rule-based only. Nothing leaves browser.
 
+## Atelier redesign (2026-04-19)
+
+Driven by `~/OS/plans/active/2026-04-19-inbox-intelligence-atelier-redesign.md`.
+
+- **Sidebar workspace layout.** 220px expanded → 64px collapsed (< 1100px) → topbar (< 700px). Tabs: Dashboard / Deep Clean. Bottom: Refresh, Help, Preferences, Theme. Account email at the bottom.
+- **Editorial typography.** Fraunces (warm contemporary serif w/ optical sizing) for display + numerals; DM Sans + Instrument Sans for body/UI. Tabular numerals for stats.
+- **Burnished ochre accent.** `--accent-primary: #c9892b` (dark) / `#a06a1c` (light) — replaces the generic blue for active state, primary CTAs, hero numerals. Blue retained for links + status.
+- **Hero strip.** Editorial date (day-of-week eyebrow + month/day in Fraunces) + greeting + summary + range chips. Hairline rule below.
+- **Top Senders centerpiece.** Full-width section (70% bars / 30% summary stats card). Each row: serif name + sans email + horizontal ochre bar + tabular numeral count + % of inbox. Click → opens reader on most recent email from that sender.
+- **Email reader modal.** Sandboxed iframe rendering, `format=full` body, Open-unsubscribe-page action button + Trash-this-email button. ESC closes.
+- **Deep Clean tab (NEW).** "Years of inbox, one sweep." Range chips 1Y/2Y/3Y/4Y/5Y/All → live scan estimate via `resultSizeEstimate` → Begin scan → progress bar with cancel → sortable filterable sender table (Sender / Domain / Count / Latest / Unsub) → multi-select checkboxes → sticky bulk-action bar (Trash N emails / Block sender / Open unsubscribe / Clear).
+- **Static dot grid background** (replaced the old animated canvas that pegged GPU; pure CSS radial-gradient pattern keyed off `--dot-color`).
+
 ## Remaining Work
-- Phase 7: Larry onboarding (create Anthropic account, seed VIP contacts, 15-min walkthrough, privacy conversation)
-- Phase 8: Post-launch tuning (based on Larry's feedback)
+- Phase 7 (Larry onboarding): create Anthropic account, seed VIP contacts, 15-min walkthrough, privacy conversation
+- Phase 8 (post-launch tuning) based on Larry's feedback
+- Optional: aggressive Phase 4 cleanup of inline delete bars from dashboard cards (deferred — they still work, but cleanup belongs in Deep Clean conceptually)
+- Optional: virtual scrolling for sender table when > 500 unique senders
 
 ## Decisions
 - AI assigns organic topics, not fixed taxonomy — "Elevator Inspection" not "Community"
