@@ -1031,6 +1031,10 @@
        Body stays scrollable for onboarding/prefs; dashboard locks to viewport.
        ============================================ */
     body.app-locked { overflow: hidden; height: 100vh; }
+
+    /* Disable iOS Safari pull-to-refresh — accidental refreshes on the
+       dashboard kept bouncing returning users back to the sign-in screen. */
+    html, body { overscroll-behavior-y: contain; }
     #dashboard.screen.active ~ * { /* nothing — placeholder for future */ }
     .dash-container.ops-mode {
       height: 100vh;
@@ -9652,6 +9656,53 @@ Browser: ${diagnostic.browser}
             setTimeout(() => { if (typeof google !== 'undefined' && google.accounts) initGoogleAuth(); }, 500);
           });
         }
+      }
+
+      // Auto-resume for returning visitors. If everything's already set up,
+      // skip the onboarding screen entirely so accidental refreshes (iOS
+      // pull-to-refresh, swipe gestures) don't punt the user back to sign-in.
+      // Re-checks fully — provider chosen, privacy chosen, claude key OR
+      // private mode, and bridge reachable for iCloud.
+      const hasProvider = !!localStorage.getItem('emailDashProvider');
+      const hasPrivacy = !!p.privacyMode;
+      const hasKey = isPrivateMode() || !!getClaudeKey();
+      if (hasProvider && hasPrivacy && hasKey) {
+        if (isIcloud() && iCloudAvailable) {
+          // Skip onboarding straight to dashboard — bridge already authed
+          // via Keychain, no popup needed.
+          startDashboard();
+        } else if (!isIcloud()) {
+          // Gmail: try silent re-auth using Google's Identity Services. If
+          // a previous session granted consent, this returns a fresh token
+          // without showing any popup or switching tabs. If silent fails,
+          // we leave the user on onboarding to click "Sign in with Google"
+          // explicitly (no auto-popup — that's worse UX than the current
+          // page). Wait briefly for the GIS library to initialize.
+          setTimeout(() => attemptSilentGoogleAuth(), 700);
+        }
+      }
+    }
+
+    // Silent token refresh — re-requests an access token without UI when
+    // the user has previously authorized this app's client_id. If silent
+    // refresh fails (no prior consent, blocked third-party cookies, etc.)
+    // the user stays on onboarding and clicks Sign-in manually.
+    function attemptSilentGoogleAuth() {
+      if (typeof google === 'undefined' || !google.accounts) return;
+      try {
+        const silentClient = google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: hasModifyScope ? GMAIL_SCOPES_MODIFY : GMAIL_SCOPES_READONLY,
+          callback: (resp) => {
+            if (resp.error || !resp.access_token) return;
+            accessToken = resp.access_token;
+            tokenTimestamp = Date.now();
+            startDashboard();
+          },
+        });
+        silentClient.requestAccessToken({ prompt: '' });
+      } catch (e) {
+        console.warn('Silent Google auth skipped:', e);
       }
     }
 
