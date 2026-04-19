@@ -1003,6 +1003,161 @@
     .expandable-panel .bubble-map-viewport { cursor: grab; }
 
     /* ============================================
+       EMAIL READER MODAL — In-dashboard message viewer
+       ============================================ */
+    .reader-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .reader-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      animation: readerBackdropIn 0.18s ease;
+    }
+    [data-theme="light"] .reader-backdrop { background: rgba(20,20,20,0.45); }
+    @keyframes readerBackdropIn { from { opacity: 0 } to { opacity: 1 } }
+    .reader-panel {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 880px;
+      max-height: calc(100vh - 48px);
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      animation: readerPanelIn 0.22s cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+    @keyframes readerPanelIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.985) }
+      to   { opacity: 1; transform: translateY(0)    scale(1) }
+    }
+    .reader-header {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .reader-header-text { flex: 1; min-width: 0; }
+    .reader-subject {
+      font-size: 1.05em;
+      font-weight: 650;
+      color: var(--text-primary);
+      line-height: 1.3;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+    .reader-meta {
+      font-size: 0.82em;
+      color: var(--text-secondary);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+    }
+    .reader-meta-from { color: var(--text-primary); font-weight: 500; }
+    .reader-close {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+    }
+    .reader-close:hover { background: var(--bg-card); color: var(--text-primary); }
+    .reader-actions {
+      padding: 10px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      background: var(--bg-card);
+    }
+    .reader-action-hint {
+      flex: 1;
+      font-size: 0.78em;
+      color: var(--text-muted);
+      min-width: 200px;
+    }
+    .reader-action-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      border-radius: 7px;
+      font-size: 0.83em;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .reader-action-btn:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+      border-color: var(--border-active);
+    }
+    .reader-action-btn.btn-unsub-primary {
+      background: var(--accent-blue-dim);
+      border-color: var(--accent-blue-border);
+      color: var(--accent-blue);
+    }
+    .reader-action-btn.btn-unsub-primary:hover {
+      background: var(--accent-blue);
+      color: #fff;
+    }
+    .reader-action-btn.btn-trash {
+      color: var(--accent-coral);
+      border-color: var(--accent-coral-border);
+    }
+    .reader-action-btn.btn-trash:hover {
+      background: var(--accent-coral);
+      color: #fff;
+    }
+    .reader-body {
+      flex: 1;
+      overflow: hidden;
+      background: var(--bg-deep);
+      position: relative;
+    }
+    .reader-iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+    .reader-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 0.9em;
+      background: var(--bg-deep);
+    }
+
+    /* ============================================
        EXPANDED PANEL OVERLAY — Full-screen modal
        ============================================ */
     .expanded-overlay {
@@ -2931,6 +3086,25 @@
             </div>
           </div>
 
+        </div>
+
+        <!-- In-dashboard email reader (modal) -->
+        <div class="reader-overlay" id="email-reader" style="display:none">
+          <div class="reader-backdrop" onclick="closeEmailReader()"></div>
+          <div class="reader-panel">
+            <div class="reader-header">
+              <div class="reader-header-text">
+                <div class="reader-subject" id="reader-subject"></div>
+                <div class="reader-meta" id="reader-meta"></div>
+              </div>
+              <button class="reader-close" onclick="closeEmailReader()" title="Close (Esc)">&times;</button>
+            </div>
+            <div class="reader-actions" id="reader-actions"></div>
+            <div class="reader-body">
+              <div class="reader-loading" id="reader-loading">Loading email…</div>
+              <iframe id="reader-iframe" class="reader-iframe" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" style="display:none"></iframe>
+            </div>
+          </div>
         </div>
 
         <!-- Slide-over drill panel -->
@@ -6087,25 +6261,22 @@ Browser: ${diagnostic.browser}
       cancelBtn.className = 'email-actions-btn btn-cancel-select';
       cancelBtn.textContent = 'Cancel';
 
-      // Unsubscribe nudge — prefer a real List-Unsubscribe URL on any email in
-      // this grouping; fall back to opening the email in the mail app so the
-      // user can use the provider's built-in unsubscribe button.
+      // Unsubscribe button — opens the in-dashboard email reader so the user
+      // can click the in-body unsubscribe link directly. The reader also shows
+      // a parsed List-Unsubscribe URL when available (one-click for cooperating
+      // senders; in-body click for senders with expired/short tokens like TikTok).
       const ids = getEmailIds();
       const groupEmails = allEmails.filter(e => ids.includes(e.id));
       const unsubEmail = groupEmails.find(e => parseUnsubscribeURL(e.unsubscribeRaw))
         || groupEmails.find(e => e.hasUnsubscribe || e.hasListId);
 
-      const unsubBtn = document.createElement('a');
+      const unsubBtn = document.createElement('button');
+      unsubBtn.type = 'button';
       unsubBtn.className = 'email-actions-btn btn-unsub';
       unsubBtn.textContent = 'Unsubscribe';
       if (unsubEmail) {
-        const directURL = parseUnsubscribeURL(unsubEmail.unsubscribeRaw);
-        unsubBtn.href = directURL || messageURL(unsubEmail.id);
-        unsubBtn.title = directURL
-          ? (directURL.startsWith('mailto:') ? 'Send unsubscribe email' : 'Open the unsubscribe page')
-          : 'Open in mail app to unsubscribe';
-        unsubBtn.target = '_blank';
-        unsubBtn.rel = 'noopener';
+        unsubBtn.title = 'Open the email and click an unsubscribe link';
+        unsubBtn.onclick = () => openEmailReader(unsubEmail.id, 'Click any "Unsubscribe" link in the email below.');
         unsubBtn.style.display = '';
       } else {
         unsubBtn.style.display = 'none';
@@ -6620,6 +6791,136 @@ Browser: ${diagnostic.browser}
       return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
     }
 
+    // Walk the MIME tree, preferring text/html over text/plain. Returns the
+    // decoded HTML string (or plaintext wrapped in <pre> if no HTML part).
+    function extractBodyHTML(payload) {
+      if (!payload) return '';
+      if (payload.mimeType === 'text/html' && payload.body && payload.body.data) {
+        return decodeBase64Url(payload.body.data);
+      }
+      if (payload.parts) {
+        for (const part of payload.parts) {
+          if (part.mimeType === 'text/html' && part.body && part.body.data) {
+            return decodeBase64Url(part.body.data);
+          }
+        }
+        for (const part of payload.parts) {
+          const found = extractBodyHTML(part);
+          if (found) return found;
+        }
+      }
+      // Fallback to plaintext
+      const txt = extractBodyText(payload);
+      if (txt) {
+        const escaped = txt.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<pre style="white-space:pre-wrap;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.6;padding:24px;color:#111;">${escaped}</pre>`;
+      }
+      return '';
+    }
+
+    // ---------- EMAIL READER ----------
+    let _readerEmailId = null;
+
+    async function openEmailReader(id, hint) {
+      const overlay = document.getElementById('email-reader');
+      const subjEl = document.getElementById('reader-subject');
+      const metaEl = document.getElementById('reader-meta');
+      const actionsEl = document.getElementById('reader-actions');
+      const loadingEl = document.getElementById('reader-loading');
+      const iframe = document.getElementById('reader-iframe');
+
+      // Reset
+      _readerEmailId = id;
+      subjEl.textContent = 'Loading…';
+      metaEl.innerHTML = '';
+      actionsEl.innerHTML = '';
+      loadingEl.style.display = '';
+      loadingEl.textContent = 'Loading email…';
+      iframe.style.display = 'none';
+      iframe.srcdoc = '';
+      overlay.style.display = '';
+      document.body.style.overflow = 'hidden';
+
+      try {
+        const msg = await mailFetch(`messages/${id}?format=full`);
+        if (_readerEmailId !== id) return; // user opened another email mid-fetch
+
+        // Headers
+        const headers = {};
+        if (msg.payload && msg.payload.headers) {
+          for (const h of msg.payload.headers) headers[h.name.toLowerCase()] = h.value;
+        }
+        const subject = headers['subject'] || '(no subject)';
+        const from = headers['from'] || '(unknown sender)';
+        const dateStr = headers['date'] ? new Date(headers['date']).toLocaleString() : '';
+
+        subjEl.textContent = subject;
+        metaEl.innerHTML = `<span class="reader-meta-from">${esc(from)}</span>` + (dateStr ? `<span>${esc(dateStr)}</span>` : '');
+
+        // Action bar — hint + Unsubscribe (if header) + Trash
+        const unsubURL = parseUnsubscribeURL(headers['list-unsubscribe']);
+        const hintEl = document.createElement('div');
+        hintEl.className = 'reader-action-hint';
+        hintEl.textContent = hint || (unsubURL ? 'Click an Unsubscribe link in the email, or use the button →' : 'Click any link in the email below');
+        actionsEl.appendChild(hintEl);
+
+        if (unsubURL) {
+          const unsubA = document.createElement('a');
+          unsubA.className = 'reader-action-btn btn-unsub-primary';
+          unsubA.href = unsubURL;
+          unsubA.target = '_blank';
+          unsubA.rel = 'noopener noreferrer';
+          unsubA.textContent = unsubURL.startsWith('mailto:') ? '✉ Email unsubscribe' : '↗ Open unsubscribe page';
+          unsubA.title = unsubURL;
+          actionsEl.appendChild(unsubA);
+        }
+
+        const trashBtn = document.createElement('button');
+        trashBtn.className = 'reader-action-btn btn-trash';
+        trashBtn.textContent = '🗑 Trash this email';
+        trashBtn.onclick = async () => {
+          trashBtn.disabled = true;
+          trashBtn.textContent = 'Trashing…';
+          try {
+            await trashEmails([id]);
+            showToast('Email trashed', true);
+            closeEmailReader();
+          } catch (e) {
+            trashBtn.disabled = false;
+            trashBtn.textContent = '🗑 Trash this email';
+            showToast('Failed to trash — ' + (e.message || 'error'), false);
+          }
+        };
+        actionsEl.appendChild(trashBtn);
+
+        // Body — render into sandboxed iframe via srcdoc
+        const html = extractBodyHTML(msg.payload);
+        const docHTML = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>
+          body{margin:0;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111;line-height:1.5;background:#fff;word-wrap:break-word;overflow-wrap:break-word;}
+          img{max-width:100%;height:auto;}
+          a{color:#1a73e8;}
+          table{max-width:100%!important;}
+        </style></head><body>${html || '<p style="color:#888">This email has no readable body content.</p>'}</body></html>`;
+        iframe.srcdoc = docHTML;
+        iframe.onload = () => {
+          loadingEl.style.display = 'none';
+          iframe.style.display = '';
+        };
+      } catch (e) {
+        loadingEl.textContent = 'Failed to load: ' + (e.message || 'unknown error');
+        console.error('Email reader load error:', e);
+      }
+    }
+
+    function closeEmailReader() {
+      const overlay = document.getElementById('email-reader');
+      const iframe = document.getElementById('reader-iframe');
+      overlay.style.display = 'none';
+      iframe.srcdoc = '';
+      _readerEmailId = null;
+      document.body.style.overflow = '';
+    }
+
     function extractBodyText(payload) {
       // Recursively extract plain text from Gmail message payload
       if (!payload) return '';
@@ -6713,9 +7014,12 @@ Browser: ${diagnostic.browser}
 
       updatePrivacyBadge();
 
-      // ESC closes slide-over
+      // ESC closes the topmost overlay (reader > expanded > slide-over)
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeSlideOver();
+        if (e.key !== 'Escape') return;
+        const reader = document.getElementById('email-reader');
+        if (reader && reader.style.display !== 'none') { closeEmailReader(); return; }
+        closeSlideOver();
       });
 
       // Skip Google library init when using iCloud — saves a network call.
