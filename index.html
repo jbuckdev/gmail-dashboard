@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
   <script>
     // Apply theme before first paint to prevent flash
     (function() {
@@ -890,6 +891,169 @@
     .bubble-map-viewport.panning { cursor: grabbing; }
     .bubble-map-viewport.panning .bubble-wrap { pointer-events: none; }
 
+    /* Email Universe — 3D knowledge-universe style (Three.js) */
+    .eu-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+    .eu-canvas:active { cursor: grabbing; }
+    .eu-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-primary);
+      z-index: 100;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+      max-width: 320px;
+      display: none;
+      line-height: 1.45;
+    }
+    .eu-tooltip .tt-title {
+      font-family: var(--font-display);
+      font-size: 12.5px;
+      color: var(--text-primary);
+      font-weight: 500;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 300px;
+    }
+    .eu-tooltip .tt-meta { color: var(--text-muted); font-size: 10px; letter-spacing: 0.05em; }
+    .eu-tooltip .tt-sub  { color: var(--text-secondary); font-size: 10.5px; margin-top: 2px; }
+    .eu-cluster-label {
+      position: absolute;
+      left: 0; top: 0;
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 5;
+      text-shadow: 0 0 10px var(--bg-surface);
+      will-change: transform, opacity;
+      transform: translate(-50%, -50%);
+      white-space: nowrap;
+    }
+    .eu-legend {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      z-index: 6;
+      pointer-events: none;
+      max-width: calc(100% - 20px);
+    }
+    .eu-legend .eu-legend-item { display: flex; align-items: center; gap: 5px; }
+    .eu-legend .eu-legend-dot { width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+    .eu-hud {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      z-index: 6;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    .eu-hud strong { color: var(--text-primary); font-weight: 500; font-family: var(--font-numeric); font-size: 11px; letter-spacing: 0; margin-right: 2px; }
+
+    /* Mobile tap-gate: overlay that covers the canvas until the user
+       deliberately taps to enter exploration mode. Keeps the page
+       scrollable while the universe is nearby. Hidden on desktop. */
+    .eu-mobile-gate {
+      display: none; /* default — turned on by the mobile media query */
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.02));
+      color: var(--text-secondary);
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    [data-theme="light"] .eu-mobile-gate {
+      background: linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0.05));
+    }
+    .eu-mobile-gate .eu-gate-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border: 1px solid var(--accent-primary-border);
+      border-radius: 999px;
+      background: var(--bg-card);
+      color: var(--accent-primary);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.12);
+    }
+    .eu-mobile-gate .eu-gate-badge::before {
+      content: '';
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent-primary);
+      box-shadow: 0 0 10px var(--accent-primary);
+    }
+    .eu-mobile-gate .eu-gate-hint {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      color: var(--text-muted);
+      opacity: 0.75;
+    }
+    .eu-active .eu-mobile-gate { display: none !important; }
+    /* Exit chip only visible while active on mobile */
+    .eu-exit {
+      display: none;
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      z-index: 21;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .eu-active .eu-exit { display: block; }
+
     .bubble-back-btn {
       display: none;
       position: absolute;
@@ -1090,7 +1254,6 @@
       gap: 0;
       align-items: start;
       align-content: start;
-      min-height: calc(100vh - 34px);
     }
     .ops-grid > * { align-self: start; }
     @media (max-width: 1100px) { .ops-grid { grid-template-columns: minmax(0, 1fr) 280px; } }
@@ -1179,14 +1342,14 @@
       box-shadow: inset 0 -2px 0 var(--accent-primary);
     }
 
-    /* MIDDLE — landscape (bubble map) takes the dominant slot */
+    /* MIDDLE — landscape (bubble map) + triage pillars stacked.
+       Content-sized sections with explicit body heights so the grid
+       doesn't collapse to 0 or overflow with phantom whitespace. */
     .ops-middle {
-      display: grid;
-      grid-template-rows: minmax(0, 0.95fr) minmax(0, 1.05fr);
+      display: flex;
+      flex-direction: column;
       gap: 0;
-      overflow: hidden;
-      min-height: 0;
-      height: 100%;
+      min-width: 0;
     }
 
     .ops-section {
@@ -1239,10 +1402,16 @@
       position: relative;
     }
 
-    /* LANDSCAPE — emphasize the bubble map */
+    /* LANDSCAPE — emphasize the bubble map. Body has an explicit height
+       so the absolutely-positioned bubble viewport has something to fill. */
+    .ops-landscape { flex: 0 0 auto; }
     .ops-landscape .ops-section-body {
       padding: 0;
       overflow: hidden;
+      flex: 0 0 380px;
+      height: 380px;
+      min-height: 380px;
+      max-height: 380px;
     }
     .ops-landscape .bubble-map-viewport {
       width: 100%;
@@ -1276,13 +1445,21 @@
       background: var(--bg-card-hover);
     }
 
-    /* TRIAGE pillars */
+    /* TRIAGE pillars — 4-up row with deterministic height; each
+       triage-list scrolls internally when emails exceed the height.
+       flex-basis wins over height in a flex child, so size the body
+       via flex-basis directly to avoid the legacy .section-body
+       flex-grow from stretching to content. */
+    .ops-triage { flex: 0 0 auto; border-top: 1px solid var(--border); }
     .ops-triage .ops-section-body {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0;
       padding: 0;
-      height: 100%;
+      flex: 0 0 520px;
+      height: 520px;
+      min-height: 520px;
+      max-height: 520px;
     }
     .triage-pillar {
       display: flex;
@@ -1347,10 +1524,11 @@
     }
     .triage-list {
       flex: 1;
-      overflow-y: auto;
+      overflow-y: auto !important;
       overflow-x: hidden;
       padding: 0;
       min-height: 0;
+      max-height: none !important;
     }
     .triage-list .email-item {
       display: block;
@@ -1476,7 +1654,8 @@
     .ops-senders.is-collapsed .ops-senders-foot { display: none !important; }
     .ops-senders.is-collapsed .ops-senders-head .ops-section-chevron { transform: rotate(-90deg); }
 
-    /* SENDERS RAIL — right column, scrollable within itself */
+    /* SENDERS RAIL — right column, scrollable within itself.
+       Sticky on desktop so it stays in view while the main column scrolls. */
     .ops-senders {
       display: flex;
       flex-direction: column;
@@ -1484,6 +1663,14 @@
       background: transparent;
       min-height: 0;
       overflow: hidden;
+    }
+    @media (min-width: 901px) {
+      .ops-senders {
+        position: sticky;
+        top: 16px;
+        align-self: start;
+        max-height: calc(100vh - 32px);
+      }
     }
     /* Unified header treatment for the senders rail — same padding,
        height, and background as every other ops-section head so all
@@ -1777,8 +1964,29 @@
       .ops-section-head { padding: 10px 16px 8px; }
       .ops-senders-head { padding: 12px 16px 10px; }
 
-      /* LANDSCAPE — bubble map hidden on mobile (touch-unfriendly) */
-      .ops-landscape { display: none !important; }
+      /* LANDSCAPE — kept visible on mobile but gated behind a tap.
+         The canvas is inert by default (page scrolls freely); a tap
+         on the overlay activates interaction, a close chip exits. */
+      .ops-landscape { display: flex !important; }
+      .ops-landscape .ops-section-body {
+        height: 320px !important;
+        min-height: 320px !important;
+        max-height: 320px !important;
+        flex: 0 0 320px !important;
+      }
+      .clean-landscape .ops-section-body {
+        height: 320px !important;
+        min-height: 320px !important;
+        max-height: 320px !important;
+        flex: 0 0 320px !important;
+      }
+      /* Gate overlay shown above the canvas until the user taps to
+         activate interaction. Hidden on desktop via the min-width
+         media query below. */
+      .eu-mobile-gate { display: flex !important; }
+      .eu-canvas { touch-action: none; }
+      .ops-landscape:not(.eu-active) .eu-canvas,
+      .clean-landscape:not(.eu-active) .eu-canvas { pointer-events: none; }
 
       /* TRIAGE — vertical stack of 4 sections, each capped at ~6 emails */
       .ops-triage { display: block !important; }
@@ -1883,9 +2091,9 @@
       .mc-step { min-height: auto !important; padding: 16px 16px 14px !important; }
     }
 
-    /* Onboarding redesign — single dense panel, mission-control aesthetic */
+    /* Onboarding redesign — centered editorial layout, no window chrome */
     .onboard-mc {
-      max-width: 1080px;
+      max-width: 960px;
       width: 100%;
       margin: 0 auto;
       padding: 0;
@@ -1893,12 +2101,11 @@
     .onboard-mc-strip {
       display: flex;
       align-items: center;
-      gap: 14px;
-      padding: 9px 22px;
-      border: 1px solid var(--border);
-      border-radius: 10px 10px 0 0;
-      border-bottom: 0;
-      background: var(--bg-surface);
+      justify-content: center;
+      gap: 12px;
+      padding: 6px 0 22px;
+      border: 0;
+      background: transparent;
       font-family: var(--font-mono), 'JetBrains Mono', monospace;
       font-size: 9.5px;
       letter-spacing: 0.22em;
@@ -1912,49 +2119,58 @@
       box-shadow: 0 0 8px var(--accent-primary);
       animation: pulse 1.6s ease-in-out infinite;
     }
+    .onboard-mc-strip-end { color: var(--text-muted); opacity: 0.75; }
+    .onboard-mc-strip-sep { color: var(--text-muted); opacity: 0.4; }
     .onboard-mc-card {
-      border: 1px solid var(--border);
-      border-radius: 0 0 10px 10px;
-      background: var(--bg-card);
-      backdrop-filter: blur(20px);
-      padding: 30px 36px 28px;
+      border: 0;
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      padding: 0;
     }
     .onboard-mc-mast {
       display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 24px;
-      margin-bottom: 22px;
-      padding-bottom: 20px;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 14px;
+      margin-bottom: 36px;
+      padding-bottom: 28px;
       border-bottom: 1px solid var(--border);
+    }
+    .onboard-mc-mast > div:first-child {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
     }
     .onboard-mc-mast h1 {
       font-family: var(--font-display);
-      font-size: 38px;
+      font-size: 56px;
       font-weight: 400;
       color: var(--text-primary);
-      letter-spacing: -0.012em;
+      letter-spacing: -0.018em;
       line-height: 1;
     }
     .onboard-mc-mast small {
       font-family: var(--font-mono), 'JetBrains Mono', monospace;
       font-size: 10px;
       color: var(--text-muted);
-      letter-spacing: 0.18em;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
     }
     .onboard-mc-tag {
       font-family: var(--font-ui);
-      font-size: 13px;
+      font-size: 15px;
       color: var(--text-secondary);
-      max-width: 380px;
-      text-align: right;
-      line-height: 1.5;
+      max-width: 560px;
+      text-align: center;
+      line-height: 1.55;
     }
     .onboard-mc-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
+      gap: 18px;
     }
     @media (max-width: 880px) { .onboard-mc-grid { grid-template-columns: 1fr; } }
     .mc-step {
@@ -2093,14 +2309,17 @@
     .mc-help { font-family: var(--font-ui); font-size: 10.5px; color: var(--text-muted); }
     .mc-help a { color: var(--accent-primary); }
     .onboard-mc-trust {
-      margin-top: 18px;
-      padding-top: 16px;
+      margin-top: 32px;
+      padding-top: 24px;
       border-top: 1px solid var(--border);
       font-family: var(--font-ui);
-      font-size: 11.5px;
+      font-size: 12px;
       color: var(--text-muted);
       text-align: center;
-      line-height: 1.5;
+      line-height: 1.6;
+      max-width: 640px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     /* ============================================
@@ -2599,6 +2818,181 @@
     /* ============================================
        DEEP CLEAN TAB
        ============================================ */
+    .clean-main { min-width: 0; }
+
+    /* Deep Clean universe section: scoped landscape card for the
+       scan-result 3D view. Body height matches the dashboard
+       landscape so both universes feel the same. */
+    .clean-landscape { margin-bottom: 22px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); overflow: hidden; }
+    .clean-landscape .ops-section-body {
+      padding: 0;
+      overflow: hidden;
+      flex: 0 0 480px;
+      height: 480px;
+      min-height: 480px;
+      max-height: 480px;
+    }
+
+    /* Scan results — sender cards inspired by the Dashboard's Top
+       Senders rail. Each row is a mini-card with rank, name, email,
+       relative-count bar, count, latest date, and an optional
+       unsubscribe link. Checkbox stays inline for bulk selection. */
+    .clean-sort-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .clean-sort-label { margin-right: 2px; opacity: 0.8; }
+    .clean-sort-btn {
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.12s, border-color 0.12s, background 0.12s;
+    }
+    .clean-sort-btn:hover { color: var(--text-primary); border-color: var(--border-active); }
+    .clean-sort-btn.active {
+      color: var(--accent-primary);
+      border-color: var(--accent-primary-border);
+      background: var(--accent-primary-subtle);
+    }
+    .clean-select-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 12px 0 10px;
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .clean-select-all { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .clean-select-all input { accent-color: var(--accent-primary); }
+    .clean-sender-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .clean-sender-row {
+      display: grid;
+      grid-template-columns: 22px 36px minmax(0, 1fr) 120px auto;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-card);
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s, transform 0.08s;
+    }
+    .clean-sender-row:hover {
+      border-color: var(--border-active);
+      background: var(--bg-card-hover);
+    }
+    .clean-sender-row.selected {
+      border-color: var(--accent-primary-border);
+      background: var(--accent-primary-subtle);
+    }
+    .clean-row-checkbox { display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .clean-row-checkbox input { accent-color: var(--accent-primary); cursor: pointer; }
+    .clean-row-rank {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    .clean-row-info { min-width: 0; }
+    .clean-row-name {
+      font-family: var(--font-display);
+      font-size: 15px;
+      color: var(--text-primary);
+      font-weight: 500;
+      letter-spacing: -0.003em;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .clean-row-email {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .clean-row-bar-track {
+      height: 3px;
+      width: 100%;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .clean-row-bar-fill {
+      height: 100%;
+      width: var(--bar-w, 0%);
+      background: linear-gradient(90deg, var(--accent-primary), var(--accent-primary-border));
+      border-radius: 2px;
+    }
+    .clean-row-meta { text-align: right; }
+    .clean-row-count {
+      font-family: var(--font-numeric);
+      font-weight: 500;
+      font-size: 20px;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+      line-height: 1;
+    }
+    .clean-row-date {
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .clean-row-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+    .clean-row-unsub {
+      padding: 5px 10px;
+      border: 1px solid var(--accent-primary-border);
+      background: transparent;
+      color: var(--accent-primary);
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: var(--font-mono), 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: background 0.12s;
+    }
+    .clean-row-unsub:hover { background: var(--accent-primary-subtle); }
+
+    @media (max-width: 720px) {
+      .clean-sender-row {
+        grid-template-columns: 22px 30px minmax(0, 1fr) auto;
+        row-gap: 6px;
+      }
+      .clean-row-actions { grid-column: 2 / -1; justify-content: flex-start; }
+      .clean-row-meta { text-align: right; }
+    }
+
     .clean-hero {
       padding-bottom: 22px;
       border-bottom: 1px solid var(--border);
@@ -4749,16 +5143,17 @@
       <div class="onboard-mc">
         <div class="onboard-mc-strip">
           <span class="pulse-dot"></span>
-          <span>Inbox Intelligence · Atelier · v2</span>
-          <span style="margin-left:auto">Setup · 3 steps</span>
+          <span>Inbox Intelligence</span>
+          <span class="onboard-mc-strip-sep">·</span>
+          <span class="onboard-mc-strip-end">Setup · 3 steps</span>
         </div>
         <div class="onboard-mc-card">
           <div class="onboard-mc-mast">
             <div>
-              <h1>Inbox Intelligence</h1>
               <small>Mission control for your email</small>
+              <h1>Inbox Intelligence</h1>
             </div>
-            <div class="onboard-mc-tag">Sort what matters · skip what doesn't · clean years of inbox in one sweep.</div>
+            <div class="onboard-mc-tag">Sort what matters. Skip what doesn't. Clean years of inbox in one sweep.</div>
           </div>
           <div class="onboard-mc-grid">
 
@@ -5138,58 +5533,76 @@
           <!-- ============ TAB: DEEP CLEAN ============ -->
           <div class="tab-pane" id="tab-deep-clean" style="display:none">
 
-            <div class="clean-hero">
-              <div class="clean-eyebrow">Deep Clean</div>
-              <h1 class="clean-title">Years of inbox, one sweep.</h1>
-              <p class="clean-sub">Scan back as far as you want — sender and subject only, no body, no AI. Trash hundreds of emails per sender in one move.</p>
-            </div>
+            <div class="clean-main">
 
-            <div class="clean-controls">
-              <span class="scan-label">Range</span>
-              <div class="clean-range" id="clean-range">
-                <button data-years="1" onclick="setDeepCleanRange(1, this)">1 Y</button>
-                <button data-years="2" onclick="setDeepCleanRange(2, this)">2 Y</button>
-                <button data-years="3" onclick="setDeepCleanRange(3, this)">3 Y</button>
-                <button data-years="4" onclick="setDeepCleanRange(4, this)">4 Y</button>
-                <button data-years="5" onclick="setDeepCleanRange(5, this)">5 Y</button>
-                <button data-years="20" onclick="setDeepCleanRange(20, this)">All</button>
-              </div>
-              <span class="clean-estimate" id="clean-estimate">Pick a range to estimate scan size.</span>
-              <button class="clean-begin" id="clean-begin-btn" onclick="beginDeepClean()" disabled>Begin scan</button>
-            </div>
+                <div class="clean-hero">
+                  <div class="clean-eyebrow">Deep Clean</div>
+                  <h1 class="clean-title">Years of inbox, one sweep.</h1>
+                  <p class="clean-sub">Scan back as far as you want — sender and subject only, no body, no AI. Trash hundreds of emails per sender in one move.</p>
+                </div>
 
-            <div class="clean-progress" id="clean-progress" style="display:none">
-              <div class="clean-progress-row">
-                <span class="clean-progress-text"><strong id="clean-progress-current">0</strong> / <span id="clean-progress-total">0</span> emails scanned</span>
-                <button class="clean-cancel" id="clean-cancel-btn" onclick="cancelDeepClean()">Cancel</button>
-              </div>
-              <div class="clean-progress-bar"><div class="clean-progress-fill" id="clean-progress-fill"></div></div>
-            </div>
+                <div class="clean-controls">
+                  <span class="scan-label">Range</span>
+                  <div class="clean-range" id="clean-range">
+                    <button data-years="1" onclick="setDeepCleanRange(1, this)">1 Y</button>
+                    <button data-years="2" onclick="setDeepCleanRange(2, this)">2 Y</button>
+                    <button data-years="3" onclick="setDeepCleanRange(3, this)">3 Y</button>
+                    <button data-years="4" onclick="setDeepCleanRange(4, this)">4 Y</button>
+                    <button data-years="5" onclick="setDeepCleanRange(5, this)">5 Y</button>
+                    <button data-years="20" onclick="setDeepCleanRange(20, this)">All</button>
+                  </div>
+                  <span class="clean-estimate" id="clean-estimate">Pick a range to estimate scan size.</span>
+                  <button class="clean-begin" id="clean-begin-btn" onclick="beginDeepClean()" disabled>Begin scan</button>
+                </div>
 
-            <div id="clean-results" style="display:none">
-              <div class="clean-table-head">
-                <div class="clean-table-title" id="clean-results-title">Senders</div>
-                <input class="clean-filter" id="clean-filter" type="text" placeholder="Filter by sender, email, or domain…" oninput="filterDeepClean()">
-              </div>
-              <div id="clean-bulk-bar-mount"></div>
-              <table class="clean-table" id="clean-table">
-                <thead>
-                  <tr>
-                    <th class="checkbox"><input type="checkbox" id="clean-select-all" onchange="toggleSelectAllDeepClean(this.checked)"></th>
-                    <th data-sort="name" onclick="sortDeepClean('name')">Sender</th>
-                    <th data-sort="domain" onclick="sortDeepClean('domain')">Domain</th>
-                    <th class="num sorted" data-sort="count" onclick="sortDeepClean('count')">Count ▾</th>
-                    <th data-sort="latest" onclick="sortDeepClean('latest')">Latest</th>
-                    <th>Unsub</th>
-                  </tr>
-                </thead>
-                <tbody id="clean-tbody"></tbody>
-              </table>
-            </div>
+                <div class="clean-progress" id="clean-progress" style="display:none">
+                  <div class="clean-progress-row">
+                    <span class="clean-progress-text"><strong id="clean-progress-current">0</strong> / <span id="clean-progress-total">0</span> emails scanned</span>
+                    <button class="clean-cancel" id="clean-cancel-btn" onclick="cancelDeepClean()">Cancel</button>
+                  </div>
+                  <div class="clean-progress-bar"><div class="clean-progress-fill" id="clean-progress-fill"></div></div>
+                </div>
 
-            <div class="clean-empty" id="clean-empty">
-              <span class="clean-empty-mark">∅</span>
-              No scan run yet. Pick a range above and press <em>Begin scan</em>.
+                <!-- 3D Email Landscape for the scan: domain → sender → email -->
+                <section class="ops-section ops-landscape clean-landscape" id="clean-landscape" style="display:none">
+                  <div class="ops-section-head" onclick="toggleOpsSection(this)" title="Click to collapse / expand">
+                    <div class="ops-section-title"><strong>›</strong> Email Landscape</div>
+                    <div class="ops-section-meta">Domain clusters · click a node to zoom</div>
+                    <span class="ops-section-chevron" aria-hidden="true">&#9662;</span>
+                  </div>
+                  <div class="ops-section-body">
+                    <div class="bubble-map-viewport" id="clean-universe-viewport">
+                      <div class="bubble-map" id="clean-universe-map"></div>
+                    </div>
+                  </div>
+                </section>
+
+                <div id="clean-results" style="display:none">
+                  <div class="clean-table-head">
+                    <div class="clean-table-title" id="clean-results-title">Senders</div>
+                    <div class="clean-sort-group">
+                      <label class="clean-sort-label">Sort</label>
+                      <button class="clean-sort-btn active" data-sort="count" onclick="sortDeepClean('count')">Count ▾</button>
+                      <button class="clean-sort-btn" data-sort="latest" onclick="sortDeepClean('latest')">Latest</button>
+                      <button class="clean-sort-btn" data-sort="name" onclick="sortDeepClean('name')">Name</button>
+                    </div>
+                    <input class="clean-filter" id="clean-filter" type="text" placeholder="Filter by sender, email, or domain…" oninput="filterDeepClean()">
+                  </div>
+                  <div class="clean-select-bar">
+                    <label class="clean-select-all">
+                      <input type="checkbox" id="clean-select-all" onchange="toggleSelectAllDeepClean(this.checked)">
+                      <span>Select all visible</span>
+                    </label>
+                    <div id="clean-bulk-bar-mount"></div>
+                  </div>
+                  <div class="clean-sender-list" id="clean-tbody"></div>
+                </div>
+
+                <div class="clean-empty" id="clean-empty">
+                  <span class="clean-empty-mark">∅</span>
+                  No scan run yet. Pick a range above and press <em>Begin scan</em>.
+                </div>
+
             </div>
 
           </div>
@@ -5550,15 +5963,10 @@
       applyProviderUI();
     }
 
-    // Walk the visible onboarding step cards and renumber badges 1..N.
-    // Skips already-completed badges (those show ✓) and skips hidden cards.
-    // Lets the picker insertion auto-renumber privacy/key/sign-in without each
-    // selectOnboard*() needing to know whether the picker is showing.
+    // Walk the visible onboarding step cards and renumber them 1..N.
+    // Updates both the inline "NN / Label" header on each card AND the
+    // legacy per-step badges. Skips hidden cards and preserves done (✓).
     function renumberSteps() {
-      // Only renumber when the iCloud picker is visible — otherwise Larry sees
-      // the original Gmail-only flow with the original hardcoded badge values.
-      const provCard = document.getElementById('step-provider');
-      if (!provCard || provCard.style.display === 'none') return;
       const cards = [
         ['step-provider', 'stepProvider-badge'],
         ['step-privacy', 'step0-badge'],
@@ -5568,10 +5976,19 @@
       let n = 1;
       for (const [cardId, badgeId] of cards) {
         const card = document.getElementById(cardId);
-        const badge = document.getElementById(badgeId);
-        if (!card || !badge) continue;
+        if (!card) continue;
         if (card.style.display === 'none') continue;
-        if (!badge.classList.contains('done')) badge.textContent = String(n);
+        // Update inline "02 / Privacy" style header on the card.
+        const inline = card.querySelector('.mc-step-num');
+        if (inline) {
+          const txt = inline.textContent || '';
+          const slash = txt.indexOf('/');
+          const label = slash >= 0 ? txt.slice(slash + 1).trim() : txt.trim();
+          inline.textContent = String(n).padStart(2, '0') + ' / ' + label;
+        }
+        // Update badge (if present and not already marked done).
+        const badge = document.getElementById(badgeId);
+        if (badge && !badge.classList.contains('done')) badge.textContent = String(n);
         n++;
       }
     }
@@ -6715,47 +7132,643 @@ ${emailList}` }]
       '#F472B6', '#A3E635', '#22D3EE', '#C084FC', '#FBBF24'
     ];
 
-    function renderBubbleMap(emails) {
-      const map = document.getElementById('bubble-map');
-      const topics = {};
+    // ============================================================
+    // EMAIL UNIVERSE — Three.js 3D visualization
+    //   topic clusters → sender subclusters → individual email nodes
+    //   Modeled on the OSControlCenter Knowledge Universe (glowing
+    //   sphere shader, fibonacci-sphere topic centers, orbit/zoom-to-
+    //   cursor camera, teardown-and-rebuild on re-render).
+    // ============================================================
+    // Per-container state. Keyed by host element id so the Dashboard
+    // universe (#bubble-viewport) and the Deep Clean universe
+    // (#deep-clean-viewport) each have independent scenes + loops.
+    const _euStates = new Map();
+
+    function renderEmailUniverse(emails, opts) {
+      opts = opts || {};
+      const hostId = opts.hostId || 'bubble-viewport';
+      const mapId  = opts.mapId  || 'bubble-map';
+      const host = document.getElementById(hostId);
+      const map  = document.getElementById(mapId);
+      if (!host) return;
+
+      // Teardown prior instance for this host (scene refresh)
+      const prev = _euStates.get(hostId);
+      if (prev) {
+        prev.alive = false;
+        try { prev.ro && prev.ro.disconnect(); } catch {}
+        try { prev.renderer.dispose(); } catch {}
+        try { prev.renderer.domElement.remove(); } catch {}
+        try { prev.tooltip && prev.tooltip.remove(); } catch {}
+        try { prev.labelLayer && prev.labelLayer.remove(); } catch {}
+        try { prev.legend && prev.legend.remove(); } catch {}
+        try { prev.hud && prev.hud.remove(); } catch {}
+        try { prev.gate && prev.gate.remove(); } catch {}
+        try { prev.exit && prev.exit.remove(); } catch {}
+        // Reset the section's active state so a fresh scene starts gated on mobile
+        try { if (prev.section) prev.section.classList.remove('eu-active'); } catch {}
+        _euStates.delete(hostId);
+      }
+      if (map) { map.innerHTML = ''; map.style.height = ''; map.style.transform = ''; }
+      if (hostId === 'bubble-viewport') {
+        if (typeof resetBubbleZoom === 'function') resetBubbleZoom();
+        if (typeof updateBubbleBackBtn === 'function') updateBubbleBackBtn();
+      }
+
+      if (typeof THREE === 'undefined') {
+        if (map) map.innerHTML = '<div class="empty-state" style="padding:40px 20px;text-align:center;color:var(--text-muted)">Loading 3D engine…</div>';
+        return;
+      }
+      if (!emails || !emails.length) {
+        if (map) map.innerHTML = '<div class="empty-state" style="padding:40px 20px;text-align:center;color:var(--text-muted)">No emails yet</div>';
+        return;
+      }
+
+      // ── Build topic → sender → emails hierarchy ─────────────────
+      // Keep top-12 topics by volume so the universe stays legible;
+      // roll the long tail into "Other".
+      const topicBuckets = {};
       for (const e of emails) {
         const t = e.topic || 'Other';
-        topics[t] = (topics[t] || 0) + 1;
+        (topicBuckets[t] = topicBuckets[t] || []).push(e);
       }
-      const sorted = Object.entries(topics).sort((a,b) => b[1] - a[1]).slice(0, 12);
-      if (!sorted.length) { map.style.height = '60px'; map.innerHTML = '<div class="empty-state">No topics yet</div>'; return; }
+      const topicOrder = Object.entries(topicBuckets)
+        .sort((a, b) => b[1].length - a[1].length)
+        .map(([name]) => name);
+      const keepTopics = topicOrder.slice(0, 12);
+      const otherTopics = topicOrder.slice(12);
+      if (otherTopics.length) {
+        const pool = [];
+        for (const t of otherTopics) pool.push(...topicBuckets[t]);
+        delete Object.assign(topicBuckets, {}).bogus; // no-op, keeps linter happy
+        for (const t of otherTopics) delete topicBuckets[t];
+        if (!topicBuckets['Other']) topicBuckets['Other'] = [];
+        topicBuckets['Other'].push(...pool);
+        if (!keepTopics.includes('Other')) keepTopics.push('Other');
+      }
 
-      const maxCount = sorted[0][1];
-      const w = map.clientWidth || 340;
+      const palette = (typeof BUBBLE_COLORS !== 'undefined' && BUBBLE_COLORS.length)
+        ? BUBBLE_COLORS
+        : ['#c9892b','#4C78A8','#E45756','#72B7B2','#54A24B','#EECA3B','#B279A2','#FF9DA6','#9D755D','#BAB0AC','#F58518','#3B7A57'];
 
-      const isLargeView = w > 400;
-      const minBubble = isLargeView ? 56 : 48;
-      const maxBubble = isLargeView ? 120 : 96;
-      const bubbles = sorted.map((item, i) => {
-        const [name, count] = item;
-        const ratio = count / maxCount;
-        const size = Math.max(minBubble, Math.min(maxBubble, minBubble + ratio * (maxBubble - minBubble)));
-        return { name, count, size, color: BUBBLE_COLORS[i % BUBBLE_COLORS.length] };
+      // Fibonacci-sphere topic centers so clusters spread evenly.
+      // Scatter radii picked so individual email nodes stay visible
+      // inside senders, and senders stay visible inside topics —
+      // avoids the "white blob" that happens when too many halos
+      // stack on top of each other in the same pixel.
+      const topicRadius  = 1.05;
+      const senderRadius = 0.28;
+      const emailRadius  = 0.11;
+
+      const topics = keepTopics.map((name, i) => {
+        const k = i + 0.5;
+        const phi   = Math.acos(1 - 2 * k / keepTopics.length);
+        const theta = Math.PI * (1 + Math.sqrt(5)) * k;
+        const x = Math.sin(phi) * Math.cos(theta) * topicRadius;
+        const y = Math.sin(phi) * Math.sin(theta) * topicRadius;
+        const z = Math.cos(phi) * topicRadius;
+        return { name, x, y, z, color: palette[i % palette.length], emails: topicBuckets[name] };
       });
 
-      const minH = isLargeView ? 400 : 300;
-      const h = Math.max(minH, bubbles.length * 38 + 80);
-      map.style.height = h + 'px';
+      // Nodes array: email, sender-centroid, topic-centroid
+      //   type: 'email' | 'sender' | 'topic'
+      const nodes = [];
+      const topicCentroids = [];
+      const senderCentroids = [];
 
-      const positions = packBubbles(bubbles, w, h);
+      for (const topic of topics) {
+        topicCentroids.push({
+          type: 'topic', name: topic.name, color: topic.color,
+          x: topic.x, y: topic.y, z: topic.z, count: topic.emails.length,
+        });
 
-      let maxBottom = 0;
-      for (const p of positions) {
-        const bottom = p.y + p.size + 28;
-        if (bottom > maxBottom) maxBottom = bottom;
+        // Group emails of this topic by sender
+        const senderMap = {};
+        for (const e of topic.emails) {
+          const key = e.from || 'unknown@';
+          (senderMap[key] = senderMap[key] || { emails: [], name: e.fromName || e.from }).emails.push(e);
+        }
+        const senders = Object.entries(senderMap).map(([addr, v]) => ({ addr, ...v }));
+
+        // Senders distributed on a mini fibonacci sphere around topic center
+        senders.forEach((s, si) => {
+          const k = si + 0.5;
+          const phi   = Math.acos(1 - 2 * k / Math.max(1, senders.length));
+          const theta = Math.PI * (1 + Math.sqrt(5)) * k;
+          const rx = Math.sin(phi) * Math.cos(theta) * senderRadius;
+          const ry = Math.sin(phi) * Math.sin(theta) * senderRadius;
+          const rz = Math.cos(phi) * senderRadius;
+          s.x = topic.x + rx;
+          s.y = topic.y + ry;
+          s.z = topic.z + rz;
+          senderCentroids.push({
+            type: 'sender', name: s.name, addr: s.addr,
+            topic: topic.name, color: topic.color,
+            x: s.x, y: s.y, z: s.z, count: s.emails.length,
+          });
+
+          // Emails scattered around sender centroid
+          s.emails.forEach((e, ei) => {
+            const jitter = () => (Math.random() - 0.5) * 2 * emailRadius;
+            nodes.push({
+              type: 'email',
+              id: e.id,
+              title: e.subject || '(no subject)',
+              sender: s.name,
+              senderAddr: s.addr,
+              topic: topic.name,
+              color: topic.color,
+              category: e.category,
+              date: e.date,
+              email: e,
+              x: s.x + jitter(),
+              y: s.y + jitter(),
+              z: s.z + jitter(),
+            });
+          });
+        });
       }
-      map.style.height = Math.max(minH, maxBottom + 12) + 'px';
 
-      renderBubbleHTML(map, positions, 'topic');
+      // Put topic + sender centroids AFTER emails so centroids draw on
+      // top (they're bigger; we want them to stand out as anchors).
+      const allNodes = nodes.concat(senderCentroids).concat(topicCentroids);
 
-      // Reset zoom and hide back button
-      resetBubbleZoom();
-      updateBubbleBackBtn();
+      // ── Scene setup ─────────────────────────────────────────────
+      const width  = host.clientWidth;
+      const height = host.clientHeight || 380;
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(58, Math.max(0.01, width / height), 0.01, 200);
+      camera.position.set(0, 0, 3.0);
+
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.domElement.className = 'eu-canvas';
+      host.appendChild(renderer.domElement);
+
+      // Tooltip + cluster-label layer + legend + HUD
+      const tooltip = document.createElement('div');
+      tooltip.className = 'eu-tooltip';
+      tooltip.innerHTML = '<div class="tt-title"></div><div class="tt-meta"></div><div class="tt-sub"></div>';
+      host.appendChild(tooltip);
+
+      const labelLayer = document.createElement('div');
+      labelLayer.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
+      host.appendChild(labelLayer);
+
+      const legend = document.createElement('div');
+      legend.className = 'eu-legend';
+      legend.innerHTML = topics.slice(0, 8).map(t =>
+        `<div class="eu-legend-item"><div class="eu-legend-dot" style="background:${t.color};color:${t.color}"></div>${esc(t.name)} · ${t.emails.length}</div>`
+      ).join('');
+      host.appendChild(legend);
+
+      const hud = document.createElement('div');
+      hud.className = 'eu-hud';
+      hud.innerHTML = `<strong>${emails.length}</strong> emails · <strong>${senderCentroids.length}</strong> senders · <strong>${topics.length}</strong> topics`;
+      host.appendChild(hud);
+
+      // Mobile tap-gate: blocks interaction until user taps "Explore".
+      // Scoped via the parent .ops-landscape / .clean-landscape section
+      // (the .eu-active class lives there so CSS can gate the canvas).
+      const section = host.closest('.ops-landscape, .clean-landscape') || host;
+      const gate = document.createElement('div');
+      gate.className = 'eu-mobile-gate';
+      gate.innerHTML = `
+        <div class="eu-gate-badge">Tap to explore</div>
+        <div class="eu-gate-hint">Swipe to orbit · pinch to zoom · tap × to exit</div>
+      `;
+      host.appendChild(gate);
+      const exit = document.createElement('button');
+      exit.className = 'eu-exit';
+      exit.type = 'button';
+      exit.textContent = '× Exit';
+      host.appendChild(exit);
+      gate.addEventListener('click', (e) => { e.stopPropagation(); section.classList.add('eu-active'); });
+      gate.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); section.classList.add('eu-active'); }, { passive: false });
+      exit.addEventListener('click', (e) => { e.stopPropagation(); section.classList.remove('eu-active'); });
+
+      // ── Node geometry (all nodes as Points) ─────────────────────
+      const geom = new THREE.BufferGeometry();
+      const pos  = new Float32Array(allNodes.length * 3);
+      const col  = new Float32Array(allNodes.length * 3);
+      const siz  = new Float32Array(allNodes.length);
+      const glw  = new Float32Array(allNodes.length);
+      const alp  = new Float32Array(allNodes.length);
+
+      allNodes.forEach((n, i) => {
+        pos[i*3]   = n.x;
+        pos[i*3+1] = n.y;
+        pos[i*3+2] = n.z;
+        const c = new THREE.Color(n.color);
+        col[i*3]   = c.r;
+        col[i*3+1] = c.g;
+        col[i*3+2] = c.b;
+        if (n.type === 'topic') {
+          siz[i] = 1.4 + Math.min(0.9, Math.log2((n.count||1) + 1) * 0.2);
+          glw[i] = 0.28;
+          alp[i] = 0.95;
+        } else if (n.type === 'sender') {
+          siz[i] = 0.72 + Math.min(0.5, Math.log2((n.count||1) + 1) * 0.1);
+          glw[i] = 0.14;
+          alp[i] = 0.85;
+        } else {
+          siz[i] = 0.34;
+          glw[i] = 0.06;
+          alp[i] = 0.8;
+        }
+      });
+
+      const baseSizes = new Float32Array(siz);
+      const baseGlows = new Float32Array(glw);
+      const baseAlphas = new Float32Array(alp);
+
+      geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geom.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+      geom.setAttribute('size',     new THREE.BufferAttribute(siz, 1));
+      geom.setAttribute('glowStr',  new THREE.BufferAttribute(glw, 1));
+      geom.setAttribute('alpha',    new THREE.BufferAttribute(alp, 1));
+
+      const mat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        vertexShader: `
+          attribute float size;
+          attribute float glowStr;
+          attribute float alpha;
+          attribute vec3 color;
+          varying vec3 vColor;
+          varying float vGlow;
+          varying float vAlpha;
+          varying float vDist;
+          void main() {
+            vColor = color;
+            vGlow = glowStr;
+            vAlpha = alpha;
+            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            vDist = -mv.z;
+            gl_PointSize = size * (70.0 / -mv.z);
+            gl_Position = projectionMatrix * mv;
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vColor;
+          varying float vGlow;
+          varying float vAlpha;
+          varying float vDist;
+          void main() {
+            vec2 uv = gl_PointCoord - vec2(0.5);
+            float d = length(uv);
+            if (d > 0.5) discard;
+
+            // Lit 3D sphere (upper-left key light). Specular kept low
+            // so dense clusters don't wash out to pure white.
+            vec3 normal = vec3(uv.x, -uv.y, sqrt(max(0.0, 0.25 - d * d)));
+            float diffuse  = max(0.0, dot(normalize(normal), normalize(vec3(-0.4, 0.5, 0.8))));
+            float specular = pow(max(0.0, dot(normalize(normal), normalize(vec3(-0.2, 0.3, 1.0)))), 20.0);
+            vec3 lit = vColor * (0.35 + diffuse * 0.65) + vColor * specular * 0.6;
+
+            // Tight ambient halo only — no "fuzz" around the node.
+            // Sharp core + short-range falloff so overlapping nodes
+            // remain readable as discrete spheres.
+            float core = smoothstep(0.5, 0.22, d);
+            float halo = exp(-d * 7.0) * vGlow;
+
+            // Depth fade for far nodes
+            float depthFade = clamp(1.0 - (vDist - 2.8) * 0.08, 0.4, 1.0);
+
+            vec3 finalCol = lit * core + vColor * halo;
+            float finalA = vAlpha * (core + halo * 0.25) * depthFade;
+            gl_FragColor = vec4(finalCol, finalA);
+          }
+        `
+      });
+
+      const points = new THREE.Points(geom, mat);
+      scene.add(points);
+
+      // ── Topic → sender → email connection lines (inherit color,
+      //     low opacity — thin web inside each cluster) ────────────
+      const linePos = [];
+      const lineCol = [];
+      function pushLine(a, b, c) {
+        linePos.push(a.x, a.y, a.z, b.x, b.y, b.z);
+        const col = new THREE.Color(c);
+        lineCol.push(col.r, col.g, col.b, col.r, col.g, col.b);
+      }
+      for (const topic of topics) {
+        const topicPt = { x: topic.x, y: topic.y, z: topic.z };
+        // Group nodes by sender for this topic
+        const senderGroups = {};
+        for (const n of nodes) {
+          if (n.topic !== topic.name) continue;
+          (senderGroups[n.senderAddr] = senderGroups[n.senderAddr] || []).push(n);
+        }
+        for (const addr in senderGroups) {
+          const group = senderGroups[addr];
+          const sx = group.reduce((a,n)=>a+n.x,0)/group.length;
+          const sy = group.reduce((a,n)=>a+n.y,0)/group.length;
+          const sz = group.reduce((a,n)=>a+n.z,0)/group.length;
+          const sPt = { x: sx, y: sy, z: sz };
+          // Topic → sender
+          pushLine(topicPt, sPt, topic.color);
+          // Sender → each email (soft radial)
+          for (const n of group) pushLine(sPt, n, topic.color);
+        }
+      }
+      const lineGeom = new THREE.BufferGeometry();
+      lineGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(linePos), 3));
+      lineGeom.setAttribute('color',    new THREE.BufferAttribute(new Float32Array(lineCol), 3));
+      const lineMat = new THREE.LineBasicMaterial({
+        vertexColors: true, transparent: true, opacity: 0.14, depthWrite: false,
+      });
+      const lines = new THREE.LineSegments(lineGeom, lineMat);
+      scene.add(lines);
+
+      // ── Distant star field ──────────────────────────────────────
+      const STAR_N = 700;
+      const starPos = new Float32Array(STAR_N * 3);
+      const starCol = new Float32Array(STAR_N * 3);
+      const starSiz = new Float32Array(STAR_N);
+      for (let i = 0; i < STAR_N; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi   = Math.acos(2 * Math.random() - 1);
+        const r = 28 + Math.random() * 34;
+        starPos[i*3]   = Math.sin(phi) * Math.cos(theta) * r;
+        starPos[i*3+1] = Math.sin(phi) * Math.sin(theta) * r;
+        starPos[i*3+2] = Math.cos(phi) * r;
+        starSiz[i] = 0.1 + Math.random() * 0.35;
+        if (Math.random() < 0.15) {
+          starCol[i*3] = 0.95; starCol[i*3+1] = 0.75; starCol[i*3+2] = 0.4;
+        } else {
+          starCol[i*3] = 0.7 + Math.random()*0.25;
+          starCol[i*3+1] = 0.75 + Math.random()*0.2;
+          starCol[i*3+2] = 0.9 + Math.random()*0.1;
+        }
+      }
+      const starGeom = new THREE.BufferGeometry();
+      starGeom.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+      starGeom.setAttribute('color',    new THREE.BufferAttribute(starCol, 3));
+      starGeom.setAttribute('size',     new THREE.BufferAttribute(starSiz, 1));
+      const starMat = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false,
+        vertexShader: `
+          attribute float size;
+          attribute vec3 color;
+          varying vec3 vColor;
+          void main() {
+            vColor = color;
+            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = size * (22.0 / -mv.z);
+            gl_Position = projectionMatrix * mv;
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vColor;
+          void main() {
+            float d = length(gl_PointCoord - vec2(0.5));
+            if (d > 0.5) discard;
+            float b = smoothstep(0.5, 0.0, d) * 0.18;
+            gl_FragColor = vec4(vColor, b);
+          }
+        `
+      });
+      scene.add(new THREE.Points(starGeom, starMat));
+
+      // ── Cluster labels (topic names, projected to screen) ───────
+      // Offset labels slightly above topic center so they don't overlap the node.
+      const clusterLabels = topics.map(t => {
+        const el = document.createElement('div');
+        el.className = 'eu-cluster-label';
+        el.textContent = t.name + ' · ' + t.emails.length;
+        el.style.color = t.color;
+        labelLayer.appendChild(el);
+        // Label position: topic center, shifted outward along the radius vector
+        // (away from origin) so the label floats just outside the cluster
+        const len = Math.sqrt(t.x*t.x + t.y*t.y + t.z*t.z) || 1;
+        const k = (len + senderRadius + 0.08) / len;
+        return { el, pos: new THREE.Vector3(t.x * k, t.y * k, t.z * k) };
+      });
+
+      // ── Interaction: orbit / zoom-to-cursor / pan / hover / click
+      const raycaster = new THREE.Raycaster();
+      // Tight threshold so hover hits the actual node under the cursor
+      // rather than a fat halo around it.
+      raycaster.params.Points.threshold = 0.018;
+      const mouse = new THREE.Vector2();
+
+      let isDown = false;
+      let isPanning = false;
+      let prevX = 0, prevY = 0;
+      let rotX = 0, rotY = 0;
+      let panX = 0, panY = 0;
+      let hoveredIdx = -1;
+      let userInteracted = false;
+
+      function getMouseNDC(e) {
+        const r = renderer.domElement.getBoundingClientRect();
+        mouse.x =  ((e.clientX - r.left) / r.width) * 2 - 1;
+        mouse.y = -((e.clientY - r.top)  / r.height) * 2 + 1;
+      }
+
+      function clearHover() {
+        if (hoveredIdx < 0) return;
+        hoveredIdx = -1;
+        tooltip.style.display = 'none';
+        const s = geom.attributes.size.array;
+        const g = geom.attributes.glowStr.array;
+        for (let i = 0; i < allNodes.length; i++) {
+          s[i] = baseSizes[i];
+          g[i] = baseGlows[i];
+        }
+        geom.attributes.size.needsUpdate = true;
+        geom.attributes.glowStr.needsUpdate = true;
+      }
+
+      renderer.domElement.addEventListener('mousedown', e => {
+        isDown = true;
+        isPanning = e.shiftKey || e.button === 1 || e.button === 2;
+        prevX = e.clientX; prevY = e.clientY;
+        userInteracted = true;
+        clearHover();
+      });
+      renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+      window.addEventListener('mouseup', () => { isDown = false; isPanning = false; });
+
+      renderer.domElement.addEventListener('mousemove', e => {
+        if (isDown) {
+          const dx = e.clientX - prevX;
+          const dy = e.clientY - prevY;
+          if (isPanning) {
+            panX -= dx * 0.006;
+            panY += dy * 0.006;
+          } else {
+            rotY += dx * 0.005;
+            rotX += dy * 0.005;
+            rotX = Math.max(-1.55, Math.min(1.55, rotX));
+          }
+          prevX = e.clientX; prevY = e.clientY;
+          return;
+        }
+        // Hover raycast (cheap — Points). Always pick the CLOSEST hit
+        // so the user gets exactly the node under their cursor —
+        // individual emails stay reachable even when they sit in front
+        // of a topic/sender anchor.
+        getMouseNDC(e);
+        raycaster.setFromCamera(mouse, camera);
+        const hits = raycaster.intersectObject(points);
+        if (hits.length) {
+          const idx = hits[0].index;
+          if (idx !== hoveredIdx) {
+            hoveredIdx = idx;
+            const n = allNodes[idx];
+            const sizes = geom.attributes.size.array;
+            const glows = geom.attributes.glowStr.array;
+            for (let i = 0; i < allNodes.length; i++) {
+              sizes[i] = baseSizes[i];
+              glows[i] = baseGlows[i];
+            }
+            sizes[idx] = baseSizes[idx] * 1.85;
+            glows[idx] = Math.min(1.0, baseGlows[idx] * 2.4);
+            geom.attributes.size.needsUpdate = true;
+            geom.attributes.glowStr.needsUpdate = true;
+
+            tooltip.querySelector('.tt-title').textContent =
+              n.type === 'email' ? (n.title || '(no subject)')
+              : n.type === 'sender' ? n.name
+              : n.name;
+            tooltip.querySelector('.tt-meta').textContent =
+              n.type === 'email' ? ((n.sender || '') + (n.date ? ' · ' + fmtDateShort(n.date) : ''))
+              : n.type === 'sender' ? (n.count + ' email' + (n.count===1?'':'s') + ' · ' + n.topic)
+              : (n.count + ' email' + (n.count===1?'':'s'));
+            tooltip.querySelector('.tt-sub').textContent =
+              n.type === 'email' ? ('Topic: ' + n.topic)
+              : n.type === 'sender' ? n.addr
+              : 'Topic cluster';
+            tooltip.style.display = 'block';
+          }
+          const hostRect = host.getBoundingClientRect();
+          tooltip.style.left = (e.clientX - hostRect.left + 14) + 'px';
+          tooltip.style.top  = (e.clientY - hostRect.top - 8) + 'px';
+        } else {
+          clearHover();
+        }
+      });
+
+      renderer.domElement.addEventListener('mouseleave', clearHover);
+
+      // Click: email → open reader; sender → slide-over; topic → drill
+      renderer.domElement.addEventListener('click', () => {
+        if (hoveredIdx < 0 || isDown) return;
+        const n = allNodes[hoveredIdx];
+        if (n.type === 'email') {
+          if (typeof openEmailReader === 'function') openEmailReader(n.id);
+          else if (typeof openSenderEmails === 'function') openSenderEmails(n.sender, n.senderAddr);
+        } else if (n.type === 'sender') {
+          if (typeof openSenderEmails === 'function') openSenderEmails(n.name, n.addr);
+        } else if (n.type === 'topic') {
+          // Drill: open slide-over with all emails in this topic
+          const es = (window.allEmails || []).filter(e => (e.topic || 'Other') === n.name);
+          if (typeof showEmailsPanel === 'function') showEmailsPanel(n.name, es);
+        }
+      });
+
+      // Zoom-to-cursor
+      const halfFovTan = Math.tan((camera.fov * Math.PI / 180) / 2);
+      renderer.domElement.addEventListener('wheel', e => {
+        const r = renderer.domElement.getBoundingClientRect();
+        const mx =  ((e.clientX - r.left) / r.width) * 2 - 1;
+        const my = -((e.clientY - r.top)  / r.height) * 2 + 1;
+        const oldZ = camera.position.z;
+        camera.position.z *= (1 + e.deltaY * 0.0022);
+        camera.position.z = Math.max(0.35, Math.min(8, camera.position.z));
+        const dz = oldZ - camera.position.z;
+        panX += mx * dz * halfFovTan * (camera.aspect || 1);
+        panY += my * dz * halfFovTan;
+        userInteracted = true;
+        e.preventDefault();
+      }, { passive: false });
+
+      // Double-click resets view
+      renderer.domElement.addEventListener('dblclick', () => {
+        panX = 0; panY = 0; rotX = 0; rotY = 0; camera.position.z = 3.0;
+        userInteracted = false;
+      });
+
+      // ── Animation loop ──────────────────────────────────────────
+      const state = { alive: true };
+      let t = 0;
+      const labelVec = new THREE.Vector3();
+
+      function frame() {
+        if (!state.alive) return;
+        requestAnimationFrame(frame);
+        t += 0.016;
+
+        if (!isDown && !userInteracted) rotY += 0.0008; // gentle idle spin
+        points.rotation.x = rotX; points.rotation.y = rotY;
+        lines.rotation.x  = rotX; lines.rotation.y  = rotY;
+
+        camera.position.x = panX;
+        camera.position.y = panY;
+        camera.lookAt(panX, panY, 0);
+
+        // Subtle node pulse (skip while hovering so hover effect stays stable)
+        if (hoveredIdx < 0) {
+          const s = geom.attributes.size.array;
+          for (let i = 0; i < Math.min(allNodes.length, 60); i++) {
+            const idx = (Math.floor(t * 3) + i * 7) % allNodes.length;
+            s[idx] = baseSizes[idx] * (1.0 + Math.sin(t * 1.6 + idx) * 0.1);
+          }
+          geom.attributes.size.needsUpdate = true;
+        }
+
+        renderer.render(scene, camera);
+
+        // Project cluster labels to screen
+        const w = host.clientWidth, h = host.clientHeight;
+        for (const lbl of clusterLabels) {
+          labelVec.copy(lbl.pos);
+          labelVec.applyEuler(points.rotation);
+          labelVec.project(camera);
+          const x = ((labelVec.x + 1) / 2) * w;
+          const y = ((-labelVec.y + 1) / 2) * h;
+          const behind = labelVec.z > 1;
+          lbl.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+          lbl.el.style.opacity = behind ? 0 : 0.8;
+        }
+      }
+      frame();
+
+      // Resize observer
+      const ro = new ResizeObserver(() => {
+        const w = host.clientWidth;
+        const h = host.clientHeight;
+        if (w < 10 || h < 10) return;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      });
+      ro.observe(host);
+
+      Object.assign(state, { scene, camera, renderer, points, geom, allNodes, tooltip, labelLayer, legend, hud, gate, exit, section, ro });
+      _euStates.set(hostId, state);
+    }
+
+    // Compact date formatter for the universe tooltip
+    function fmtDateShort(d) {
+      if (!d) return '';
+      const dt = (d instanceof Date) ? d : new Date(d);
+      if (isNaN(dt.getTime())) return '';
+      const now = new Date();
+      const sameYear = dt.getFullYear() === now.getFullYear();
+      return dt.toLocaleDateString([], sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: '2-digit' });
+    }
+
+    // Back-compat entry point: callers still invoke renderBubbleMap.
+    function renderBubbleMap(emails) {
+      return renderEmailUniverse(emails);
     }
 
     function renderBubbleHTML(container, positions, clickType) {
@@ -7084,6 +8097,20 @@ ${emailList}` }]
       window.scrollTo({ top: 0, behavior: 'instant' });
       // Lazy-init on first deep-clean visit
       if (name === 'deep-clean') initDeepCleanIfNeeded();
+      // Nudge Three.js universes after a tab switch — canvases built
+      // while their tab was hidden come back with 0-sized viewports.
+      requestAnimationFrame(() => {
+        for (const st of _euStates.values()) {
+          const host = st.renderer && st.renderer.domElement && st.renderer.domElement.parentElement;
+          if (!host) continue;
+          const w = host.clientWidth, h = host.clientHeight;
+          if (w > 0 && h > 0) {
+            st.camera.aspect = w / h;
+            st.camera.updateProjectionMatrix();
+            st.renderer.setSize(w, h);
+          }
+        }
+      });
     }
 
     /* ============================================
@@ -7321,12 +8348,66 @@ ${emailList}` }]
       const titleEl = document.getElementById('clean-results-title');
       titleEl.textContent = `${sr.totalSenders.toLocaleString()} senders · ${sr.totalEmails.toLocaleString()} emails (${sr.years === 20 ? 'all years' : sr.years + 'y'})`;
       paintDeepCleanTable();
+      renderDeepCleanUniverse();
+    }
+
+    // Expand scan senders into the email-node shape the universe expects.
+    // Deep Clean has no AI topics, so we cluster by email domain as the
+    // top level (domain → sender → email). A scan with tens of thousands
+    // of emails could blow up the buffer — we cap at 3500 email nodes
+    // and sample evenly across senders when over budget.
+    function deepCleanEmailsForUniverse() {
+      const sr = _deepCleanState.scanResult;
+      if (!sr) return [];
+      const sendersArr = Object.values(sr.senders || {});
+      const MAX_NODES = 3500;
+      const total = sendersArr.reduce((a, s) => a + (s.count || 0), 0);
+      const ratio = total > MAX_NODES ? MAX_NODES / total : 1;
+
+      const emails = [];
+      for (const s of sendersArr) {
+        const cap = Math.max(1, Math.min(s.count || 0, Math.ceil((s.count || 0) * ratio)));
+        const subs = s.subjects || [];
+        for (let i = 0; i < cap; i++) {
+          const subj = subs[i % Math.max(1, subs.length)] || { subject: '(no subject)', date: s.latestDate };
+          emails.push({
+            id: (s.ids && s.ids[i]) || (s.email + ':' + i),
+            from: s.email,
+            fromName: s.name || s.email,
+            subject: subj.subject || '(no subject)',
+            snippet: '',
+            date: subj.date || s.latestDate,
+            topic: s.domain || (s.email.split('@')[1] || 'other'),
+            category: 'read',
+            priority: 0,
+            isUnread: false,
+          });
+        }
+      }
+      return emails;
+    }
+
+    function renderDeepCleanUniverse() {
+      const landscape = document.getElementById('clean-landscape');
+      if (!landscape) return;
+      landscape.style.display = '';
+      const emails = deepCleanEmailsForUniverse();
+      renderEmailUniverse(emails, { hostId: 'clean-universe-viewport', mapId: 'clean-universe-map' });
+    }
+
+    function openDeepCleanSender(email) {
+      // Select just this sender in the scan list + scroll it into view
+      _deepCleanState.selected = new Set([email]);
+      paintDeepCleanTable();
+      const row = document.querySelector(`.clean-sender-row[data-sender-email="${CSS.escape(email)}"]`);
+      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     function paintDeepCleanTable() {
       const sr = _deepCleanState.scanResult;
       if (!sr) return;
-      const tbody = document.getElementById('clean-tbody');
+      const list = document.getElementById('clean-tbody');
+      if (!list) return;
       const term = (_deepCleanState.filterTerm || '').toLowerCase().trim();
       let rows = Object.values(sr.senders).filter(s => {
         if (!term) return true;
@@ -7340,27 +8421,38 @@ ${emailList}` }]
         if (key === 'latest') return (a.latestDate - b.latestDate) * dir;
         return ((va || 0) - (vb || 0)) * dir;
       });
-      tbody.innerHTML = rows.map(s => {
+      const maxCount = rows.reduce((m, r) => Math.max(m, r.count || 0), 1);
+      list.innerHTML = rows.map((s, i) => {
         const sel = _deepCleanState.selected.has(s.email);
-        const dateStr = s.latestDate.toLocaleDateString();
-        return `<tr class="${sel ? 'selected' : ''}" data-sender-email="${esc(s.email)}">
-          <td class="checkbox"><input type="checkbox" ${sel ? 'checked' : ''} onchange="toggleSelectDeepCleanSender('${esc(s.email)}', this.checked)"></td>
-          <td><span class="row-sender-name">${esc(s.name)}</span><span class="row-sender-email">${esc(s.email)}</span></td>
-          <td class="muted">${esc(s.domain || '')}</td>
-          <td class="num">${s.count.toLocaleString()}</td>
-          <td class="muted">${dateStr}</td>
-          <td>${s.hasUnsub ? '<span title="Has List-Unsubscribe header" style="color:var(--accent-primary)">✓</span>' : '<span class="muted">—</span>'}</td>
-        </tr>`;
+        const dateStr = s.latestDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+        const pct = Math.max(2, ((s.count || 0) / maxCount) * 100).toFixed(1);
+        const rankStr = String(i + 1).padStart(2, '0');
+        const unsub = s.hasUnsub
+          ? `<button class="clean-row-unsub" onclick="event.stopPropagation(); openUnsubForSender('${esc(s.email)}')" title="Has List-Unsubscribe link">Unsub ↗</button>`
+          : '';
+        return `<div class="clean-sender-row ${sel ? 'selected' : ''}" data-sender-email="${esc(s.email)}" onclick="toggleSelectDeepCleanSender('${esc(s.email)}', !this.classList.contains('selected'))">
+          <label class="clean-row-checkbox" onclick="event.stopPropagation()">
+            <input type="checkbox" ${sel ? 'checked' : ''} onchange="toggleSelectDeepCleanSender('${esc(s.email)}', this.checked)">
+          </label>
+          <div class="clean-row-rank">${rankStr}</div>
+          <div class="clean-row-info">
+            <div class="clean-row-name">${esc(s.name || s.email)}</div>
+            <div class="clean-row-email">${esc(s.email)}</div>
+            <div class="clean-row-bar-track"><div class="clean-row-bar-fill" style="--bar-w:${pct}%"></div></div>
+          </div>
+          <div class="clean-row-meta">
+            <div class="clean-row-count">${(s.count || 0).toLocaleString()}</div>
+            <div class="clean-row-date">${dateStr}</div>
+          </div>
+          <div class="clean-row-actions">${unsub}</div>
+        </div>`;
       }).join('');
-      // Update sorted col header indicator
-      document.querySelectorAll('.clean-table thead th').forEach(th => {
-        th.classList.remove('sorted');
-        if (th.dataset.sort === _deepCleanState.sortKey) {
-          th.classList.add('sorted');
-          th.textContent = th.textContent.replace(/[ ▾▴]+$/, '') + (_deepCleanState.sortDir === 'asc' ? ' ▴' : ' ▾');
-        } else {
-          th.textContent = th.textContent.replace(/[ ▾▴]+$/, '');
-        }
+      // Reflect active sort in the chip buttons
+      document.querySelectorAll('.clean-sort-btn').forEach(btn => {
+        const active = btn.dataset.sort === _deepCleanState.sortKey;
+        btn.classList.toggle('active', active);
+        const base = btn.textContent.replace(/[ ▾▴]+$/, '');
+        btn.textContent = active ? (base + (_deepCleanState.sortDir === 'asc' ? ' ▴' : ' ▾')) : base;
       });
       paintDeepCleanBulkBar();
     }
@@ -7373,6 +8465,13 @@ ${emailList}` }]
         _deepCleanState.sortDir = (key === 'count' || key === 'latest') ? 'desc' : 'asc';
       }
       paintDeepCleanTable();
+    }
+
+    function openUnsubForSender(email) {
+      const sr = _deepCleanState.scanResult;
+      if (!sr) return;
+      const s = sr.senders && sr.senders[email];
+      if (s && s.unsubURL) window.open(s.unsubURL, '_blank', 'noopener');
     }
 
     function filterDeepClean() {
@@ -9815,6 +10914,13 @@ Browser: ${diagnostic.browser}
       }
       applyProviderUI();
       renumberSteps();
+
+      // Desktop: expand all 4 triage pillars by default so the 4-up row
+      // is balanced. Mobile keeps the HTML default (only Needs Reply
+      // expanded) to avoid a wall of emails on small screens.
+      if (window.matchMedia('(min-width: 881px)').matches) {
+        document.querySelectorAll('.triage-pillar.is-collapsed').forEach(p => p.classList.remove('is-collapsed'));
+      }
 
       // Restore last active sidebar tab
       const lastTab = localStorage.getItem('inboxIntelTab') || 'dashboard';
