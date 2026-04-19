@@ -3174,6 +3174,9 @@
        ============================================ */
     const CACHE_DB_NAME = 'inbox-intel-cache';
     const CACHE_DB_VERSION = 1;
+    // Bump when the parseMessage shape changes — cached entries with an older
+    // schema get ignored on read (forcing a refetch). 2 = added unsubscribeRaw.
+    const CACHE_SCHEMA = 2;
     let _cacheDb = null;
 
     function openCacheDb() {
@@ -3203,6 +3206,7 @@
           req.onsuccess = () => {
             const data = req.result;
             if (!data) return resolve(null);
+            if (data.schema !== CACHE_SCHEMA) return resolve(null); // stale shape
             data.emails.forEach(e => { e.date = new Date(e.date); });
             resolve(data);
           };
@@ -3216,7 +3220,7 @@
         const db = await openCacheDb();
         const tx = db.transaction('emails', 'readwrite');
         const store = tx.objectStore('emails');
-        store.put({ emails, timestamp: Date.now() }, getCacheKey());
+        store.put({ emails, timestamp: Date.now(), schema: CACHE_SCHEMA }, getCacheKey());
       } catch {}
     }
 
