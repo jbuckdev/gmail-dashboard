@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inbox Intelligence</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9993;</text></svg>">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script>
     // Apply theme before first paint to prevent flash
     (function() {
@@ -21,10 +23,14 @@
        Toggle via data-theme attribute on <html>.
        ============================================ */
     :root {
-      /* Typography — shared across modes */
-      --font-display: 'DM Serif Display', Georgia, serif;
+      /* Typography — shared across modes
+         Atelier system (2026-04-19): Fraunces is the editorial display face
+         (warm contemporary serif with optical sizing). DM Sans + Instrument
+         Sans handle body + UI. Tabular numerals enabled where columns align. */
+      --font-display: 'Fraunces', 'DM Serif Display', Georgia, serif;
       --font-body: 'DM Sans', -apple-system, sans-serif;
       --font-ui: 'Instrument Sans', 'DM Sans', -apple-system, sans-serif;
+      --font-numeric: 'Fraunces', 'DM Serif Display', Georgia, serif;
       --font-mono: 'JetBrains Mono', monospace;
       --font-base: 17px;
       --font-large: 19px;
@@ -69,6 +75,16 @@
       --accent-purple-dim: rgba(167,139,250,0.12);
       --accent-slate: #94A3B8;
       --accent-slate-dim: rgba(148,163,184,0.12);
+
+      /* Atelier accent — burnished ochre. Used sparingly for active state,
+         the single most important number on screen, and primary CTAs.
+         The blue tokens are kept for links + status. */
+      --accent-primary: #c9892b;
+      --accent-primary-dim: rgba(201,137,43,0.14);
+      --accent-primary-subtle: rgba(201,137,43,0.05);
+      --accent-primary-border: rgba(201,137,43,0.32);
+      --accent-primary-focus: 0 0 0 3px rgba(201,137,43,0.18);
+      --accent-primary-glow: 0 0 24px rgba(201,137,43,0.18);
 
       --accent-blue-border: rgba(96,165,250,0.25);
       --accent-blue-focus: 0 0 0 3px rgba(96,165,250,0.15);
@@ -124,6 +140,14 @@
       --accent-purple-dim: rgba(116,72,214,0.1);
       --accent-slate: #5a6370;
       --accent-slate-dim: rgba(90,99,112,0.08);
+
+      /* Atelier accent — burnished ochre, deepened for contrast on cream */
+      --accent-primary: #a06a1c;
+      --accent-primary-dim: rgba(160,106,28,0.10);
+      --accent-primary-subtle: rgba(160,106,28,0.04);
+      --accent-primary-border: rgba(160,106,28,0.28);
+      --accent-primary-focus: 0 0 0 3px rgba(160,106,28,0.15);
+      --accent-primary-glow: 0 0 24px rgba(160,106,28,0.10);
 
       --accent-blue-border: rgba(45,111,204,0.25);
       --accent-blue-focus: 0 0 0 3px rgba(45,111,204,0.12);
@@ -1001,6 +1025,811 @@
     .expandable-panel .section-header { cursor: pointer; }
     .expandable-panel .sender-row { cursor: pointer; }
     .expandable-panel .bubble-map-viewport { cursor: grab; }
+
+    /* ============================================
+       ATELIER LAYOUT — Sidebar workspace
+       Editorial rail on the left, tab content on the right.
+       ============================================ */
+    #dashboard.screen.active { display: block; }
+    .dash-container {
+      display: flex;
+      align-items: stretch;
+      min-height: 100vh;
+      max-width: none;
+      padding: 0;
+      gap: 0;
+    }
+
+    .sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 28px 18px 22px;
+      gap: 28px;
+      border-right: 1px solid var(--border);
+      background: var(--bg-surface);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      z-index: 30;
+    }
+    .sidebar-brand {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 0 8px;
+    }
+    .sidebar-brand-mark {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 22px;
+      color: var(--accent-primary);
+      line-height: 1;
+    }
+    .sidebar-brand-text {
+      font-family: var(--font-display);
+      font-weight: 500;
+      font-size: 16.5px;
+      color: var(--text-primary);
+      letter-spacing: 0.005em;
+      line-height: 1.05;
+    }
+    .sidebar-brand-text small {
+      display: block;
+      font-family: var(--font-ui);
+      font-size: 9.5px;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    .sidebar-section-label {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 0 8px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .sidebar-tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sidebar-tab {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px 10px 16px;
+      border: 0;
+      background: transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      transition: color 0.15s, background 0.15s;
+      text-align: left;
+      width: 100%;
+    }
+    .sidebar-tab:hover { color: var(--text-primary); background: var(--bg-card); }
+    .sidebar-tab.active {
+      color: var(--text-primary);
+      background: var(--accent-primary-subtle);
+    }
+    .sidebar-tab.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px;
+      bottom: 8px;
+      width: 3px;
+      border-radius: 2px;
+      background: var(--accent-primary);
+    }
+    .sidebar-tab-icon {
+      width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.85;
+    }
+
+    .sidebar-spacer { flex: 1; }
+
+    .sidebar-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sidebar-action {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border: 0;
+      background: transparent;
+      border-radius: 7px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      transition: color 0.15s, background 0.15s;
+      text-align: left;
+    }
+    .sidebar-action:hover { color: var(--text-primary); background: var(--bg-card); }
+    .sidebar-account {
+      padding: 12px 12px 0;
+      border-top: 1px solid var(--border);
+      margin-top: 6px;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.01em;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+    .sidebar-account-label {
+      font-size: 9.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      opacity: 0.7;
+      margin-bottom: 3px;
+    }
+    .sidebar-account-value { color: var(--text-secondary); }
+    .sidebar-privacy-badge {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: var(--font-ui);
+      font-size: 9.5px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+    }
+
+    .workspace {
+      flex: 1;
+      min-width: 0;
+      padding: 32px 44px 60px;
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    .tab-pane { animation: tabFade 0.18s ease; }
+    @keyframes tabFade {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Collapse on narrow viewports */
+    @media (max-width: 1100px) {
+      .sidebar { width: 64px; padding: 22px 8px 18px; }
+      .sidebar-brand-text, .sidebar-section-label, .sidebar-account, .sidebar-account-label, .sidebar-privacy-badge { display: none; }
+      .sidebar-brand { justify-content: center; }
+      .sidebar-tab { justify-content: center; padding: 10px 0; }
+      .sidebar-tab > .sidebar-tab-text { display: none; }
+      .sidebar-tab.active::before { left: -8px; }
+      .sidebar-action > span:not(.sidebar-action-icon) { display: none; }
+      .sidebar-action { justify-content: center; padding: 8px 0; }
+      .workspace { padding: 24px 22px 50px; }
+    }
+    @media (max-width: 700px) {
+      .dash-container { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; flex-direction: row; padding: 12px 16px; gap: 10px; position: sticky; top: 0; }
+      .sidebar-brand, .sidebar-tabs, .sidebar-actions { flex-direction: row; gap: 4px; align-items: center; }
+      .sidebar-spacer, .sidebar-account, .sidebar-section-label { display: none; }
+      .sidebar-tab.active::before { display: none; }
+      .workspace { padding: 18px 16px 40px; }
+    }
+
+    /* ============================================
+       HERO STRIP — editorial masthead
+       ============================================ */
+    .hero-strip {
+      display: grid;
+      grid-template-columns: minmax(160px, auto) 1fr auto;
+      gap: 32px;
+      align-items: end;
+      padding: 4px 0 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+    }
+    .hero-date {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 32px;
+      line-height: 1.05;
+      color: var(--text-primary);
+      letter-spacing: -0.005em;
+    }
+    .hero-date .day-of-week {
+      display: block;
+      font-family: var(--font-ui);
+      font-size: 10px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .hero-greet {
+      max-width: 540px;
+    }
+    .hero-greet h1 {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 26px;
+      line-height: 1.15;
+      color: var(--text-primary);
+      margin: 0 0 6px;
+      letter-spacing: -0.005em;
+    }
+    .hero-greet p {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin: 0;
+    }
+    .hero-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    .hero-range {
+      display: inline-flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      overflow: hidden;
+      background: var(--bg-card);
+    }
+    .hero-range .range-btn {
+      padding: 6px 12px;
+      border: 0;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      border-right: 1px solid var(--border);
+      transition: all 0.15s;
+    }
+    .hero-range .range-btn:last-child { border-right: 0; }
+    .hero-range .range-btn:hover { color: var(--text-primary); background: var(--bg-card-hover); }
+    .hero-range .range-btn.active {
+      color: var(--accent-primary);
+      background: var(--accent-primary-subtle);
+      font-weight: 600;
+    }
+    .hero-updated {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+    }
+
+    @media (max-width: 880px) {
+      .hero-strip { grid-template-columns: 1fr; gap: 16px; align-items: start; }
+      .hero-controls { align-items: flex-start; }
+    }
+
+    /* ============================================
+       TOP SENDERS — Atelier centerpiece
+       ============================================ */
+    .senders-section {
+      padding: 26px 0 18px;
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+    }
+    .senders-section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 18px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .senders-section-title {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 22px;
+      color: var(--text-primary);
+      letter-spacing: -0.005em;
+    }
+    .senders-section-title sup {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      color: var(--accent-primary);
+      text-transform: uppercase;
+      vertical-align: super;
+      margin-left: 8px;
+      font-weight: 600;
+    }
+    .senders-deeplink {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      color: var(--accent-primary);
+      cursor: pointer;
+      text-decoration: none;
+      border: 0;
+      background: transparent;
+      padding: 6px 8px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .senders-deeplink:hover { background: var(--accent-primary-subtle); }
+    .senders-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+      gap: 32px;
+      align-items: start;
+    }
+    @media (max-width: 880px) {
+      .senders-grid { grid-template-columns: 1fr; }
+    }
+    .senders-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .senders-list .sender-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(140px, 200px) 100px;
+      align-items: center;
+      gap: 18px;
+      padding: 13px 8px 13px 4px;
+      border-top: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+      position: relative;
+      border-bottom: 0;
+    }
+    .senders-list .sender-row:first-child { border-top: 0; }
+    .senders-list .sender-row:hover { background: var(--accent-primary-subtle); }
+    .sender-rank {
+      position: absolute;
+      left: -32px;
+      top: 13px;
+      font-family: var(--font-ui);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      font-variant-numeric: tabular-nums;
+    }
+    .sender-name {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 17px;
+      color: var(--text-primary);
+      letter-spacing: -0.005em;
+      line-height: 1.2;
+      margin-bottom: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sender-email {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.01em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sender-bar-track {
+      height: 7px;
+      background: var(--accent-primary-subtle);
+      border: 1px solid var(--accent-primary-border);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .sender-bar-fill {
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: var(--bar-w, 0%);
+      background: linear-gradient(90deg, var(--accent-primary), rgba(201,137,43,0.7));
+      transition: width 0.35s cubic-bezier(0.2,0.7,0.2,1);
+    }
+    .sender-count {
+      font-family: var(--font-numeric);
+      font-weight: 500;
+      font-size: 22px;
+      color: var(--text-primary);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+    .sender-pct {
+      font-family: var(--font-ui);
+      font-size: 10.5px;
+      color: var(--text-muted);
+      text-align: right;
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .senders-summary {
+      padding: 18px 22px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg-card);
+    }
+    .senders-summary h4 {
+      font-family: var(--font-ui);
+      font-size: 9.5px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin: 0 0 14px;
+    }
+    .summary-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 10px 0;
+      border-top: 1px solid var(--border);
+    }
+    .summary-stat:first-of-type { border-top: 0; padding-top: 0; }
+    .summary-stat-label {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .summary-stat-value {
+      font-family: var(--font-numeric);
+      font-weight: 500;
+      font-size: 20px;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ============================================
+       SECTIONS — quieter cards in the supporting grid
+       ============================================ */
+    .support-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 1100px) { .support-grid { grid-template-columns: 1fr; } }
+
+    /* ============================================
+       DEEP CLEAN TAB
+       ============================================ */
+    .clean-hero {
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+    }
+    .clean-eyebrow {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--accent-primary);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .clean-title {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 36px;
+      color: var(--text-primary);
+      line-height: 1.1;
+      margin: 0 0 8px;
+      letter-spacing: -0.01em;
+    }
+    .clean-sub {
+      font-family: var(--font-ui);
+      font-size: 14px;
+      color: var(--text-secondary);
+      max-width: 620px;
+      line-height: 1.55;
+      margin: 0;
+    }
+    .clean-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      padding: 22px 22px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg-card);
+      margin-bottom: 22px;
+    }
+    .clean-controls .scan-label {
+      font-family: var(--font-ui);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .clean-range {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      overflow: hidden;
+      background: var(--bg-deep);
+    }
+    .clean-range button {
+      padding: 7px 14px;
+      border: 0;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      border-right: 1px solid var(--border);
+      transition: all 0.15s;
+    }
+    .clean-range button:last-child { border-right: 0; }
+    .clean-range button:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+    .clean-range button.active {
+      background: var(--accent-primary);
+      color: #fff;
+    }
+    .clean-estimate {
+      font-family: var(--font-ui);
+      font-size: 12.5px;
+      color: var(--text-secondary);
+    }
+    .clean-estimate strong {
+      font-family: var(--font-numeric);
+      font-weight: 500;
+      font-size: 16px;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .clean-begin {
+      margin-left: auto;
+      padding: 10px 22px;
+      border: 0;
+      background: var(--accent-primary);
+      color: #fff;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.15s;
+      box-shadow: var(--accent-primary-glow);
+    }
+    .clean-begin:hover { transform: translateY(-1px); box-shadow: 0 0 28px rgba(201,137,43,0.30); }
+    .clean-begin:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .clean-progress {
+      padding: 22px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg-card);
+      margin-bottom: 22px;
+    }
+    .clean-progress-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .clean-progress-text {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .clean-progress-text strong {
+      font-family: var(--font-numeric);
+      font-size: 18px;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .clean-progress-bar {
+      height: 4px;
+      background: var(--bg-deep);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .clean-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent-primary);
+      transition: width 0.3s;
+    }
+    .clean-cancel {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: all 0.15s;
+    }
+    .clean-cancel:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+    .clean-table-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .clean-table-title {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 22px;
+      color: var(--text-primary);
+      letter-spacing: -0.005em;
+    }
+    .clean-filter {
+      flex: 1;
+      max-width: 320px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      transition: border 0.15s, box-shadow 0.15s;
+    }
+    .clean-filter:focus {
+      outline: none;
+      border-color: var(--accent-primary-border);
+      box-shadow: var(--accent-primary-focus);
+    }
+    .clean-bulk-bar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 18px;
+      background: var(--accent-primary);
+      color: #fff;
+      border-radius: 10px;
+      margin-bottom: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      animation: bulkBarIn 0.18s cubic-bezier(0.2,0.7,0.2,1);
+    }
+    @keyframes bulkBarIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .clean-bulk-bar strong {
+      font-family: var(--font-numeric);
+      font-weight: 500;
+      font-size: 17px;
+      font-variant-numeric: tabular-nums;
+    }
+    .clean-bulk-bar .bulk-spacer { flex: 1; }
+    .clean-bulk-bar button {
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.32);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .clean-bulk-bar button:hover { background: rgba(255,255,255,0.30); }
+    .clean-bulk-bar button.danger { background: rgba(0,0,0,0.32); border-color: rgba(0,0,0,0.40); }
+    .clean-bulk-bar button.danger:hover { background: rgba(0,0,0,0.50); }
+
+    .clean-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-ui);
+    }
+    .clean-table thead th {
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+    }
+    .clean-table thead th:hover { color: var(--text-primary); }
+    .clean-table thead th.sorted { color: var(--accent-primary); }
+    .clean-table thead th.num { text-align: right; }
+    .clean-table thead th.checkbox { width: 36px; cursor: default; }
+    .clean-table tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.12s;
+    }
+    .clean-table tbody tr:hover { background: var(--accent-primary-subtle); }
+    .clean-table tbody tr.selected { background: var(--accent-primary-dim); }
+    .clean-table td {
+      padding: 12px 10px;
+      vertical-align: middle;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+    .clean-table td.checkbox { width: 36px; }
+    .clean-table td.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-family: var(--font-numeric);
+      font-weight: 500;
+      font-size: 17px;
+    }
+    .clean-table td.muted { color: var(--text-muted); font-size: 12px; }
+    .clean-table td .row-sender-name {
+      font-family: var(--font-display);
+      font-size: 16px;
+      color: var(--text-primary);
+      letter-spacing: -0.003em;
+      display: block;
+      line-height: 1.2;
+    }
+    .clean-table td .row-sender-email {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 2px;
+    }
+    .clean-table input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: var(--accent-primary);
+    }
+    .clean-empty {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-family: var(--font-ui);
+      font-size: 13.5px;
+    }
+    .clean-empty .clean-empty-mark {
+      font-family: var(--font-display);
+      font-size: 48px;
+      color: var(--text-muted);
+      opacity: 0.45;
+      display: block;
+      margin-bottom: 10px;
+    }
 
     /* ============================================
        EMAIL READER MODAL — In-dashboard message viewer
@@ -2771,10 +3600,7 @@
       box-shadow: 0 0 8px rgba(96,165,250,0.3);
     }
 
-    /* Sender row — subtle glow on hover */
-    .sender-row:hover {
-      box-shadow: inset 0 0 0 1px var(--border-glow);
-    }
+    /* (Old sender-row glow removed — Atelier design has its own hover treatment) */
 
     /* Button press feedback — more satisfying */
     button:active { transform: scale(0.96); }
@@ -2941,55 +3767,114 @@
     <div id="dashboard" class="screen">
       <div class="dash-container">
 
-        <!-- Top Bar -->
-        <div class="topbar">
-          <div class="topbar-left">
-            <div class="topbar-logo">&#9993;</div>
-            <span class="topbar-title">Inbox Intelligence</span>
-            <span class="privacy-badge badge-private" id="privacy-badge" style="display:none">Private Mode</span>
+        <!-- Sidebar — editorial rail -->
+        <aside class="sidebar" id="sidebar">
+          <div class="sidebar-brand">
+            <span class="sidebar-brand-mark">&#9993;</span>
+            <span class="sidebar-brand-text">Inbox<br>Intelligence<small>Atelier</small></span>
           </div>
-          <div class="topbar-right">
-            <button class="topbar-btn" onclick="refreshDashboard()">Refresh</button>
-            <!-- Clean mode removed — delete actions now inline per email list -->
-            <button class="topbar-btn" onclick="showHelp()">Help</button>
-            <button class="topbar-btn" onclick="showPreferences()">Preferences</button>
-            <button class="topbar-btn theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
-              <span class="theme-icon-sun">&#9788;</span>
-              <span class="theme-icon-moon">&#9790;</span>
+
+          <div>
+            <div class="sidebar-section-label">Workspace</div>
+            <div class="sidebar-tabs">
+              <button class="sidebar-tab active" id="tab-btn-dashboard" data-tab="dashboard" onclick="switchTab('dashboard')">
+                <span class="sidebar-tab-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                </span>
+                <span class="sidebar-tab-text">Dashboard</span>
+              </button>
+              <button class="sidebar-tab" id="tab-btn-deep-clean" data-tab="deep-clean" onclick="switchTab('deep-clean')">
+                <span class="sidebar-tab-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7l1.5 13a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2L21 7"/><path d="M9 7V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 7h20"/><path d="M10 12v6M14 12v6"/></svg>
+                </span>
+                <span class="sidebar-tab-text">Deep Clean</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="sidebar-spacer"></div>
+
+          <div class="sidebar-actions">
+            <button class="sidebar-action" onclick="refreshDashboard()" title="Refresh">
+              <span class="sidebar-action-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>
+              <span>Refresh</span>
+            </button>
+            <button class="sidebar-action" onclick="showHelp()">
+              <span class="sidebar-action-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+              <span>Help</span>
+            </button>
+            <button class="sidebar-action" onclick="showPreferences()">
+              <span class="sidebar-action-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+              <span>Preferences</span>
+            </button>
+            <button class="sidebar-action theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark">
+              <span class="sidebar-action-icon">
+                <span class="theme-icon-sun">&#9788;</span><span class="theme-icon-moon">&#9790;</span>
+              </span>
+              <span>Theme</span>
             </button>
           </div>
-        </div>
 
-        <!-- Hero — compact strip with inline stats -->
-        <div class="hero glass-spotlight">
-          <div class="hero-top">
-            <div>
-              <h1 class="hero-greeting" id="greeting">Good morning.</h1>
-              <p class="hero-summary" id="summary-text"></p>
-            </div>
-            <!-- stat counts kept as hidden elements for JS compatibility -->
-            <span id="stat-reply" style="display:none"><span id="stat-reply-num">0</span></span>
-            <span id="stat-read" style="display:none"><span id="stat-read-num">0</span></span>
-            <span id="stat-fyi" style="display:none"><span id="stat-fyi-num">0</span></span>
-            <span id="stat-skip" style="display:none"><span id="stat-skip-num">0</span></span>
-            <div class="hero-meta">
-              <div class="hero-meta-left">
-                <button class="range-btn active" data-range="1" onclick="setTimeRange(1, this)">1D</button>
-                <button class="range-btn" data-range="7" onclick="setTimeRange(7, this)">1W</button>
-                <button class="range-btn" data-range="30" onclick="setTimeRange(30, this)">1M</button>
-                <button class="range-btn" data-range="90" onclick="setTimeRange(90, this)">3M</button>
-                <button class="range-btn" data-range="180" onclick="setTimeRange(180, this)">6M</button>
-                <button class="range-btn" data-range="365" onclick="setTimeRange(365, this)">1Y</button>
-              </div>
-              <span class="hero-updated" id="last-updated"></span>
-            </div>
+          <div class="sidebar-account">
+            <div class="sidebar-account-label">Signed in</div>
+            <div class="sidebar-account-value" id="sidebar-account-value">—</div>
+            <span class="sidebar-privacy-badge" id="sidebar-privacy-badge" style="display:none">Private Mode</span>
           </div>
-        </div>
+        </aside>
 
-        <!-- Cleaning banner removed — inline delete actions per email list -->
+        <!-- Workspace -->
+        <div class="workspace" id="workspace">
 
-        <!-- Bento Grid -->
-        <div class="bento-grid">
+          <!-- ============ TAB: DASHBOARD ============ -->
+          <div class="tab-pane" id="tab-dashboard">
+
+            <!-- Editorial hero strip -->
+            <div class="hero-strip">
+              <div class="hero-date" id="hero-date"></div>
+              <div class="hero-greet">
+                <h1 class="hero-greeting" id="greeting">Good morning.</h1>
+                <p class="hero-summary" id="summary-text"></p>
+              </div>
+              <!-- hidden compatibility spans for legacy stat ids -->
+              <span id="stat-reply" style="display:none"><span id="stat-reply-num">0</span></span>
+              <span id="stat-read" style="display:none"><span id="stat-read-num">0</span></span>
+              <span id="stat-fyi" style="display:none"><span id="stat-fyi-num">0</span></span>
+              <span id="stat-skip" style="display:none"><span id="stat-skip-num">0</span></span>
+              <div class="hero-controls">
+                <div class="hero-range">
+                  <button class="range-btn active" data-range="1" onclick="setTimeRange(1, this)">1D</button>
+                  <button class="range-btn" data-range="7" onclick="setTimeRange(7, this)">1W</button>
+                  <button class="range-btn" data-range="30" onclick="setTimeRange(30, this)">1M</button>
+                  <button class="range-btn" data-range="90" onclick="setTimeRange(90, this)">3M</button>
+                  <button class="range-btn" data-range="180" onclick="setTimeRange(180, this)">6M</button>
+                  <button class="range-btn" data-range="365" onclick="setTimeRange(365, this)">1Y</button>
+                </div>
+                <span class="hero-updated" id="last-updated"></span>
+              </div>
+            </div>
+
+            <!-- Top Senders — Atelier centerpiece -->
+            <section class="senders-section">
+              <div class="senders-section-head">
+                <div class="senders-section-title">Top Senders<sup>Centerpiece</sup></div>
+                <button class="senders-deeplink" onclick="switchTab('deep-clean')">Open in Deep Clean →</button>
+              </div>
+              <div class="senders-grid">
+                <div class="senders-list" id="atelier-senders-list">
+                  <div style="padding:30px 0;font-family:var(--font-ui);font-size:13px;color:var(--text-muted)">Pick a time range above to see your top senders.</div>
+                </div>
+                <div class="senders-summary" id="atelier-senders-summary">
+                  <h4>Inbox at a glance</h4>
+                  <div class="summary-stat"><span class="summary-stat-label">Senders</span><span class="summary-stat-value" id="stat-total-senders">—</span></div>
+                  <div class="summary-stat"><span class="summary-stat-label">Total emails</span><span class="summary-stat-value" id="stat-total-emails">—</span></div>
+                  <div class="summary-stat"><span class="summary-stat-label">From top 10</span><span class="summary-stat-value" id="stat-top-pct">—</span></div>
+                  <div class="summary-stat"><span class="summary-stat-label">Time range</span><span class="summary-stat-value" id="stat-range-label">—</span></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Supporting bento grid — quieter cards -->
+            <div class="bento-grid">
 
           <!-- Row 1: Briefing (3 cols) + Action Items (1 col) -->
           <div class="briefing-card bento-card card-3 expandable-panel glass-spotlight" id="briefing-card">
@@ -3087,6 +3972,73 @@
           </div>
 
         </div>
+        <!-- /bento-grid -->
+
+          </div>
+          <!-- /tab-dashboard -->
+
+          <!-- ============ TAB: DEEP CLEAN ============ -->
+          <div class="tab-pane" id="tab-deep-clean" style="display:none">
+
+            <div class="clean-hero">
+              <div class="clean-eyebrow">Deep Clean</div>
+              <h1 class="clean-title">Years of inbox, one sweep.</h1>
+              <p class="clean-sub">Scan back as far as you want — sender and subject only, no body, no AI. Trash hundreds of emails per sender in one move.</p>
+            </div>
+
+            <div class="clean-controls">
+              <span class="scan-label">Range</span>
+              <div class="clean-range" id="clean-range">
+                <button data-years="1" onclick="setDeepCleanRange(1, this)">1 Y</button>
+                <button data-years="2" onclick="setDeepCleanRange(2, this)">2 Y</button>
+                <button data-years="3" onclick="setDeepCleanRange(3, this)">3 Y</button>
+                <button data-years="4" onclick="setDeepCleanRange(4, this)">4 Y</button>
+                <button data-years="5" onclick="setDeepCleanRange(5, this)">5 Y</button>
+                <button data-years="20" onclick="setDeepCleanRange(20, this)">All</button>
+              </div>
+              <span class="clean-estimate" id="clean-estimate">Pick a range to estimate scan size.</span>
+              <button class="clean-begin" id="clean-begin-btn" onclick="beginDeepClean()" disabled>Begin scan</button>
+            </div>
+
+            <div class="clean-progress" id="clean-progress" style="display:none">
+              <div class="clean-progress-row">
+                <span class="clean-progress-text"><strong id="clean-progress-current">0</strong> / <span id="clean-progress-total">0</span> emails scanned</span>
+                <button class="clean-cancel" id="clean-cancel-btn" onclick="cancelDeepClean()">Cancel</button>
+              </div>
+              <div class="clean-progress-bar"><div class="clean-progress-fill" id="clean-progress-fill"></div></div>
+            </div>
+
+            <div id="clean-results" style="display:none">
+              <div class="clean-table-head">
+                <div class="clean-table-title" id="clean-results-title">Senders</div>
+                <input class="clean-filter" id="clean-filter" type="text" placeholder="Filter by sender, email, or domain…" oninput="filterDeepClean()">
+              </div>
+              <div id="clean-bulk-bar-mount"></div>
+              <table class="clean-table" id="clean-table">
+                <thead>
+                  <tr>
+                    <th class="checkbox"><input type="checkbox" id="clean-select-all" onchange="toggleSelectAllDeepClean(this.checked)"></th>
+                    <th data-sort="name" onclick="sortDeepClean('name')">Sender</th>
+                    <th data-sort="domain" onclick="sortDeepClean('domain')">Domain</th>
+                    <th class="num sorted" data-sort="count" onclick="sortDeepClean('count')">Count ▾</th>
+                    <th data-sort="latest" onclick="sortDeepClean('latest')">Latest</th>
+                    <th>Unsub</th>
+                  </tr>
+                </thead>
+                <tbody id="clean-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="clean-empty" id="clean-empty">
+              <span class="clean-empty-mark">∅</span>
+              No scan run yet. Pick a range above and press <em>Begin scan</em>.
+            </div>
+
+          </div>
+          <!-- /tab-deep-clean -->
+
+        </div>
+        <!-- /workspace -->
 
         <!-- In-dashboard email reader (modal) -->
         <div class="reader-overlay" id="email-reader" style="display:none">
@@ -3125,9 +4077,6 @@
           </div>
         </div>
 
-        <div class="footer" id="dashboard-footer-text">
-          Your emails stay in Gmail. This page reads them temporarily, then forgets everything when you close the tab.
-        </div>
       </div>
     </div>
 
@@ -4327,6 +5276,10 @@ ${emailList}` }]
        RENDER DASHBOARD
        ============================================ */
     function renderDashboard(emails) {
+      // Atelier hero date + sidebar account chrome
+      updateHeroDate();
+      updateSidebarAccount();
+
       const hour = new Date().getHours();
       document.getElementById('greeting').textContent =
         hour < 12 ? 'Good morning.' : hour < 17 ? 'Good afternoon.' : 'Good evening.';
@@ -4681,6 +5634,500 @@ ${emailList}` }]
           <div class="sender-bar-container"><div class="sender-bar" style="width:${pct}%;background:${col}"></div></div>
         </div>`;
       }).join('');
+
+      // Also render the Atelier centerpiece view (full-width senders section)
+      renderAtelierTopSenders(emails);
+    }
+
+    /* ============================================
+       ATELIER — Top Senders centerpiece
+       ============================================ */
+    function renderAtelierTopSenders(emails) {
+      const list = document.getElementById('atelier-senders-list');
+      if (!list) return;
+      const senders = {};
+      for (const e of emails) {
+        if (!senders[e.from]) senders[e.from] = { name: e.fromName, email: e.from, latestId: e.id, latestDate: e.date, count: 0 };
+        senders[e.from].count++;
+        if (e.date > senders[e.from].latestDate) {
+          senders[e.from].latestDate = e.date;
+          senders[e.from].latestId = e.id;
+        }
+      }
+      const sorted = Object.values(senders).sort((a, b) => b.count - a.count).slice(0, 12);
+      const max = sorted[0]?.count || 1;
+      const total = emails.length || 1;
+      const top10Sum = Object.values(senders).sort((a,b)=>b.count-a.count).slice(0,10).reduce((s, x) => s + x.count, 0);
+
+      if (!sorted.length) {
+        list.innerHTML = '<div style="padding:30px 0;font-family:var(--font-ui);font-size:13px;color:var(--text-muted)">No senders in this range yet.</div>';
+      } else {
+        list.innerHTML = sorted.map((s, i) => {
+          const pct = (s.count / max * 100).toFixed(1);
+          const inboxPct = (s.count / total * 100).toFixed(1);
+          return `
+            <div class="sender-row" data-sender-email="${esc(s.email)}" onclick="openEmailReader('${esc(s.latestId)}', 'Most recent email from ${esc(s.name)}.')">
+              <div style="min-width:0">
+                <div class="sender-name">${esc(s.name)}</div>
+                <div class="sender-email">${esc(s.email)}</div>
+              </div>
+              <div class="sender-bar-track"><div class="sender-bar-fill" style="--bar-w:${pct}%"></div></div>
+              <div style="text-align:right">
+                <div class="sender-count">${s.count.toLocaleString()}</div>
+                <div class="sender-pct">${inboxPct}% of inbox</div>
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      // Summary stats
+      const totalSenders = Object.keys(senders).length;
+      const top10Pct = total ? ((top10Sum / total) * 100).toFixed(0) + '%' : '—';
+      const rangeName = ({1:'Last 24 hours',7:'Last 7 days',30:'Last month',90:'Last 3 months',180:'Last 6 months',365:'Last year'})[currentTimeRange] || `Last ${currentTimeRange} days`;
+      const setIfPresent = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setIfPresent('stat-total-senders', totalSenders.toLocaleString());
+      setIfPresent('stat-total-emails', total.toLocaleString());
+      setIfPresent('stat-top-pct', top10Pct);
+      setIfPresent('stat-range-label', rangeName);
+    }
+
+    /* ============================================
+       ATELIER — Hero date + sidebar account chrome
+       ============================================ */
+    function updateHeroDate() {
+      const el = document.getElementById('hero-date');
+      if (!el) return;
+      const d = new Date();
+      const dow = d.toLocaleDateString(undefined, { weekday: 'long' });
+      const monthDay = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+      el.innerHTML = `<span class="day-of-week">${dow}</span>${monthDay}`;
+    }
+
+    function updateSidebarAccount() {
+      const valEl = document.getElementById('sidebar-account-value');
+      const badge = document.getElementById('sidebar-privacy-badge');
+      if (valEl) {
+        if (isIcloud()) valEl.textContent = iCloudAccount || 'iCloud';
+        else valEl.textContent = 'Gmail';
+      }
+      if (badge) badge.style.display = isPrivateMode() ? '' : 'none';
+    }
+
+    /* ============================================
+       SIDEBAR TAB ROUTING
+       ============================================ */
+    let currentTab = 'dashboard';
+    function switchTab(name) {
+      const valid = ['dashboard', 'deep-clean'];
+      if (!valid.includes(name)) name = 'dashboard';
+      currentTab = name;
+      localStorage.setItem('inboxIntelTab', name);
+      document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+      const target = document.getElementById('tab-' + name);
+      if (target) target.style.display = '';
+      document.querySelectorAll('.sidebar-tab').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === name);
+      });
+      // Lazy-init on first deep-clean visit
+      if (name === 'deep-clean') initDeepCleanIfNeeded();
+    }
+
+    /* ============================================
+       DEEP CLEAN — scan + sender table + bulk actions
+       ============================================ */
+    let _deepCleanState = {
+      years: null,
+      scanResult: null, // { senders: { email: { name, email, count, latestDate, latestId, hasUnsubAny, subjects: [...] } }, totalEmails, scannedAt }
+      sortKey: 'count',
+      sortDir: 'desc',
+      filterTerm: '',
+      selected: new Set(),
+      cancelToken: null,
+    };
+
+    function initDeepCleanIfNeeded() {
+      // Try to restore last scan from cache for the current provider
+      // (lazy — no UI yet until user clicks a range or has cached results)
+      tryLoadDeepCleanFromCache();
+    }
+
+    function setDeepCleanRange(years, btn) {
+      _deepCleanState.years = years;
+      document.querySelectorAll('.clean-range button').forEach(b => b.classList.toggle('active', b === btn));
+      document.getElementById('clean-begin-btn').disabled = false;
+      // Async estimate fetch
+      fetchDeepCleanEstimate(years).then(est => {
+        const el = document.getElementById('clean-estimate');
+        if (el && est != null) {
+          const minutes = Math.max(1, Math.ceil(est / 5000));
+          el.innerHTML = `Estimated <strong>${est.toLocaleString()}</strong> emails — about ${minutes} minute${minutes!==1?'s':''}.`;
+        } else if (el) {
+          el.textContent = 'Could not estimate. Press Begin scan to start.';
+        }
+      });
+    }
+
+    async function fetchDeepCleanEstimate(years) {
+      const after = formatYearsAgo(years);
+      try {
+        const data = await mailFetch(`messages?q=after:${after}&maxResults=1`);
+        return data.resultSizeEstimate || 0;
+      } catch { return null; }
+    }
+
+    function formatYearsAgo(years) {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() - years);
+      return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    async function beginDeepClean() {
+      const years = _deepCleanState.years;
+      if (!years) return;
+      const after = formatYearsAgo(years);
+      const beginBtn = document.getElementById('clean-begin-btn');
+      const progress = document.getElementById('clean-progress');
+      const empty = document.getElementById('clean-empty');
+      const results = document.getElementById('clean-results');
+
+      beginBtn.disabled = true;
+      progress.style.display = '';
+      empty.style.display = 'none';
+      results.style.display = 'none';
+      _deepCleanState.cancelToken = { cancelled: false };
+      const token = _deepCleanState.cancelToken;
+
+      const senders = {};
+      let totalScanned = 0;
+      let totalEstimate = 0;
+
+      try {
+        // 1) page through all message IDs
+        let allIds = [];
+        let pageToken = null;
+        do {
+          if (token.cancelled) throw new Error('cancelled');
+          const params = new URLSearchParams({ q: `after:${after}`, maxResults: '500' });
+          if (pageToken) params.set('pageToken', pageToken);
+          const list = await mailFetch(`messages?${params}`);
+          if (list.messages) allIds.push(...list.messages.map(m => m.id));
+          if (totalEstimate === 0) totalEstimate = list.resultSizeEstimate || allIds.length;
+          pageToken = list.nextPageToken || null;
+          updateCleanProgress(allIds.length, Math.max(totalEstimate, allIds.length));
+        } while (pageToken);
+
+        document.getElementById('clean-progress-total').textContent = allIds.length.toLocaleString();
+        totalEstimate = allIds.length;
+
+        // 2) fetch metadata in batches (sender/subject/date/unsubscribe only)
+        const batchSize = isIcloud() ? 50 : 20;
+        const slimMetaFields = 'format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=List-Unsubscribe';
+
+        for (let i = 0; i < allIds.length; i += batchSize) {
+          if (token.cancelled) throw new Error('cancelled');
+          const batch = allIds.slice(i, i + batchSize);
+          let details;
+          if (isIcloud()) {
+            try { details = await mailFetchBatchMetadata(batch); }
+            catch { details = []; }
+          } else {
+            details = await Promise.all(batch.map(id => mailFetch(`messages/${id}?${slimMetaFields}`).catch(() => null)));
+          }
+          for (const msg of details) {
+            if (!msg) { totalScanned++; continue; }
+            const headers = {};
+            if (msg.payload && msg.payload.headers) {
+              for (const h of msg.payload.headers) headers[h.name.toLowerCase()] = h.value;
+            }
+            const fromRaw = headers['from'] || '(unknown)';
+            const fromMatch = fromRaw.match(/<(.+?)>/);
+            const email = (fromMatch ? fromMatch[1] : fromRaw).toLowerCase().trim();
+            const name = fromRaw.replace(/<.*>/, '').replace(/"/g, '').trim() || email;
+            const subject = headers['subject'] || '(no subject)';
+            const date = headers['date'] ? new Date(headers['date']) : new Date();
+            const unsubURL = parseUnsubscribeURL(headers['list-unsubscribe']);
+            const domain = email.split('@')[1] || '';
+            if (!senders[email]) {
+              senders[email] = { name, email, domain, count: 0, latestDate: date, latestId: msg.id, oldestDate: date, hasUnsub: !!unsubURL, unsubURL: unsubURL || null, ids: [], subjects: [] };
+            }
+            const s = senders[email];
+            s.count++;
+            s.ids.push(msg.id);
+            if (s.subjects.length < 200) s.subjects.push({ subject, date });
+            if (date > s.latestDate) { s.latestDate = date; s.latestId = msg.id; }
+            if (date < s.oldestDate) s.oldestDate = date;
+            if (unsubURL) { s.hasUnsub = true; s.unsubURL = s.unsubURL || unsubURL; }
+            if (!s.name && name) s.name = name;
+            totalScanned++;
+          }
+          updateCleanProgress(totalScanned, totalEstimate);
+        }
+
+        // Done
+        _deepCleanState.scanResult = {
+          senders,
+          totalEmails: totalScanned,
+          totalSenders: Object.keys(senders).length,
+          scannedAt: Date.now(),
+          years,
+        };
+        _deepCleanState.selected.clear();
+        await saveDeepCleanCache();
+        renderDeepCleanResults();
+        progress.style.display = 'none';
+        results.style.display = '';
+      } catch (e) {
+        progress.style.display = 'none';
+        if (e.message === 'cancelled') {
+          empty.style.display = '';
+          empty.innerHTML = '<span class="clean-empty-mark">∅</span>Scan cancelled.';
+        } else {
+          empty.style.display = '';
+          empty.innerHTML = `<span class="clean-empty-mark">!</span>Scan failed: ${esc(e.message || 'unknown error')}`;
+        }
+        beginBtn.disabled = false;
+      }
+    }
+
+    function cancelDeepClean() {
+      if (_deepCleanState.cancelToken) _deepCleanState.cancelToken.cancelled = true;
+    }
+
+    function updateCleanProgress(current, total) {
+      const cur = document.getElementById('clean-progress-current');
+      const tot = document.getElementById('clean-progress-total');
+      const fill = document.getElementById('clean-progress-fill');
+      if (cur) cur.textContent = current.toLocaleString();
+      if (tot) tot.textContent = total.toLocaleString();
+      if (fill && total) fill.style.width = Math.min(100, (current / total) * 100) + '%';
+    }
+
+    /* Deep clean cache (separate IndexedDB store from main cache) */
+    const DEEP_DB_NAME = 'inbox-intel-deep-clean';
+    const DEEP_DB_VERSION = 1;
+    let _deepDb = null;
+    function openDeepDb() {
+      if (_deepDb) return Promise.resolve(_deepDb);
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DEEP_DB_NAME, DEEP_DB_VERSION);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('scans')) db.createObjectStore('scans');
+        };
+        req.onsuccess = () => { _deepDb = req.result; resolve(_deepDb); };
+        req.onerror = () => reject(req.error);
+      });
+    }
+    function deepCacheKey() { return `${getProvider()}_${_deepCleanState.years || 'last'}`; }
+    async function saveDeepCleanCache() {
+      try {
+        const db = await openDeepDb();
+        const tx = db.transaction('scans', 'readwrite');
+        // Strip ids to keep payload smaller — we'll re-fetch on bulk action if needed.
+        // Actually we DO need ids for trash. Keep them.
+        tx.objectStore('scans').put({ ..._deepCleanState.scanResult, savedAt: Date.now() }, deepCacheKey());
+      } catch {}
+    }
+    async function tryLoadDeepCleanFromCache() {
+      try {
+        const db = await openDeepDb();
+        const tx = db.transaction('scans', 'readonly');
+        const req = tx.objectStore('scans').getAll();
+        req.onsuccess = () => {
+          const all = req.result || [];
+          if (!all.length) return;
+          // Pick most recent for current provider
+          const provider = getProvider();
+          const rel = all.filter(r => r && r.years).sort((a,b) => (b.savedAt||0) - (a.savedAt||0));
+          if (!rel.length) return;
+          const latest = rel[0];
+          // Hydrate dates
+          for (const e of Object.values(latest.senders || {})) {
+            e.latestDate = new Date(e.latestDate);
+            e.oldestDate = new Date(e.oldestDate);
+            for (const s of e.subjects || []) s.date = new Date(s.date);
+          }
+          _deepCleanState.scanResult = latest;
+          _deepCleanState.years = latest.years;
+          // Activate the matching range button
+          document.querySelectorAll('.clean-range button').forEach(b => {
+            b.classList.toggle('active', Number(b.dataset.years) === latest.years);
+          });
+          document.getElementById('clean-begin-btn').disabled = false;
+          document.getElementById('clean-empty').style.display = 'none';
+          document.getElementById('clean-results').style.display = '';
+          renderDeepCleanResults();
+        };
+      } catch {}
+    }
+
+    function renderDeepCleanResults() {
+      const sr = _deepCleanState.scanResult;
+      if (!sr) return;
+      const titleEl = document.getElementById('clean-results-title');
+      titleEl.textContent = `${sr.totalSenders.toLocaleString()} senders · ${sr.totalEmails.toLocaleString()} emails (${sr.years === 20 ? 'all years' : sr.years + 'y'})`;
+      paintDeepCleanTable();
+    }
+
+    function paintDeepCleanTable() {
+      const sr = _deepCleanState.scanResult;
+      if (!sr) return;
+      const tbody = document.getElementById('clean-tbody');
+      const term = (_deepCleanState.filterTerm || '').toLowerCase().trim();
+      let rows = Object.values(sr.senders).filter(s => {
+        if (!term) return true;
+        return s.name.toLowerCase().includes(term) || s.email.includes(term) || (s.domain || '').includes(term);
+      });
+      const dir = _deepCleanState.sortDir === 'asc' ? 1 : -1;
+      const key = _deepCleanState.sortKey;
+      rows.sort((a, b) => {
+        let va = a[key], vb = b[key];
+        if (key === 'name' || key === 'domain') return (va || '').localeCompare(vb || '') * dir;
+        if (key === 'latest') return (a.latestDate - b.latestDate) * dir;
+        return ((va || 0) - (vb || 0)) * dir;
+      });
+      tbody.innerHTML = rows.map(s => {
+        const sel = _deepCleanState.selected.has(s.email);
+        const dateStr = s.latestDate.toLocaleDateString();
+        return `<tr class="${sel ? 'selected' : ''}" data-sender-email="${esc(s.email)}">
+          <td class="checkbox"><input type="checkbox" ${sel ? 'checked' : ''} onchange="toggleSelectDeepCleanSender('${esc(s.email)}', this.checked)"></td>
+          <td><span class="row-sender-name">${esc(s.name)}</span><span class="row-sender-email">${esc(s.email)}</span></td>
+          <td class="muted">${esc(s.domain || '')}</td>
+          <td class="num">${s.count.toLocaleString()}</td>
+          <td class="muted">${dateStr}</td>
+          <td>${s.hasUnsub ? '<span title="Has List-Unsubscribe header" style="color:var(--accent-primary)">✓</span>' : '<span class="muted">—</span>'}</td>
+        </tr>`;
+      }).join('');
+      // Update sorted col header indicator
+      document.querySelectorAll('.clean-table thead th').forEach(th => {
+        th.classList.remove('sorted');
+        if (th.dataset.sort === _deepCleanState.sortKey) {
+          th.classList.add('sorted');
+          th.textContent = th.textContent.replace(/[ ▾▴]+$/, '') + (_deepCleanState.sortDir === 'asc' ? ' ▴' : ' ▾');
+        } else {
+          th.textContent = th.textContent.replace(/[ ▾▴]+$/, '');
+        }
+      });
+      paintDeepCleanBulkBar();
+    }
+
+    function sortDeepClean(key) {
+      if (_deepCleanState.sortKey === key) {
+        _deepCleanState.sortDir = _deepCleanState.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        _deepCleanState.sortKey = key;
+        _deepCleanState.sortDir = (key === 'count' || key === 'latest') ? 'desc' : 'asc';
+      }
+      paintDeepCleanTable();
+    }
+
+    function filterDeepClean() {
+      _deepCleanState.filterTerm = document.getElementById('clean-filter').value;
+      paintDeepCleanTable();
+    }
+
+    function toggleSelectAllDeepClean(checked) {
+      const sr = _deepCleanState.scanResult;
+      if (!sr) return;
+      const term = (_deepCleanState.filterTerm || '').toLowerCase().trim();
+      const visible = Object.values(sr.senders).filter(s =>
+        !term || s.name.toLowerCase().includes(term) || s.email.includes(term) || (s.domain || '').includes(term));
+      visible.forEach(s => checked ? _deepCleanState.selected.add(s.email) : _deepCleanState.selected.delete(s.email));
+      paintDeepCleanTable();
+    }
+
+    function toggleSelectDeepCleanSender(email, checked) {
+      if (checked) _deepCleanState.selected.add(email);
+      else _deepCleanState.selected.delete(email);
+      paintDeepCleanTable();
+    }
+
+    function paintDeepCleanBulkBar() {
+      const mount = document.getElementById('clean-bulk-bar-mount');
+      if (!mount) return;
+      const sr = _deepCleanState.scanResult;
+      if (!sr || !_deepCleanState.selected.size) {
+        mount.innerHTML = '';
+        const sa = document.getElementById('clean-select-all');
+        if (sa) sa.checked = false;
+        return;
+      }
+      const totalIds = [];
+      let unsubCount = 0;
+      for (const email of _deepCleanState.selected) {
+        const s = sr.senders[email];
+        if (!s) continue;
+        totalIds.push(...s.ids);
+        if (s.hasUnsub) unsubCount++;
+      }
+      mount.innerHTML = `
+        <div class="clean-bulk-bar">
+          <strong>${_deepCleanState.selected.size}</strong> sender${_deepCleanState.selected.size!==1?'s':''} selected · <strong>${totalIds.length.toLocaleString()}</strong> emails
+          <div class="bulk-spacer"></div>
+          <button onclick="clearDeepCleanSelection()">Clear</button>
+          ${unsubCount > 0 ? `<button onclick="bulkUnsubscribeDeepClean()">Open ${unsubCount} unsubscribe page${unsubCount!==1?'s':''}</button>` : ''}
+          <button onclick="bulkBlockDeepClean()">Block sender${_deepCleanState.selected.size!==1?'s':''}</button>
+          <button class="danger" onclick="bulkTrashDeepClean()">Trash ${totalIds.length.toLocaleString()} email${totalIds.length!==1?'s':''}</button>
+        </div>`;
+    }
+
+    function clearDeepCleanSelection() {
+      _deepCleanState.selected.clear();
+      paintDeepCleanTable();
+    }
+
+    async function bulkTrashDeepClean() {
+      const sr = _deepCleanState.scanResult;
+      if (!sr) return;
+      const ids = [];
+      for (const email of _deepCleanState.selected) {
+        const s = sr.senders[email]; if (s) ids.push(...s.ids);
+      }
+      if (!ids.length) return;
+      const ok = await showConfirm('Trash all of these?', `${ids.length.toLocaleString()} emails will be moved to Trash.`, ids.length >= 500);
+      if (!ok) return;
+      try {
+        await trashEmails(ids);
+        showToast(`Trashed ${ids.length.toLocaleString()} emails`, true);
+        // Remove the trashed senders from scan + refresh
+        for (const email of _deepCleanState.selected) delete sr.senders[email];
+        sr.totalSenders = Object.keys(sr.senders).length;
+        sr.totalEmails = Math.max(0, sr.totalEmails - ids.length);
+        _deepCleanState.selected.clear();
+        await saveDeepCleanCache();
+        renderDeepCleanResults();
+      } catch (e) {
+        showToast('Bulk trash failed: ' + (e.message || 'error'), false);
+      }
+    }
+
+    function bulkUnsubscribeDeepClean() {
+      const sr = _deepCleanState.scanResult;
+      if (!sr) return;
+      let opened = 0;
+      for (const email of _deepCleanState.selected) {
+        const s = sr.senders[email];
+        if (!s || !s.unsubURL) continue;
+        // Open in reader on the most recent email so user can use in-body link too
+        if (opened === 0) openEmailReader(s.latestId, `Most recent email from ${s.name}. Click an unsubscribe link below.`);
+        else window.open(s.unsubURL, '_blank', 'noopener,noreferrer');
+        opened++;
+        if (opened >= 5) break;
+      }
+      if (opened === 0) showToast('No unsubscribe URLs in this selection', false);
+    }
+
+    function bulkBlockDeepClean() {
+      const sr = _deepCleanState.scanResult;
+      if (!sr) return;
+      const prefs = getPrefs();
+      prefs.blockedSenders = prefs.blockedSenders || [];
+      let added = 0;
+      for (const email of _deepCleanState.selected) {
+        if (!prefs.blockedSenders.includes(email)) { prefs.blockedSenders.push(email); added++; }
+      }
+      savePrefs(prefs);
+      showToast(`Blocked ${added} sender${added!==1?'s':''}`, true);
     }
 
     function renderVolumeChart(emails) {
@@ -7004,6 +8451,12 @@ Browser: ${diagnostic.browser}
       }
       applyProviderUI();
       renumberSteps();
+
+      // Restore last active sidebar tab
+      const lastTab = localStorage.getItem('inboxIntelTab') || 'dashboard';
+      switchTab(lastTab);
+      updateHeroDate();
+      updateSidebarAccount();
 
       // If user already chose privacy mode (returning visitor), restore onboarding state
       if (p.privacyMode) {
