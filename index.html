@@ -1033,8 +1033,13 @@
     body.app-locked { overflow: hidden; height: 100vh; }
 
     /* Disable iOS Safari pull-to-refresh — accidental refreshes on the
-       dashboard kept bouncing returning users back to the sign-in screen. */
-    html, body { overscroll-behavior-y: contain; }
+       dashboard kept bouncing returning users back to the sign-in screen.
+       `none` (not `contain`) is required to actually block the gesture. */
+    html, body {
+      overscroll-behavior: none;
+      overscroll-behavior-y: none;
+      -webkit-overscroll-behavior-y: none;
+    }
     #dashboard.screen.active ~ * { /* nothing — placeholder for future */ }
     .dash-container.ops-mode {
       height: 100vh;
@@ -5660,11 +5665,46 @@
       if (response.error) { console.error('Auth error:', response); alert('Sign-in failed. Please try again.'); return; }
       accessToken = response.access_token;
       tokenTimestamp = Date.now();
+      persistGmailToken(accessToken, tokenTimestamp);
       document.getElementById('step-google').classList.add('completed');
       const b = document.getElementById('step2-badge');
       b.textContent = '\u2713';
       b.classList.add('done');
       startDashboard();
+    }
+
+    // Persist Gmail access token across page refreshes. Tokens last ~60 min;
+    // we treat anything < 50 min old as fresh enough to skip the OAuth popup.
+    // Threat model: only our code runs on this origin; XSS would already have
+    // bigger problems. The trade-off is huge UX win on iOS Safari where the
+    // OAuth popup keeps yanking the user to a different tab.
+    const GMAIL_TOKEN_KEY = 'emailDashGmailToken';
+    const GMAIL_TOKEN_TIME_KEY = 'emailDashGmailTokenTime';
+    const GMAIL_TOKEN_MAX_AGE = 50 * 60 * 1000;
+    function persistGmailToken(token, ts) {
+      try {
+        localStorage.setItem(GMAIL_TOKEN_KEY, token);
+        localStorage.setItem(GMAIL_TOKEN_TIME_KEY, String(ts));
+      } catch {}
+    }
+    function loadPersistedGmailToken() {
+      try {
+        const t = localStorage.getItem(GMAIL_TOKEN_KEY);
+        const ts = parseInt(localStorage.getItem(GMAIL_TOKEN_TIME_KEY) || '0', 10);
+        if (!t || !ts) return null;
+        if (Date.now() - ts > GMAIL_TOKEN_MAX_AGE) {
+          localStorage.removeItem(GMAIL_TOKEN_KEY);
+          localStorage.removeItem(GMAIL_TOKEN_TIME_KEY);
+          return null;
+        }
+        return { token: t, ts };
+      } catch { return null; }
+    }
+    function clearPersistedGmailToken() {
+      try {
+        localStorage.removeItem(GMAIL_TOKEN_KEY);
+        localStorage.removeItem(GMAIL_TOKEN_TIME_KEY);
+      } catch {}
     }
 
     // Silent token refresh — re-requests token without user interaction
@@ -5687,6 +5727,7 @@
               } else {
                 accessToken = resp.access_token;
                 tokenTimestamp = Date.now();
+                persistGmailToken(accessToken, tokenTimestamp);
               }
               resolve();
             },
@@ -8850,6 +8891,7 @@ Browser: ${diagnostic.browser}
             accessToken = response.access_token;
             tokenTimestamp = Date.now();
             hasModifyScope = true;
+            persistGmailToken(accessToken, tokenTimestamp);
             resolve(true);
           },
         });
@@ -9672,13 +9714,18 @@ Browser: ${diagnostic.browser}
           // via Keychain, no popup needed.
           startDashboard();
         } else if (!isIcloud()) {
-          // Gmail: try silent re-auth using Google's Identity Services. If
-          // a previous session granted consent, this returns a fresh token
-          // without showing any popup or switching tabs. If silent fails,
-          // we leave the user on onboarding to click "Sign in with Google"
-          // explicitly (no auto-popup — that's worse UX than the current
-          // page). Wait briefly for the GIS library to initialize.
-          setTimeout(() => attemptSilentGoogleAuth(), 700);
+          // Gmail: try a persisted token first (instant, survives reload —
+          // critical for iOS where Safari ITP blocks silent OAuth).
+          const persisted = loadPersistedGmailToken();
+          if (persisted) {
+            accessToken = persisted.token;
+            tokenTimestamp = persisted.ts;
+            startDashboard();
+          } else {
+            // Fall back to GIS silent refresh (works on desktop, often
+            // blocked on iOS Safari due to third-party-cookie restrictions)
+            setTimeout(() => attemptSilentGoogleAuth(), 700);
+          }
         }
       }
     }
@@ -9697,6 +9744,7 @@ Browser: ${diagnostic.browser}
             if (resp.error || !resp.access_token) return;
             accessToken = resp.access_token;
             tokenTimestamp = Date.now();
+            persistGmailToken(accessToken, tokenTimestamp);
             startDashboard();
           },
         });
