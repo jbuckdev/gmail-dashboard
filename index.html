@@ -2689,6 +2689,27 @@
           <p>See what matters. Skip what doesn't.</p>
         </div>
 
+        <!-- Email-provider picker. Hidden unless the local iCloud bridge is reachable
+             (i.e. only James, on his Mac, sees this). Larry never sees it — Gmail-only
+             flow is entirely unchanged. -->
+        <div class="setup-card glass-spotlight" id="step-provider" style="display:none">
+          <div class="setup-card-header">
+            <div class="step-badge" id="stepProvider-badge">1</div>
+            <h2>Choose your email account</h2>
+          </div>
+          <p>Sign in to the inbox you want to analyze.</p>
+          <div class="privacy-toggle" id="onboard-provider-toggle">
+            <div class="privacy-option" data-provider="gmail" onclick="selectOnboardProvider('gmail')">
+              <div class="privacy-option-title"><span class="privacy-dot dot-full"></span> Gmail</div>
+              <div class="privacy-option-desc">Sign in with Google. Works anywhere — phone, any browser.</div>
+            </div>
+            <div class="privacy-option" data-provider="icloud" onclick="selectOnboardProvider('icloud')">
+              <div class="privacy-option-title"><span class="privacy-dot dot-private"></span> iCloud</div>
+              <div class="privacy-option-desc" id="provider-icloud-desc">Connects through the local bridge on this Mac.</div>
+            </div>
+          </div>
+        </div>
+
         <div class="setup-card glass-spotlight" id="step-privacy">
           <div class="setup-card-header">
             <div class="step-badge" id="step0-badge">1</div>
@@ -2723,16 +2744,19 @@
         <div class="setup-card glass-spotlight" id="step-google">
           <div class="setup-card-header">
             <div class="step-badge" id="step2-badge">3</div>
-            <h2>Sign in with Google</h2>
+            <h2 id="step-google-title">Sign in with Google</h2>
           </div>
-          <p>Read-only access to your email subjects and senders. Cannot send, move, or delete anything.</p>
+          <p id="step-google-desc">Read-only access to your email subjects and senders. Cannot send, move, or delete anything.</p>
           <button class="btn-google" id="google-signin-btn" onclick="handleGoogleSignIn()" disabled>
             <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
             Sign in with Google
           </button>
+          <button class="btn-primary" id="icloud-connect-btn" onclick="handleIcloudConnect()" style="display:none" disabled>
+            Continue with iCloud
+          </button>
         </div>
 
-        <div class="trust-line">
+        <div class="trust-line" id="trust-line-text">
           Your emails stay in Gmail. This page reads them temporarily to sort them,<br>
           then forgets everything when you close the tab.
         </div>
@@ -2921,7 +2945,7 @@
           </div>
         </div>
 
-        <div class="footer">
+        <div class="footer" id="dashboard-footer-text">
           Your emails stay in Gmail. This page reads them temporarily, then forgets everything when you close the tab.
         </div>
       </div>
@@ -3116,6 +3140,11 @@
     const GMAIL_SCOPES_READONLY = 'https://www.googleapis.com/auth/gmail.readonly';
     const GMAIL_SCOPES_MODIFY = 'https://www.googleapis.com/auth/gmail.modify';
 
+    // iCloud bridge — local Mac-only IMAP→HTTP service. Bridge probes once on load;
+    // if reachable + has creds, the iCloud option appears in onboarding. Otherwise
+    // hidden entirely so Larry/anyone-not-on-James's-Mac never sees it.
+    const ICLOUD_BRIDGE_URL = 'http://127.0.0.1:4851';
+
     /* ============================================
        STATE
        ============================================ */
@@ -3126,6 +3155,12 @@
     let hasModifyScope = false;
     let selectedEmails = new Set(); // legacy — kept for undo compatibility
     let activeFilter = null; // for stat card filtering
+    let iCloudAvailable = false; // set true if bridge probe succeeds with credentials
+    let iCloudAccount = null;    // email address from bridge /health, when available
+
+    const getProvider = () => localStorage.getItem('emailDashProvider') || 'gmail';
+    const isIcloud = () => getProvider() === 'icloud';
+    const setProvider = (p) => localStorage.setItem('emailDashProvider', p);
 
     /* ============================================
        CACHE — IndexedDB (no size limit)
@@ -3208,6 +3243,97 @@
     /* ============================================
        ONBOARDING
        ============================================ */
+    // Provider picker (Step 1, only rendered when iCloud bridge is available).
+    function selectOnboardProvider(provider) {
+      setProvider(provider);
+      document.querySelectorAll('#onboard-provider-toggle .privacy-option').forEach(el => {
+        el.classList.toggle('selected', el.dataset.provider === provider);
+      });
+      document.getElementById('step-provider').classList.add('completed');
+      const b = document.getElementById('stepProvider-badge');
+      b.textContent = '\u2713';
+      b.classList.add('done');
+      applyProviderUI();
+    }
+
+    // Walk the visible onboarding step cards and renumber badges 1..N.
+    // Skips already-completed badges (those show ✓) and skips hidden cards.
+    // Lets the picker insertion auto-renumber privacy/key/sign-in without each
+    // selectOnboard*() needing to know whether the picker is showing.
+    function renumberSteps() {
+      // Only renumber when the iCloud picker is visible — otherwise Larry sees
+      // the original Gmail-only flow with the original hardcoded badge values.
+      const provCard = document.getElementById('step-provider');
+      if (!provCard || provCard.style.display === 'none') return;
+      const cards = [
+        ['step-provider', 'stepProvider-badge'],
+        ['step-privacy', 'step0-badge'],
+        ['step-claude', 'step1-badge'],
+        ['step-google', 'step2-badge'],
+      ];
+      let n = 1;
+      for (const [cardId, badgeId] of cards) {
+        const card = document.getElementById(cardId);
+        const badge = document.getElementById(badgeId);
+        if (!card || !badge) continue;
+        if (card.style.display === 'none') continue;
+        if (!badge.classList.contains('done')) badge.textContent = String(n);
+        n++;
+      }
+    }
+
+    // Update step-google card + trust line + loading text to match the active provider.
+    function applyProviderUI() {
+      const googleBtn = document.getElementById('google-signin-btn');
+      const icloudBtn = document.getElementById('icloud-connect-btn');
+      const title = document.getElementById('step-google-title');
+      const desc = document.getElementById('step-google-desc');
+      const trust = document.getElementById('trust-line-text');
+      const loadingStep = document.getElementById('loading-step');
+      const footer = document.getElementById('dashboard-footer-text');
+      if (isIcloud()) {
+        if (googleBtn) googleBtn.style.display = 'none';
+        if (icloudBtn) {
+          icloudBtn.style.display = '';
+          icloudBtn.textContent = iCloudAccount ? `Continue as ${iCloudAccount}` : 'Continue with iCloud';
+        }
+        if (title) title.textContent = 'Connect to iCloud';
+        if (desc) desc.textContent = 'Read-only access through the local bridge on this Mac. Your iCloud password never leaves the machine.';
+        if (trust) trust.innerHTML = 'Your emails stay in iCloud. This page reads them through a local bridge on your Mac<br>and forgets everything when you close the tab.';
+        if (loadingStep) loadingStep.textContent = 'Connecting to iCloud';
+        if (footer) footer.textContent = 'Your emails stay in iCloud. This page reads them through a local bridge on your Mac, then forgets everything when you close the tab.';
+      } else {
+        if (googleBtn) googleBtn.style.display = '';
+        if (icloudBtn) icloudBtn.style.display = 'none';
+        if (title) title.textContent = 'Sign in with Google';
+        if (desc) desc.textContent = 'Read-only access to your email subjects and senders. Cannot send, move, or delete anything.';
+        if (trust) trust.innerHTML = 'Your emails stay in Gmail. This page reads them temporarily to sort them,<br>then forgets everything when you close the tab.';
+        if (loadingStep) loadingStep.textContent = 'Connecting to Gmail';
+        if (footer) footer.textContent = 'Your emails stay in Gmail. This page reads them temporarily, then forgets everything when you close the tab.';
+      }
+    }
+
+    // iCloud "Connect" — bridge already has creds (saved via setup.py),
+    // so this just verifies the bridge is still reachable then starts the dashboard.
+    async function handleIcloudConnect() {
+      try {
+        const resp = await fetch(`${ICLOUD_BRIDGE_URL}/health`);
+        if (!resp.ok) throw new Error('bridge unreachable');
+        const h = await resp.json();
+        if (!h.has_credentials) {
+          alert('iCloud bridge is running but has no credentials. Run:\n\n  cd ~/OS/services/icloud-bridge && ./venv/bin/python setup.py');
+          return;
+        }
+        document.getElementById('step-google').classList.add('completed');
+        const b = document.getElementById('step2-badge');
+        b.textContent = '\u2713';
+        b.classList.add('done');
+        startDashboard();
+      } catch (e) {
+        alert('Cannot reach iCloud bridge at ' + ICLOUD_BRIDGE_URL + '. Make sure it is running:\n\n  launchctl list | grep com.os.icloud-bridge');
+      }
+    }
+
     function selectOnboardPrivacy(mode) {
       const p = getPrefs();
       p.privacyMode = mode;
@@ -3225,7 +3351,7 @@
       b0.classList.add('done');
 
       if (mode === 'private') {
-        // Skip Claude key step entirely — go straight to Google sign-in
+        // Skip Claude key step entirely — go straight to sign-in
         document.getElementById('step-claude').style.display = 'none';
         document.getElementById('step2-badge').textContent = '2';
         markStep1Done();
@@ -3233,12 +3359,14 @@
         // Show Claude key step
         document.getElementById('step-claude').style.display = '';
         document.getElementById('step2-badge').textContent = '3';
-        // If key already saved from a previous visit, skip to Google
+        // If key already saved from a previous visit, skip to sign-in
         if (getClaudeKey()) {
           markStep1Done();
         }
       }
 
+      // When the iCloud picker is showing, push everything down by 1.
+      renumberSteps();
       updatePrivacyBadge();
     }
 
@@ -3263,6 +3391,8 @@
       document.getElementById('save-key-btn').disabled = true;
       document.getElementById('save-key-btn').textContent = 'Saved';
       document.getElementById('google-signin-btn').disabled = false;
+      const icloudBtn = document.getElementById('icloud-connect-btn');
+      if (icloudBtn) icloudBtn.disabled = false;
     }
 
     /* ============================================
@@ -3342,7 +3472,7 @@
     }
 
     /* ============================================
-       GMAIL API
+       MAIL API — provider-aware (Gmail | iCloud bridge)
        ============================================ */
     async function gmailFetch(endpoint, retries = 0) {
       let resp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${endpoint}`, {
@@ -3366,6 +3496,86 @@
       return resp.json();
     }
 
+    // Translate a Gmail-style endpoint into the iCloud bridge path/method.
+    // Endpoints we handle:
+    //   GET  messages?q=after:YYYY/MM/DD&maxResults=N&pageToken=T
+    //   GET  messages/{id}?format=metadata&metadataHeaders=...
+    //   GET  messages/{id}?format=full
+    async function icloudFetch(endpoint) {
+      // List endpoint: messages?q=after:YYYY/MM/DD&maxResults=...&pageToken=...
+      if (endpoint.startsWith('messages?')) {
+        const qs = new URLSearchParams(endpoint.split('?')[1]);
+        const q = qs.get('q') || '';
+        const afterMatch = q.match(/after:(\S+)/);
+        const after = afterMatch ? afterMatch[1] : '';
+        const max = qs.get('maxResults') || '500';
+        const pageToken = qs.get('pageToken') || '';
+        const params = new URLSearchParams({ after, max });
+        if (pageToken) params.set('page_token', pageToken);
+        const resp = await fetch(`${ICLOUD_BRIDGE_URL}/messages?${params}`);
+        if (!resp.ok) throw new Error(`iCloud bridge error: ${resp.status}`);
+        return resp.json();
+      }
+      // Per-id metadata or full body fetch
+      const m = endpoint.match(/^messages\/([^?]+)(\?(.*))?$/);
+      if (m) {
+        const id = m[1];
+        const qs = new URLSearchParams(m[3] || '');
+        const fmt = qs.get('format') || 'metadata';
+        const resp = await fetch(`${ICLOUD_BRIDGE_URL}/messages/${id}?format=${fmt}`);
+        if (!resp.ok) throw new Error(`iCloud bridge error: ${resp.status}`);
+        return resp.json();
+      }
+      throw new Error(`icloudFetch: unsupported endpoint ${endpoint}`);
+    }
+
+    // Provider-aware single-call wrapper. Gmail path = unchanged gmailFetch.
+    async function mailFetch(endpoint, retries = 0) {
+      if (isIcloud()) return icloudFetch(endpoint);
+      return gmailFetch(endpoint, retries);
+    }
+
+    // Bulk metadata fetch — for iCloud, single POST batchFetch (1 IMAP login per
+    // batch instead of N). Gmail has no equivalent, so we per-id parallel as before.
+    async function mailFetchBatchMetadata(ids) {
+      if (isIcloud()) {
+        const resp = await fetch(`${ICLOUD_BRIDGE_URL}/messages/batchFetch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids })
+        });
+        if (!resp.ok) throw new Error(`iCloud bridge batchFetch error: ${resp.status}`);
+        const data = await resp.json();
+        return data.messages || [];
+      }
+      // Gmail: caller does its own parallelization
+      throw new Error('mailFetchBatchMetadata is iCloud-only — Gmail uses per-id parallel');
+    }
+
+    // Probe the bridge once at startup. Sets iCloudAvailable + iCloudAccount.
+    // Silent timeout (1.5s) so a missing bridge doesn't slow the page for Larry.
+    async function probeIcloudBridge() {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 1500);
+        const resp = await fetch(`${ICLOUD_BRIDGE_URL}/health`, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!resp.ok) return;
+        const h = await resp.json();
+        if (h.ok && h.has_credentials) {
+          iCloudAvailable = true;
+          iCloudAccount = h.account || null;
+        }
+      } catch { /* silent — bridge not running, expected for Larry */ }
+    }
+
+    // Open-in-original-mail-app deep link. Gmail: web link. iCloud: web mailbox
+    // (Apple's iCloud Mail web UI doesn't deep-link to message UIDs).
+    function messageURL(id) {
+      if (isIcloud()) return 'https://www.icloud.com/mail/';
+      return `https://mail.google.com/mail/u/0/#inbox/${id}`;
+    }
+
     // Max emails to fetch per range (Gmail API budget)
     function getMaxEmails() {
       if (currentTimeRange <= 7) return 500;
@@ -3386,13 +3596,14 @@
       const cachedIds = cached ? new Set(cached.emails.map(e => e.id)) : new Set();
       const hasCachedData = cached && cached.emails.length > 0;
 
+      const providerLabel = isIcloud() ? 'iCloud' : 'Gmail';
       if (hasCachedData) {
         updateLoadingStep('Checking for new emails...');
       } else {
-        updateLoadingStep('Fetching your emails from Gmail...');
+        updateLoadingStep(`Fetching your emails from ${providerLabel}...`);
       }
 
-      await ensureValidToken();
+      if (!isIcloud()) await ensureValidToken();
 
       const afterDate = new Date();
       afterDate.setDate(afterDate.getDate() - days);
@@ -3405,7 +3616,7 @@
       do {
         const params = new URLSearchParams({ q: `after:${afterStr}`, maxResults: '500' });
         if (pageToken) params.set('pageToken', pageToken);
-        const data = await gmailFetch(`messages?${params}`);
+        const data = await mailFetch(`messages?${params}`);
         if (data.messages) allMsgIds.push(...data.messages.map(m => m.id));
         pageToken = data.nextPageToken || null;
         pageNum++;
@@ -3436,20 +3647,32 @@
       // Fetch only new messages — batch size adapts to avoid Gmail rate limits
       const idsToFetch = hasCachedData ? newMsgIds : allMsgIds;
       const newEmails = [];
-      const batchSize = idsToFetch.length > 1000 ? 10 : 20; // smaller batches for large fetches
+      const batchSize = isIcloud() ? 50 : (idsToFetch.length > 1000 ? 10 : 20);
       const metaFields = 'format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Reply-To&metadataHeaders=List-Unsubscribe&metadataHeaders=List-Id&metadataHeaders=Precedence&metadataHeaders=Content-Type&metadataHeaders=Auto-Submitted&metadataHeaders=X-Mailer&metadataHeaders=X-Auto-Response-Suppress&metadataHeaders=Feedback-ID&metadataHeaders=X-Priority&metadataHeaders=Importance';
       let fetchErrors = 0;
       for (let i = 0; i < idsToFetch.length; i += batchSize) {
         const batch = idsToFetch.slice(i, i + batchSize);
-        const details = await Promise.all(
-          batch.map(id => gmailFetch(`messages/${id}?${metaFields}`).catch(err => {
-            // 429 = rate limited — back off and retry once
-            if (err.message && err.message.includes('429')) return '__RATE_LIMITED__';
-            fetchErrors++;
-            return null;
-          }))
-        );
-        // Handle rate limiting: pause and retry failed ones
+        let details;
+        if (isIcloud()) {
+          // One bulk call per batch — avoids N IMAP logins
+          try {
+            details = await mailFetchBatchMetadata(batch);
+          } catch (err) {
+            console.error('iCloud batchFetch failed:', err);
+            fetchErrors += batch.length;
+            details = [];
+          }
+        } else {
+          details = await Promise.all(
+            batch.map(id => gmailFetch(`messages/${id}?${metaFields}`).catch(err => {
+              // 429 = rate limited — back off and retry once
+              if (err.message && err.message.includes('429')) return '__RATE_LIMITED__';
+              fetchErrors++;
+              return null;
+            }))
+          );
+        }
+        // Handle rate limiting: pause and retry failed ones (Gmail-only)
         const rateLimited = [];
         for (let j = 0; j < details.length; j++) {
           if (details[j] === '__RATE_LIMITED__') {
@@ -3966,7 +4189,7 @@ ${emailList}` }]
 
       // Build email items HTML
       const emailsHtml = emails.map(email => {
-        const url = `https://mail.google.com/mail/u/0/#inbox/${email.id}`;
+        const url = messageURL(email.id);
         const action = showActions && email.actionItem ? `<div class="email-action">${esc(email.actionItem)}</div>` : '';
         const summary = email.summary ? `<div class="email-summary">${esc(email.summary)}</div>` : '';
         return `<a href="${url}" target="_blank" rel="noopener" class="email-item">
@@ -4334,7 +4557,7 @@ ${emailList}` }]
       }
 
       container.innerHTML = actionEmails.sort((a,b) => b.priority - a.priority).map(e => {
-        const url = `https://mail.google.com/mail/u/0/#inbox/${e.id}`;
+        const url = messageURL(e.id);
         const initials = (e.fromName || '?').charAt(0).toUpperCase();
         return `<a href="${url}" target="_blank" rel="noopener" class="action-item-row">
           <div class="action-avatar">${esc(initials)}</div>
@@ -4575,13 +4798,15 @@ ${emailList}` }]
         let bodies;
         try {
           bodies = await Promise.all(
-            batch.map(e => gmailFetch(`messages/${e.id}?format=full`).catch(() => null))
+            batch.map(e => mailFetch(`messages/${e.id}?format=full`).catch(() => null))
           );
         } catch (gmailErr) {
-          console.error('Gmail fetch error during briefing:', gmailErr);
+          console.error('Mail fetch error during briefing:', gmailErr);
+          const providerName = isIcloud() ? 'iCloud' : 'Google';
+          const sourceName = isIcloud() ? 'iCloud bridge' : 'Gmail';
           aiSlot.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--accent-blue-border);border-radius:var(--radius-md);padding:16px 20px">
-            <p style="color:var(--accent-blue);font-weight:600;font-size:0.9em;margin-bottom:6px">Google sign-in expired</p>
-            <p style="color:var(--text-secondary);font-size:0.85em">Your Gmail connection timed out. Reload to get the written briefing.</p>
+            <p style="color:var(--accent-blue);font-weight:600;font-size:0.9em;margin-bottom:6px">${providerName} sign-in expired</p>
+            <p style="color:var(--text-secondary);font-size:0.85em">Your ${sourceName} connection timed out. Reload to get the written briefing.</p>
           </div>`;
           return;
         }
@@ -4730,7 +4955,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
 
         // Convert [REF:id] tags into clickable Gmail links
         html = html.replace(/\[REF:([^\]]+)\]/g, (match, id) => {
-          const url = `https://mail.google.com/mail/u/0/#inbox/${id}`;
+          const url = messageURL(id);
           return `<a href="${url}" target="_blank" rel="noopener" class="briefing-link" title="Open in Gmail">&#9993;</a>`;
         });
 
@@ -4825,7 +5050,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
       const fyi = emails.filter(e => e.category === 'fyi');
       const skip = emails.filter(e => e.category === 'skip');
       const rl = currentTimeRange === 1 ? 'today' : currentTimeRange === 7 ? 'this week' : 'this month';
-      const gmailLink = id => `https://mail.google.com/mail/u/0/#inbox/${id}`;
+      const gmailLink = id => messageURL(id);
       const emailLi = (e, cls) => {
         return `<li class="${cls}"><a href="${gmailLink(e.id)}" target="_blank" rel="noopener" class="briefing-link">&#9993;</a><strong>${esc(e.fromName)}</strong> &mdash; ${esc(e.subject)}</li>`;
       };
@@ -5368,7 +5593,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
 
       const emailIds = emails.map(e => e.id);
       container.innerHTML = emails.map(email => {
-        const url = `https://mail.google.com/mail/u/0/#inbox/${email.id}`;
+        const url = messageURL(email.id);
         return `<a href="${url}" target="_blank" rel="noopener" class="email-item">
           <div class="email-top"><span class="email-sender">${esc(email.fromName)}</span><span class="email-date">${fmtDate(email.date)}</span></div>
           <div class="email-subject">${esc(email.subject)}</div>
@@ -5452,7 +5677,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
           bodyContent = '<div class="empty-state" style="padding:40px;font-size:1em">Nothing needs your attention right now.</div>';
         } else {
           bodyContent = '<div class="expanded-actions">' + actionEmails.sort((a,b) => b.priority - a.priority).map(e => {
-            const url = 'https://mail.google.com/mail/u/0/#inbox/' + e.id;
+            const url = messageURL(e.id);
             const initials = (e.fromName || '?').charAt(0).toUpperCase();
             return '<a href="' + url + '" target="_blank" rel="noopener" class="expanded-action-card">' +
               '<div class="expanded-action-avatar">' + initials + '</div>' +
@@ -5614,7 +5839,7 @@ Write ${currentTimeRange >= 7 ? '300-500' : '200-400'} words. Sound like a real 
             '<span class="section-count">' + catEmails.length + '</span></div></div>' +
             '<div class="section-body expanded">' +
             (catEmails.length ? catEmails.map(e => {
-              const url = 'https://mail.google.com/mail/u/0/#inbox/' + e.id;
+              const url = messageURL(e.id);
               return '<a href="' + url + '" target="_blank" rel="noopener" class="email-item">' +
                 '<div class="email-top"><span class="email-sender">' + esc(e.fromName) + '</span>' +
                 '<span class="email-date">' + fmtDate(e.date) + '</span></div>' +
@@ -5844,7 +6069,7 @@ Browser: ${diagnostic.browser}
       unsubBtn.textContent = 'Unsubscribe';
       unsubBtn.title = 'Open in Gmail to unsubscribe';
       if (unsubEmail) {
-        unsubBtn.href = 'https://mail.google.com/mail/u/0/#inbox/' + unsubEmail.id;
+        unsubBtn.href = messageURL(unsubEmail.id);
         unsubBtn.target = '_blank';
         unsubBtn.rel = 'noopener';
         unsubBtn.style.display = '';
@@ -5964,18 +6189,26 @@ Browser: ${diagnostic.browser}
     // Core trash function — reused by all delete actions
     // Uses batchModify API (up to 1000/call) instead of individual trash requests
     async function trashEmails(ids) {
-      await ensureValidToken();
+      if (!isIcloud()) await ensureValidToken();
+      const batchModifyURL = isIcloud()
+        ? `${ICLOUD_BRIDGE_URL}/messages/batchModify`
+        : 'https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify';
+      const trashOneURL = id => isIcloud()
+        ? `${ICLOUD_BRIDGE_URL}/messages/${id}/trash`
+        : `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`;
+      const authHeaders = isIcloud()
+        ? { 'Content-Type': 'application/json' }
+        : { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+      const trashHeaders = isIcloud() ? {} : { Authorization: `Bearer ${accessToken}` };
+
       let failCount = 0;
       const BATCH_SIZE = 1000;
       for (let i = 0; i < ids.length; i += BATCH_SIZE) {
         const batch = ids.slice(i, i + BATCH_SIZE);
         try {
-          const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
+          const resp = await fetch(batchModifyURL, {
             method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            },
+            headers: authHeaders,
             body: JSON.stringify({
               ids: batch,
               addLabelIds: ['TRASH'],
@@ -5988,9 +6221,9 @@ Browser: ${diagnostic.browser}
             for (let j = 0; j < batch.length; j += 50) {
               const miniBatch = batch.slice(j, j + 50);
               await Promise.all(miniBatch.map(id =>
-                fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`, {
+                fetch(trashOneURL(id), {
                   method: 'POST',
-                  headers: { Authorization: `Bearer ${accessToken}` }
+                  headers: trashHeaders
                 }).then(r => { if (!r.ok) failCount++; return r; })
                   .catch(() => { failCount++; return null; })
               ));
@@ -6000,8 +6233,8 @@ Browser: ${diagnostic.browser}
           console.error('batchModify error:', err);
           failCount += batch.length;
         }
-        // Refresh token between batches for very large operations
-        if (i + BATCH_SIZE < ids.length) await ensureValidToken();
+        // Refresh token between batches for very large operations (Gmail only)
+        if (!isIcloud() && i + BATCH_SIZE < ids.length) await ensureValidToken();
       }
       if (failCount > 0) {
         showToast(`${ids.length - failCount} trashed, ${failCount} failed — retry or check Gmail`, false);
@@ -6036,7 +6269,7 @@ Browser: ${diagnostic.browser}
         const actionBar = createEmailActionBar(container, () => emailIds);
         container.appendChild(actionBar);
         sorted.forEach(e => {
-          const url = 'https://mail.google.com/mail/u/0/#inbox/' + e.id;
+          const url = messageURL(e.id);
           const item = document.createElement('a');
           item.href = url;
           item.target = '_blank';
@@ -6117,17 +6350,20 @@ Browser: ${diagnostic.browser}
       const { action, ids } = lastUndoData;
 
       try {
-        await ensureValidToken();
+        if (!isIcloud()) await ensureValidToken();
+        const undoURL = isIcloud()
+          ? `${ICLOUD_BRIDGE_URL}/messages/batchModify`
+          : 'https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify';
+        const undoHeaders = isIcloud()
+          ? { 'Content-Type': 'application/json' }
+          : { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
         if (action === 'trash') {
           // Undo trash — batch untrash via batchModify
           for (let i = 0; i < ids.length; i += 1000) {
             const batch = ids.slice(i, i + 1000);
-            await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
+            await fetch(undoURL, {
               method: 'POST',
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-              },
+              headers: undoHeaders,
               body: JSON.stringify({
                 ids: batch,
                 removeLabelIds: ['TRASH'],
@@ -6136,12 +6372,9 @@ Browser: ${diagnostic.browser}
             });
           }
         } else {
-          await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify', {
+          await fetch(undoURL, {
             method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            },
+            headers: undoHeaders,
             body: JSON.stringify({
               ids,
               addLabelIds: ['INBOX']
@@ -6415,10 +6648,27 @@ Browser: ${diagnostic.browser}
     /* ============================================
        INIT
        ============================================ */
-    function init() {
+    async function init() {
       const p = getPrefs();
       if (p.textSize === 'large') document.body.classList.add('font-large');
       if (p.textSize === 'xl') document.body.classList.add('font-xl');
+
+      // Probe the local iCloud bridge. Hidden 1.5s timeout — Larry-friendly.
+      await probeIcloudBridge();
+      if (iCloudAvailable) {
+        const card = document.getElementById('step-provider');
+        if (card) card.style.display = '';
+        const desc = document.getElementById('provider-icloud-desc');
+        if (desc && iCloudAccount) desc.textContent = `Connect to ${iCloudAccount} through the local bridge on this Mac.`;
+        // Restore previously selected provider, otherwise leave both unselected
+        const saved = localStorage.getItem('emailDashProvider');
+        if (saved) selectOnboardProvider(saved);
+      } else {
+        // Bridge unreachable — force gmail (and clear any stale preference)
+        setProvider('gmail');
+      }
+      applyProviderUI();
+      renumberSteps();
 
       // If user already chose privacy mode (returning visitor), restore onboarding state
       if (p.privacyMode) {
@@ -6434,12 +6684,15 @@ Browser: ${diagnostic.browser}
         if (e.key === 'Escape') closeSlideOver();
       });
 
-      if (typeof google !== 'undefined' && google.accounts) {
-        initGoogleAuth();
-      } else {
-        window.addEventListener('load', () => {
-          setTimeout(() => { if (typeof google !== 'undefined' && google.accounts) initGoogleAuth(); }, 500);
-        });
+      // Skip Google library init when using iCloud — saves a network call.
+      if (!isIcloud()) {
+        if (typeof google !== 'undefined' && google.accounts) {
+          initGoogleAuth();
+        } else {
+          window.addEventListener('load', () => {
+            setTimeout(() => { if (typeof google !== 'undefined' && google.accounts) initGoogleAuth(); }, 500);
+          });
+        }
       }
     }
 
@@ -6896,7 +7149,7 @@ Browser: ${diagnostic.browser}
       const sorted = topic.emails.sort((a, b) => b.date - a.date);
       const emailIds = sorted.map(e => e.id);
       bodyEl.innerHTML = sorted.map(e => {
-        const url = 'https://mail.google.com/mail/u/0/#inbox/' + e.id;
+        const url = messageURL(e.id);
         return '<a href="' + url + '" target="_blank" rel="noopener" class="email-item">' +
           '<div class="email-top"><span class="email-sender">' + esc(e.fromName) + '</span>' +
           '<span class="email-date">' + fmtDate(e.date) + '</span></div>' +
