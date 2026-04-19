@@ -1084,7 +1084,10 @@
       overflow: hidden;
     }
     @media (max-width: 1100px) { .ops-grid { grid-template-columns: minmax(0, 1fr) 280px; } }
-    @media (max-width: 900px)  { .ops-grid { grid-template-columns: 1fr; } .ops-senders { display: none !important; } }
+    /* Below 900px we drop the 2-col layout. Senders stays visible — flows
+       inline below the workspace as a regular section (mobile rules below
+       further restyle it). */
+    @media (max-width: 900px)  { .ops-grid { grid-template-columns: 1fr; } }
 
     .ops-main {
       display: grid;
@@ -1560,10 +1563,12 @@
       .sidebar { display: none !important; }
       .mobile-topbar, .mobile-tabbar { display: flex !important; }
 
-      /* Hard-constrain everything to viewport width */
+      /* Hard-constrain everything to viewport width.
+         IMPORTANT: don't add overflow to .tab-pane — that creates a
+         sub-scroll context and breaks position:sticky on its descendants. */
       html, body { overflow-x: hidden !important; max-width: 100vw; }
       .workspace { max-width: 100vw !important; padding: 0 !important; }
-      .tab-pane { max-width: 100%; overflow-x: hidden; }
+      .tab-pane { max-width: 100%; }
       .clean-table { table-layout: fixed; word-break: break-word; }
       .clean-table td .row-sender-email { word-break: break-all; }
 
@@ -1589,15 +1594,19 @@
         overflow: visible !important;
       }
 
-      /* Top mono strip — scrollable horizontally */
+      /* Top mono strip — scrolls with content (sticky was causing overlap). */
       .ops-strip {
         padding: 8px 14px !important;
         gap: 14px !important;
         font-size: 9.5px !important;
-        position: sticky;
-        top: 48px; /* below the mobile-topbar */
-        z-index: 25;
+        position: static !important;
+        height: auto !important;
+        flex-wrap: wrap;
+        white-space: normal !important;
+        overflow-x: visible !important;
       }
+      .ops-strip .ops-strip-sep { display: none; }
+      .ops-strip-item { gap: 5px !important; }
 
       /* Mobile top app bar */
       .mobile-topbar {
@@ -1716,18 +1725,37 @@
       /* LANDSCAPE — bubble map hidden on mobile (touch-unfriendly) */
       .ops-landscape { display: none !important; }
 
-      /* TRIAGE — vertical stack of 4 sections, each capped */
+      /* TRIAGE — vertical stack of 4 sections, each capped at ~6 emails */
+      .ops-triage { display: block !important; }
       .ops-triage .ops-section-body {
         grid-template-columns: 1fr !important;
-        grid-auto-rows: auto;
+        grid-auto-rows: auto !important;
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
       }
       .triage-pillar {
         border-right: 0 !important;
         border-bottom: 1px solid var(--border);
-        max-height: 240px;
+        max-height: none !important;
+        overflow: visible !important;
+        display: block !important;
       }
       .triage-pillar:last-child { border-bottom: 0; }
-      .triage-list { max-height: 200px; }
+      .triage-pillar-head {
+        background: var(--bg-card);
+        position: sticky;
+        top: 0;
+        z-index: 5;
+      }
+      /* Override the legacy .section-body { max-height: 2000px; } that used
+         to drive the desktop accordion. On mobile each pillar's list is
+         vertically capped + scrollable internally so a chatty bucket can't
+         take the whole screen. */
+      .triage-list {
+        max-height: 320px !important;
+        overflow-y: auto !important;
+      }
 
       /* SPARKLINES — stack vertically too */
       .ops-spark {
@@ -1743,16 +1771,23 @@
 
       /* SENDERS — flow inline as a regular section, not a fixed rail */
       .ops-senders {
+        display: flex !important;
         border-left: 0 !important;
         border-top: 1px solid var(--border);
         max-height: none !important;
         overflow: visible !important;
+        flex-direction: column;
       }
+      .ops-senders-head { padding: 14px 16px 10px; }
       .ops-senders-list {
         overflow: visible !important;
         max-height: none !important;
       }
-      .ops-sender-item { padding: 10px 16px; }
+      .ops-sender-item {
+        padding: 10px 16px !important;
+        grid-template-columns: 22px minmax(0, 1fr) 60px !important;
+      }
+      .ops-senders-foot { padding: 12px 16px; }
 
       /* DEEP CLEAN — relax fixed widths, scroll the table */
       .clean-controls { padding: 16px; gap: 10px; flex-direction: column; align-items: stretch; }
