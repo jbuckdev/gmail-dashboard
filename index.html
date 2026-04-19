@@ -1089,8 +1089,10 @@
       grid-template-columns: minmax(0, 1fr) 320px;
       gap: 0;
       align-items: start;
+      align-content: start;
       min-height: calc(100vh - 34px);
     }
+    .ops-grid > * { align-self: start; }
     @media (max-width: 1100px) { .ops-grid { grid-template-columns: minmax(0, 1fr) 280px; } }
     /* Below 900px we drop the 2-col layout. Senders stays visible — flows
        inline below the workspace as a regular section (mobile rules below
@@ -1630,7 +1632,9 @@
 
       .ops-grid {
         grid-template-columns: 1fr !important;
+        grid-auto-rows: min-content;
         height: auto !important;
+        min-height: 0 !important;
         overflow: visible !important;
       }
       .ops-main {
