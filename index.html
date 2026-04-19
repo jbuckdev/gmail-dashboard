@@ -1406,14 +1406,19 @@
       font-style: italic;
     }
 
-    /* ACTIVITY section — combined Volume + Breakdown in a single collapsible window */
+    /* ACTIVITY section — combined Volume + Breakdown in a single collapsible window.
+       Override the generic .ops-section-body { flex: 1 } so this row sizes to
+       content (no empty space at the bottom of the window). */
     .ops-activity {
       border-top: 1px solid var(--border);
-      flex-shrink: 0;
+      flex: 0 0 auto;
     }
-    .ops-activity-body {
+    .ops-activity > .ops-section-body {
+      flex: 0 0 auto !important;
+      overflow: visible !important;
       display: grid;
       grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+      align-items: start;
       gap: 0;
     }
     .ops-activity-body > div {
