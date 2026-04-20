@@ -980,9 +980,10 @@
     }
     .eu-hud strong { color: var(--text-primary); font-weight: 500; font-family: var(--font-numeric); font-size: 11px; letter-spacing: 0; margin-right: 2px; }
 
-    /* Mobile tap-gate: overlay that covers the canvas until the user
-       deliberately taps to enter exploration mode. Keeps the page
-       scrollable while the universe is nearby. Hidden on desktop. */
+    /* Mobile tap-gate: sits above the canvas but is pointer-transparent
+       so vertical page-scrolls swipe right through to the underlying
+       page scroll. Only the inner button re-enables pointer events, so
+       exploration requires a real tap on the button. Hidden on desktop. */
     .eu-mobile-gate {
       display: none; /* default — turned on by the mobile media query */
       position: absolute;
@@ -992,19 +993,17 @@
       justify-content: center;
       flex-direction: column;
       gap: 10px;
-      background: linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.02));
+      background: linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.01));
       color: var(--text-secondary);
       font-family: var(--font-mono), 'JetBrains Mono', monospace;
       font-size: 11px;
       letter-spacing: 0.18em;
       text-transform: uppercase;
-      cursor: pointer;
       user-select: none;
       -webkit-user-select: none;
-      -webkit-tap-highlight-color: transparent;
-      /* Let vertical page-scroll pass through the gate; only a real
-         tap (no significant drag) activates the universe. */
-      touch-action: pan-y;
+      /* Gate itself ignores pointers → scroll, pinch, long-press etc.
+         all pass through to the page. The button below opts back in. */
+      pointer-events: none;
     }
     [data-theme="light"] .eu-mobile-gate {
       background: linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0.05));
@@ -1013,15 +1012,23 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 10px 18px;
+      padding: 12px 22px;
       border: 1px solid var(--accent-primary-border);
       border-radius: 999px;
       background: var(--bg-card);
       color: var(--accent-primary);
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.12);
+      font-family: inherit;
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.14);
+      /* Button is the only tappable part of the gate. */
+      pointer-events: auto;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
+    .eu-mobile-gate .eu-gate-badge:active { transform: scale(0.97); }
     .eu-mobile-gate .eu-gate-badge::before {
       content: '';
       width: 7px; height: 7px;
@@ -1033,7 +1040,7 @@
       font-size: 9px;
       letter-spacing: 0.2em;
       color: var(--text-muted);
-      opacity: 0.75;
+      opacity: 0.7;
     }
     .eu-active .eu-mobile-gate { display: none !important; }
     /* Exit chip only visible while active on mobile */
@@ -1982,16 +1989,15 @@
         max-height: 320px !important;
         flex: 0 0 320px !important;
       }
-      /* Gate overlay shown above the canvas until the user taps to
-         activate interaction. Hidden on desktop via the min-width
-         media query below. The page must stay scrollable while the
-         gate is closed — only swallow touches once activated. */
+      /* Gate overlay is pointer-transparent by default (only its button
+         listens) so page-scrolls swipe straight through. Canvas is
+         pointer-inert until .eu-active is set, at which point
+         touch-action: none lets our touch handlers own the gesture. */
       .eu-mobile-gate { display: flex !important; }
-      .eu-canvas { touch-action: auto; }
       .ops-landscape.eu-active .eu-canvas,
-      .clean-landscape.eu-active .eu-canvas { touch-action: none; }
+      .clean-landscape.eu-active .eu-canvas { touch-action: none; pointer-events: auto; }
       .ops-landscape:not(.eu-active) .eu-canvas,
-      .clean-landscape:not(.eu-active) .eu-canvas { pointer-events: none; }
+      .clean-landscape:not(.eu-active) .eu-canvas { pointer-events: none; touch-action: auto; }
 
       /* TRIAGE — vertical stack of 4 sections, each capped at ~6 emails */
       .ops-triage { display: block !important; }
@@ -7341,8 +7347,8 @@ ${emailList}` }]
       const gate = document.createElement('div');
       gate.className = 'eu-mobile-gate';
       gate.innerHTML = `
-        <div class="eu-gate-badge">Tap to explore</div>
-        <div class="eu-gate-hint">Swipe to orbit · pinch to zoom · tap × to exit</div>
+        <button type="button" class="eu-gate-badge">Tap to explore</button>
+        <div class="eu-gate-hint">Drag to orbit · pinch to zoom · × to exit</div>
       `;
       host.appendChild(gate);
       const exit = document.createElement('button');
@@ -7350,11 +7356,10 @@ ${emailList}` }]
       exit.type = 'button';
       exit.textContent = '× Exit';
       host.appendChild(exit);
-      // Tap activates; scroll gestures pass through (touch-action: pan-y
-      // on the gate). Click fires only when the pointer didn't move
-      // significantly, so a swipe-scroll won't accidentally open the
-      // universe. No touchend preventDefault — that would hijack scroll.
-      gate.addEventListener('click', (e) => { e.stopPropagation(); section.classList.add('eu-active'); });
+      // Only the button inside the gate is tappable — the rest is
+      // pointer-transparent so vertical page-scroll passes through.
+      const gateBtn = gate.querySelector('.eu-gate-badge');
+      gateBtn.addEventListener('click', (e) => { e.stopPropagation(); section.classList.add('eu-active'); });
       exit.addEventListener('click', (e) => { e.stopPropagation(); section.classList.remove('eu-active'); });
 
       // ── Node geometry (all nodes as Points) ─────────────────────
@@ -7592,163 +7597,174 @@ ${emailList}` }]
         geom.attributes.glowStr.needsUpdate = true;
       }
 
-      // ── Multi-pointer input (mouse + touch + pen unified) ──────
-      // activePointers tracks EVERY finger/cursor currently pressing
-      // the canvas. 1 pointer = orbit (single-finger drag). 2 pointers
-      // = pinch-to-zoom + two-finger pan (midpoint-based). A pointer
-      // that moves less than TAP_SLOP_PX before release counts as a
-      // tap and routes into the click handler below.
-      const activePointers = new Map();
-      let pinchDist = 0, pinchMidX = 0, pinchMidY = 0;
-      let tapStart = null;
-      const TAP_SLOP_PX = 8;
+      // ── Input: mouse + touch on separate paths ─────────────────
+      // Touch events (with preventDefault) are the reliable path on
+      // iOS Safari — Pointer Events get cancelled by the browser the
+      // moment it decides "this might be a scroll." Modeled on the
+      // THREE.js OrbitControls mobile pattern.
       const halfFovTan = Math.tan((camera.fov * Math.PI / 180) / 2);
 
-      function pointerArr() { return Array.from(activePointers.values()); }
-      function pinchRefresh() {
-        const pts = pointerArr();
-        pinchDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
-        pinchMidX = (pts[0].x + pts[1].x) / 2;
-        pinchMidY = (pts[0].y + pts[1].y) / 2;
-      }
-
-      renderer.domElement.addEventListener('pointerdown', e => {
-        // Capture so the pointer keeps reporting even if it slides off
-        // the canvas mid-gesture (crucial for reliable mobile drag).
-        try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
-        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      // --- Mouse path (desktop) ---
+      let mouseDown = false;
+      let mX = 0, mY = 0;
+      renderer.domElement.addEventListener('mousedown', (e) => {
+        mouseDown = true;
+        isPanning = e.shiftKey || e.button === 1 || e.button === 2;
+        mX = e.clientX; mY = e.clientY;
         userInteracted = true;
         clearHover();
-        if (activePointers.size === 1) {
-          tapStart = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId };
-          isPanning = e.shiftKey || e.button === 1 || e.button === 2;
-        } else if (activePointers.size === 2) {
-          pinchRefresh();
-          tapStart = null; // multi-touch voids a pending tap
-        }
       });
-
-      const endPointer = (e) => {
-        const startedAsTap = tapStart && tapStart.id === e.pointerId && !tapStart.moved && activePointers.size === 1;
-        activePointers.delete(e.pointerId);
-        try { renderer.domElement.releasePointerCapture(e.pointerId); } catch {}
-        if (activePointers.size < 2) pinchDist = 0;
-        if (activePointers.size === 0 && startedAsTap) {
-          // Treat as click — route through the same action picker.
-          handleUniverseClick(e);
-        }
-        if (activePointers.size === 0) { tapStart = null; isPanning = false; }
-      };
-      renderer.domElement.addEventListener('pointerup', endPointer);
-      renderer.domElement.addEventListener('pointercancel', endPointer);
+      window.addEventListener('mouseup', () => { mouseDown = false; isPanning = false; });
       renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
-
-      renderer.domElement.addEventListener('pointermove', e => {
-        // Hover raycast (mouse only — we don't want a stray tooltip
-        // to chase a finger around the universe on touch).
-        if (!activePointers.has(e.pointerId) && e.pointerType === 'mouse') {
-          getMouseNDC(e);
-          raycaster.setFromCamera(mouse, camera);
-          const hits = raycaster.intersectObject(points);
-          if (hits.length) {
-            const idx = hits[0].index;
-            if (idx !== hoveredIdx) {
-              hoveredIdx = idx;
-              const n = allNodes[idx];
-              const sizes = geom.attributes.size.array;
-              const glows = geom.attributes.glowStr.array;
-              for (let i = 0; i < allNodes.length; i++) {
-                sizes[i] = baseSizes[i];
-                glows[i] = baseGlows[i];
-              }
-              sizes[idx] = baseSizes[idx] * 1.85;
-              glows[idx] = Math.min(1.0, baseGlows[idx] * 2.4);
-              geom.attributes.size.needsUpdate = true;
-              geom.attributes.glowStr.needsUpdate = true;
-              tooltip.querySelector('.tt-title').textContent =
-                n.type === 'email' ? (n.title || '(no subject)')
-                : n.type === 'sender' ? n.name
-                : n.name;
-              tooltip.querySelector('.tt-meta').textContent =
-                n.type === 'email' ? ((n.sender || '') + (n.date ? ' · ' + fmtDateShort(n.date) : ''))
-                : n.type === 'sender' ? (n.count + ' email' + (n.count===1?'':'s') + ' · ' + n.topic)
-                : (n.count + ' email' + (n.count===1?'':'s'));
-              tooltip.querySelector('.tt-sub').textContent =
-                n.type === 'email' ? ('Topic: ' + n.topic)
-                : n.type === 'sender' ? n.addr
-                : 'Topic cluster';
-              tooltip.style.display = 'block';
-            }
-            const hostRect = host.getBoundingClientRect();
-            tooltip.style.left = (e.clientX - hostRect.left + 14) + 'px';
-            tooltip.style.top  = (e.clientY - hostRect.top - 8) + 'px';
-          } else {
-            clearHover();
-          }
-          return;
-        }
-
-        const prev = activePointers.get(e.pointerId);
-        if (!prev) return;
-        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-        // Tap detection — any significant movement voids it.
-        if (tapStart && tapStart.id === e.pointerId) {
-          if (Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) > TAP_SLOP_PX) tapStart.moved = true;
-        }
-
-        if (activePointers.size === 1) {
-          // Single-finger orbit (or pan if modifier)
-          const dx = e.clientX - prev.x;
-          const dy = e.clientY - prev.y;
-          if (isPanning) {
-            panX -= dx * 0.006;
-            panY += dy * 0.006;
-          } else {
-            rotY += dx * 0.006;
-            rotX += dy * 0.006;
+      renderer.domElement.addEventListener('mousemove', (e) => {
+        if (mouseDown) {
+          const dx = e.clientX - mX, dy = e.clientY - mY;
+          if (isPanning) { panX -= dx * 0.006; panY += dy * 0.006; }
+          else {
+            rotY += dx * 0.005;
+            rotX += dy * 0.005;
             rotX = Math.max(-1.55, Math.min(1.55, rotX));
           }
-        } else if (activePointers.size === 2) {
-          // Two-finger pinch-zoom + pan. Midpoint delta drives pan;
-          // distance ratio drives camera z. Anchors the world point
-          // under the midpoint so zoom feels centered on the pinch.
-          const pts = pointerArr();
-          const distance = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
-          const midX = (pts[0].x + pts[1].x) / 2;
-          const midY = (pts[0].y + pts[1].y) / 2;
-
-          if (pinchDist > 0) {
-            const oldZ = camera.position.z;
-            camera.position.z *= (pinchDist / Math.max(1, distance));
-            camera.position.z = Math.max(0.35, Math.min(8, camera.position.z));
-            // Zoom-to-midpoint (same trick as the wheel handler).
-            const r = renderer.domElement.getBoundingClientRect();
-            const mx =  ((midX - r.left) / r.width) * 2 - 1;
-            const my = -((midY - r.top)  / r.height) * 2 + 1;
-            const dz = oldZ - camera.position.z;
-            panX += mx * dz * halfFovTan * (camera.aspect || 1);
-            panY += my * dz * halfFovTan;
+          mX = e.clientX; mY = e.clientY;
+          return;
+        }
+        // Hover raycast (mouse only)
+        getMouseNDC(e);
+        raycaster.setFromCamera(mouse, camera);
+        const hits = raycaster.intersectObject(points);
+        if (hits.length) {
+          const idx = hits[0].index;
+          if (idx !== hoveredIdx) {
+            hoveredIdx = idx;
+            const n = allNodes[idx];
+            const sizes = geom.attributes.size.array;
+            const glows = geom.attributes.glowStr.array;
+            for (let i = 0; i < allNodes.length; i++) {
+              sizes[i] = baseSizes[i];
+              glows[i] = baseGlows[i];
+            }
+            sizes[idx] = baseSizes[idx] * 1.85;
+            glows[idx] = Math.min(1.0, baseGlows[idx] * 2.4);
+            geom.attributes.size.needsUpdate = true;
+            geom.attributes.glowStr.needsUpdate = true;
+            tooltip.querySelector('.tt-title').textContent =
+              n.type === 'email' ? (n.title || '(no subject)')
+              : n.type === 'sender' ? n.name
+              : n.name;
+            tooltip.querySelector('.tt-meta').textContent =
+              n.type === 'email' ? ((n.sender || '') + (n.date ? ' · ' + fmtDateShort(n.date) : ''))
+              : n.type === 'sender' ? (n.count + ' email' + (n.count===1?'':'s') + ' · ' + n.topic)
+              : (n.count + ' email' + (n.count===1?'':'s'));
+            tooltip.querySelector('.tt-sub').textContent =
+              n.type === 'email' ? ('Topic: ' + n.topic)
+              : n.type === 'sender' ? n.addr
+              : 'Topic cluster';
+            tooltip.style.display = 'block';
           }
-          // Two-finger pan from midpoint movement
-          panX -= (midX - pinchMidX) * 0.005;
-          panY += (midY - pinchMidY) * 0.005;
-
-          pinchDist = distance;
-          pinchMidX = midX;
-          pinchMidY = midY;
+          const hostRect = host.getBoundingClientRect();
+          tooltip.style.left = (e.clientX - hostRect.left + 14) + 'px';
+          tooltip.style.top  = (e.clientY - hostRect.top - 8) + 'px';
+        } else {
+          clearHover();
         }
       });
+      renderer.domElement.addEventListener('mouseleave', clearHover);
 
-      renderer.domElement.addEventListener('pointerleave', (e) => {
-        if (e.pointerType === 'mouse' && activePointers.size === 0) clearHover();
-      });
+      // --- Touch path (mobile) ---
+      // 1 finger  = orbit (drag). Small drag (<8px) + short duration = tap.
+      // 2 fingers = pinch-to-zoom + two-finger pan (midpoint anchored).
+      // { passive: false } + preventDefault() so iOS doesn't hijack.
+      let touchMode = null; // 'orbit' | 'pinch' | null
+      let tX = 0, tY = 0;            // last touch position (orbit)
+      let pinchDist = 0;             // last pinch distance
+      let pMidX = 0, pMidY = 0;      // last pinch midpoint
+      let tapStart = null;           // { x, y, t }
+      const TAP_SLOP = 10, TAP_MS = 350;
 
-      // Click router — used by real mouse clicks AND by touch-taps
-      // detected in endPointer. Keeps one source of truth.
+      function dist2(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
+      function mid(a, b) { return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }; }
+
+      renderer.domElement.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        userInteracted = true;
+        clearHover();
+        if (e.touches.length === 1) {
+          touchMode = 'orbit';
+          tX = e.touches[0].clientX;
+          tY = e.touches[0].clientY;
+          tapStart = { x: tX, y: tY, t: Date.now() };
+        } else if (e.touches.length >= 2) {
+          touchMode = 'pinch';
+          pinchDist = dist2(e.touches[0], e.touches[1]);
+          const m = mid(e.touches[0], e.touches[1]);
+          pMidX = m.x; pMidY = m.y;
+          tapStart = null;
+        }
+      }, { passive: false });
+
+      renderer.domElement.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1 && touchMode === 'orbit') {
+          const t = e.touches[0];
+          const dx = t.clientX - tX, dy = t.clientY - tY;
+          rotY += dx * 0.006;
+          rotX += dy * 0.006;
+          rotX = Math.max(-1.55, Math.min(1.55, rotX));
+          tX = t.clientX; tY = t.clientY;
+          if (tapStart && Math.hypot(t.clientX - tapStart.x, t.clientY - tapStart.y) > TAP_SLOP) tapStart = null;
+        } else if (e.touches.length >= 2) {
+          if (touchMode !== 'pinch') {
+            touchMode = 'pinch';
+            pinchDist = dist2(e.touches[0], e.touches[1]);
+            const m0 = mid(e.touches[0], e.touches[1]);
+            pMidX = m0.x; pMidY = m0.y;
+            return;
+          }
+          const d = dist2(e.touches[0], e.touches[1]);
+          const m = mid(e.touches[0], e.touches[1]);
+          if (pinchDist > 0 && d > 0) {
+            const oldZ = camera.position.z;
+            camera.position.z *= (pinchDist / d);
+            camera.position.z = Math.max(0.35, Math.min(8, camera.position.z));
+            // zoom-to-midpoint
+            const r = renderer.domElement.getBoundingClientRect();
+            const nx =  ((m.x - r.left) / r.width) * 2 - 1;
+            const ny = -((m.y - r.top)  / r.height) * 2 + 1;
+            const dz = oldZ - camera.position.z;
+            panX += nx * dz * halfFovTan * (camera.aspect || 1);
+            panY += ny * dz * halfFovTan;
+          }
+          // two-finger pan from midpoint drift
+          panX -= (m.x - pMidX) * 0.005;
+          panY += (m.y - pMidY) * 0.005;
+          pinchDist = d;
+          pMidX = m.x; pMidY = m.y;
+        }
+      }, { passive: false });
+
+      function onTouchEnd(e) {
+        if (e.cancelable) e.preventDefault();
+        if (e.touches && e.touches.length === 0) {
+          // Last finger up — check for tap
+          if (touchMode === 'orbit' && tapStart && (Date.now() - tapStart.t) < TAP_MS) {
+            handleUniverseClick({ clientX: tapStart.x, clientY: tapStart.y });
+          }
+          touchMode = null;
+          tapStart = null;
+          pinchDist = 0;
+        } else if (e.touches.length === 1 && touchMode === 'pinch') {
+          // Dropped from 2→1, resume orbit from remaining finger
+          touchMode = 'orbit';
+          tX = e.touches[0].clientX;
+          tY = e.touches[0].clientY;
+          tapStart = null;
+        }
+      }
+      renderer.domElement.addEventListener('touchend', onTouchEnd);
+      renderer.domElement.addEventListener('touchcancel', onTouchEnd);
+
+      // Click router — mouse clicks + touch taps route through the same path
       function handleUniverseClick(e) {
-        // On touch taps hoveredIdx is -1 (no hover raycast on mobile),
-        // so re-cast from the tap position to find the target.
         let idx = hoveredIdx;
         if (idx < 0 && e) {
           const r = renderer.domElement.getBoundingClientRect();
@@ -7771,8 +7787,8 @@ ${emailList}` }]
         }
       }
       renderer.domElement.addEventListener('click', (e) => {
-        // Desktop mouse click path — touch taps are dispatched from endPointer
-        if (e.pointerType && e.pointerType !== 'mouse') return;
+        // Desktop mouse only — touch taps dispatch from onTouchEnd
+        if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
         handleUniverseClick(e);
       });
 
@@ -7807,7 +7823,7 @@ ${emailList}` }]
         requestAnimationFrame(frame);
         t += 0.016;
 
-        if (activePointers.size === 0 && !userInteracted) rotY += 0.0008; // gentle idle spin
+        if (!mouseDown && !touchMode && !userInteracted) rotY += 0.0008; // gentle idle spin
         points.rotation.x = rotX; points.rotation.y = rotY;
         lines.rotation.x  = rotX; lines.rotation.y  = rotY;
 
