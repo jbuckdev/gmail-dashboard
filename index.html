@@ -1002,7 +1002,9 @@
       user-select: none;
       -webkit-user-select: none;
       -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
+      /* Let vertical page-scroll pass through the gate; only a real
+         tap (no significant drag) activates the universe. */
+      touch-action: pan-y;
     }
     [data-theme="light"] .eu-mobile-gate {
       background: linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0.05));
@@ -1982,9 +1984,12 @@
       }
       /* Gate overlay shown above the canvas until the user taps to
          activate interaction. Hidden on desktop via the min-width
-         media query below. */
+         media query below. The page must stay scrollable while the
+         gate is closed — only swallow touches once activated. */
       .eu-mobile-gate { display: flex !important; }
-      .eu-canvas { touch-action: none; }
+      .eu-canvas { touch-action: auto; }
+      .ops-landscape.eu-active .eu-canvas,
+      .clean-landscape.eu-active .eu-canvas { touch-action: none; }
       .ops-landscape:not(.eu-active) .eu-canvas,
       .clean-landscape:not(.eu-active) .eu-canvas { pointer-events: none; }
 
@@ -7345,8 +7350,11 @@ ${emailList}` }]
       exit.type = 'button';
       exit.textContent = '× Exit';
       host.appendChild(exit);
+      // Tap activates; scroll gestures pass through (touch-action: pan-y
+      // on the gate). Click fires only when the pointer didn't move
+      // significantly, so a swipe-scroll won't accidentally open the
+      // universe. No touchend preventDefault — that would hijack scroll.
       gate.addEventListener('click', (e) => { e.stopPropagation(); section.classList.add('eu-active'); });
-      gate.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); section.classList.add('eu-active'); }, { passive: false });
       exit.addEventListener('click', (e) => { e.stopPropagation(); section.classList.remove('eu-active'); });
 
       // ── Node geometry (all nodes as Points) ─────────────────────
@@ -7586,17 +7594,27 @@ ${emailList}` }]
         geom.attributes.glowStr.needsUpdate = true;
       }
 
-      renderer.domElement.addEventListener('mousedown', e => {
+      // Pointer events cover mouse + touch + pen in one API so the
+      // universe drags identically on desktop and mobile. pointerdown
+      // captures the pointer so movement keeps firing even if the
+      // finger/cursor leaves the canvas bounds mid-drag.
+      renderer.domElement.addEventListener('pointerdown', e => {
         isDown = true;
         isPanning = e.shiftKey || e.button === 1 || e.button === 2;
         prevX = e.clientX; prevY = e.clientY;
         userInteracted = true;
+        try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
         clearHover();
       });
       renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
-      window.addEventListener('mouseup', () => { isDown = false; isPanning = false; });
+      const _endDrag = (e) => {
+        isDown = false; isPanning = false;
+        try { renderer.domElement.releasePointerCapture(e.pointerId); } catch {}
+      };
+      renderer.domElement.addEventListener('pointerup', _endDrag);
+      renderer.domElement.addEventListener('pointercancel', _endDrag);
 
-      renderer.domElement.addEventListener('mousemove', e => {
+      renderer.domElement.addEventListener('pointermove', e => {
         if (isDown) {
           const dx = e.clientX - prevX;
           const dy = e.clientY - prevY;
