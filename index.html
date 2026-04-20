@@ -7566,9 +7566,7 @@ ${emailList}` }]
       raycaster.params.Points.threshold = 0.018;
       const mouse = new THREE.Vector2();
 
-      let isDown = false;
       let isPanning = false;
-      let prevX = 0, prevY = 0;
       let rotX = 0, rotY = 0;
       let panX = 0, panY = 0;
       let hoveredIdx = -1;
@@ -7594,106 +7592,191 @@ ${emailList}` }]
         geom.attributes.glowStr.needsUpdate = true;
       }
 
-      // Pointer events cover mouse + touch + pen in one API so the
-      // universe drags identically on desktop and mobile. pointerdown
-      // captures the pointer so movement keeps firing even if the
-      // finger/cursor leaves the canvas bounds mid-drag.
+      // ── Multi-pointer input (mouse + touch + pen unified) ──────
+      // activePointers tracks EVERY finger/cursor currently pressing
+      // the canvas. 1 pointer = orbit (single-finger drag). 2 pointers
+      // = pinch-to-zoom + two-finger pan (midpoint-based). A pointer
+      // that moves less than TAP_SLOP_PX before release counts as a
+      // tap and routes into the click handler below.
+      const activePointers = new Map();
+      let pinchDist = 0, pinchMidX = 0, pinchMidY = 0;
+      let tapStart = null;
+      const TAP_SLOP_PX = 8;
+      const halfFovTan = Math.tan((camera.fov * Math.PI / 180) / 2);
+
+      function pointerArr() { return Array.from(activePointers.values()); }
+      function pinchRefresh() {
+        const pts = pointerArr();
+        pinchDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        pinchMidX = (pts[0].x + pts[1].x) / 2;
+        pinchMidY = (pts[0].y + pts[1].y) / 2;
+      }
+
       renderer.domElement.addEventListener('pointerdown', e => {
-        isDown = true;
-        isPanning = e.shiftKey || e.button === 1 || e.button === 2;
-        prevX = e.clientX; prevY = e.clientY;
-        userInteracted = true;
+        // Capture so the pointer keeps reporting even if it slides off
+        // the canvas mid-gesture (crucial for reliable mobile drag).
         try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        userInteracted = true;
         clearHover();
+        if (activePointers.size === 1) {
+          tapStart = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId };
+          isPanning = e.shiftKey || e.button === 1 || e.button === 2;
+        } else if (activePointers.size === 2) {
+          pinchRefresh();
+          tapStart = null; // multi-touch voids a pending tap
+        }
       });
-      renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
-      const _endDrag = (e) => {
-        isDown = false; isPanning = false;
+
+      const endPointer = (e) => {
+        const startedAsTap = tapStart && tapStart.id === e.pointerId && !tapStart.moved && activePointers.size === 1;
+        activePointers.delete(e.pointerId);
         try { renderer.domElement.releasePointerCapture(e.pointerId); } catch {}
+        if (activePointers.size < 2) pinchDist = 0;
+        if (activePointers.size === 0 && startedAsTap) {
+          // Treat as click — route through the same action picker.
+          handleUniverseClick(e);
+        }
+        if (activePointers.size === 0) { tapStart = null; isPanning = false; }
       };
-      renderer.domElement.addEventListener('pointerup', _endDrag);
-      renderer.domElement.addEventListener('pointercancel', _endDrag);
+      renderer.domElement.addEventListener('pointerup', endPointer);
+      renderer.domElement.addEventListener('pointercancel', endPointer);
+      renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
       renderer.domElement.addEventListener('pointermove', e => {
-        if (isDown) {
-          const dx = e.clientX - prevX;
-          const dy = e.clientY - prevY;
+        // Hover raycast (mouse only — we don't want a stray tooltip
+        // to chase a finger around the universe on touch).
+        if (!activePointers.has(e.pointerId) && e.pointerType === 'mouse') {
+          getMouseNDC(e);
+          raycaster.setFromCamera(mouse, camera);
+          const hits = raycaster.intersectObject(points);
+          if (hits.length) {
+            const idx = hits[0].index;
+            if (idx !== hoveredIdx) {
+              hoveredIdx = idx;
+              const n = allNodes[idx];
+              const sizes = geom.attributes.size.array;
+              const glows = geom.attributes.glowStr.array;
+              for (let i = 0; i < allNodes.length; i++) {
+                sizes[i] = baseSizes[i];
+                glows[i] = baseGlows[i];
+              }
+              sizes[idx] = baseSizes[idx] * 1.85;
+              glows[idx] = Math.min(1.0, baseGlows[idx] * 2.4);
+              geom.attributes.size.needsUpdate = true;
+              geom.attributes.glowStr.needsUpdate = true;
+              tooltip.querySelector('.tt-title').textContent =
+                n.type === 'email' ? (n.title || '(no subject)')
+                : n.type === 'sender' ? n.name
+                : n.name;
+              tooltip.querySelector('.tt-meta').textContent =
+                n.type === 'email' ? ((n.sender || '') + (n.date ? ' · ' + fmtDateShort(n.date) : ''))
+                : n.type === 'sender' ? (n.count + ' email' + (n.count===1?'':'s') + ' · ' + n.topic)
+                : (n.count + ' email' + (n.count===1?'':'s'));
+              tooltip.querySelector('.tt-sub').textContent =
+                n.type === 'email' ? ('Topic: ' + n.topic)
+                : n.type === 'sender' ? n.addr
+                : 'Topic cluster';
+              tooltip.style.display = 'block';
+            }
+            const hostRect = host.getBoundingClientRect();
+            tooltip.style.left = (e.clientX - hostRect.left + 14) + 'px';
+            tooltip.style.top  = (e.clientY - hostRect.top - 8) + 'px';
+          } else {
+            clearHover();
+          }
+          return;
+        }
+
+        const prev = activePointers.get(e.pointerId);
+        if (!prev) return;
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        // Tap detection — any significant movement voids it.
+        if (tapStart && tapStart.id === e.pointerId) {
+          if (Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) > TAP_SLOP_PX) tapStart.moved = true;
+        }
+
+        if (activePointers.size === 1) {
+          // Single-finger orbit (or pan if modifier)
+          const dx = e.clientX - prev.x;
+          const dy = e.clientY - prev.y;
           if (isPanning) {
             panX -= dx * 0.006;
             panY += dy * 0.006;
           } else {
-            rotY += dx * 0.005;
-            rotX += dy * 0.005;
+            rotY += dx * 0.006;
+            rotX += dy * 0.006;
             rotX = Math.max(-1.55, Math.min(1.55, rotX));
           }
-          prevX = e.clientX; prevY = e.clientY;
-          return;
-        }
-        // Hover raycast (cheap — Points). Always pick the CLOSEST hit
-        // so the user gets exactly the node under their cursor —
-        // individual emails stay reachable even when they sit in front
-        // of a topic/sender anchor.
-        getMouseNDC(e);
-        raycaster.setFromCamera(mouse, camera);
-        const hits = raycaster.intersectObject(points);
-        if (hits.length) {
-          const idx = hits[0].index;
-          if (idx !== hoveredIdx) {
-            hoveredIdx = idx;
-            const n = allNodes[idx];
-            const sizes = geom.attributes.size.array;
-            const glows = geom.attributes.glowStr.array;
-            for (let i = 0; i < allNodes.length; i++) {
-              sizes[i] = baseSizes[i];
-              glows[i] = baseGlows[i];
-            }
-            sizes[idx] = baseSizes[idx] * 1.85;
-            glows[idx] = Math.min(1.0, baseGlows[idx] * 2.4);
-            geom.attributes.size.needsUpdate = true;
-            geom.attributes.glowStr.needsUpdate = true;
+        } else if (activePointers.size === 2) {
+          // Two-finger pinch-zoom + pan. Midpoint delta drives pan;
+          // distance ratio drives camera z. Anchors the world point
+          // under the midpoint so zoom feels centered on the pinch.
+          const pts = pointerArr();
+          const distance = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+          const midX = (pts[0].x + pts[1].x) / 2;
+          const midY = (pts[0].y + pts[1].y) / 2;
 
-            tooltip.querySelector('.tt-title').textContent =
-              n.type === 'email' ? (n.title || '(no subject)')
-              : n.type === 'sender' ? n.name
-              : n.name;
-            tooltip.querySelector('.tt-meta').textContent =
-              n.type === 'email' ? ((n.sender || '') + (n.date ? ' · ' + fmtDateShort(n.date) : ''))
-              : n.type === 'sender' ? (n.count + ' email' + (n.count===1?'':'s') + ' · ' + n.topic)
-              : (n.count + ' email' + (n.count===1?'':'s'));
-            tooltip.querySelector('.tt-sub').textContent =
-              n.type === 'email' ? ('Topic: ' + n.topic)
-              : n.type === 'sender' ? n.addr
-              : 'Topic cluster';
-            tooltip.style.display = 'block';
+          if (pinchDist > 0) {
+            const oldZ = camera.position.z;
+            camera.position.z *= (pinchDist / Math.max(1, distance));
+            camera.position.z = Math.max(0.35, Math.min(8, camera.position.z));
+            // Zoom-to-midpoint (same trick as the wheel handler).
+            const r = renderer.domElement.getBoundingClientRect();
+            const mx =  ((midX - r.left) / r.width) * 2 - 1;
+            const my = -((midY - r.top)  / r.height) * 2 + 1;
+            const dz = oldZ - camera.position.z;
+            panX += mx * dz * halfFovTan * (camera.aspect || 1);
+            panY += my * dz * halfFovTan;
           }
-          const hostRect = host.getBoundingClientRect();
-          tooltip.style.left = (e.clientX - hostRect.left + 14) + 'px';
-          tooltip.style.top  = (e.clientY - hostRect.top - 8) + 'px';
-        } else {
-          clearHover();
+          // Two-finger pan from midpoint movement
+          panX -= (midX - pinchMidX) * 0.005;
+          panY += (midY - pinchMidY) * 0.005;
+
+          pinchDist = distance;
+          pinchMidX = midX;
+          pinchMidY = midY;
         }
       });
 
-      renderer.domElement.addEventListener('mouseleave', clearHover);
+      renderer.domElement.addEventListener('pointerleave', (e) => {
+        if (e.pointerType === 'mouse' && activePointers.size === 0) clearHover();
+      });
 
-      // Click: email → open reader; sender → slide-over; topic → drill
-      renderer.domElement.addEventListener('click', () => {
-        if (hoveredIdx < 0 || isDown) return;
-        const n = allNodes[hoveredIdx];
+      // Click router — used by real mouse clicks AND by touch-taps
+      // detected in endPointer. Keeps one source of truth.
+      function handleUniverseClick(e) {
+        // On touch taps hoveredIdx is -1 (no hover raycast on mobile),
+        // so re-cast from the tap position to find the target.
+        let idx = hoveredIdx;
+        if (idx < 0 && e) {
+          const r = renderer.domElement.getBoundingClientRect();
+          mouse.x =  ((e.clientX - r.left) / r.width) * 2 - 1;
+          mouse.y = -((e.clientY - r.top)  / r.height) * 2 + 1;
+          raycaster.setFromCamera(mouse, camera);
+          const hits = raycaster.intersectObject(points);
+          if (hits.length) idx = hits[0].index;
+        }
+        if (idx < 0) return;
+        const n = allNodes[idx];
         if (n.type === 'email') {
           if (typeof openEmailReader === 'function') openEmailReader(n.id);
           else if (typeof openSenderEmails === 'function') openSenderEmails(n.sender, n.senderAddr);
         } else if (n.type === 'sender') {
           if (typeof openSenderEmails === 'function') openSenderEmails(n.name, n.addr);
         } else if (n.type === 'topic') {
-          // Drill: open slide-over with all emails in this topic
-          const es = (window.allEmails || []).filter(e => (e.topic || 'Other') === n.name);
+          const es = (window.allEmails || []).filter(em => (em.topic || 'Other') === n.name);
           if (typeof showEmailsPanel === 'function') showEmailsPanel(n.name, es);
         }
+      }
+      renderer.domElement.addEventListener('click', (e) => {
+        // Desktop mouse click path — touch taps are dispatched from endPointer
+        if (e.pointerType && e.pointerType !== 'mouse') return;
+        handleUniverseClick(e);
       });
 
-      // Zoom-to-cursor
-      const halfFovTan = Math.tan((camera.fov * Math.PI / 180) / 2);
+      // Zoom-to-cursor (halfFovTan declared with the pointer block above)
       renderer.domElement.addEventListener('wheel', e => {
         const r = renderer.domElement.getBoundingClientRect();
         const mx =  ((e.clientX - r.left) / r.width) * 2 - 1;
@@ -7724,7 +7807,7 @@ ${emailList}` }]
         requestAnimationFrame(frame);
         t += 0.016;
 
-        if (!isDown && !userInteracted) rotY += 0.0008; // gentle idle spin
+        if (activePointers.size === 0 && !userInteracted) rotY += 0.0008; // gentle idle spin
         points.rotation.x = rotX; points.rotation.y = rotY;
         lines.rotation.x  = rotX; lines.rotation.y  = rotY;
 
