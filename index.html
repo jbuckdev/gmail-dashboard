@@ -7180,7 +7180,18 @@ ${emailList}` }]
         try { if (prev.section) prev.section.classList.remove('eu-active'); } catch {}
         _euStates.delete(hostId);
       }
-      if (map) { map.innerHTML = ''; map.style.height = ''; map.style.transform = ''; }
+      if (map) {
+        // Legacy 2D-bubble placeholder — empty it and make sure it
+        // can't float over the canvas absorbing mouse events.
+        map.innerHTML = '';
+        map.style.height = '';
+        map.style.transform = '';
+        map.style.pointerEvents = 'none';
+        map.style.position = 'absolute';
+        map.style.inset = '0';
+        map.style.width = '0';
+        map.style.overflow = 'hidden';
+      }
       if (hostId === 'bubble-viewport') {
         if (typeof resetBubbleZoom === 'function') resetBubbleZoom();
         if (typeof updateBubbleBackBtn === 'function') updateBubbleBackBtn();
