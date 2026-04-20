@@ -7390,16 +7390,16 @@ ${emailList}` }]
         col[i*3+1] = c.g;
         col[i*3+2] = c.b;
         if (n.type === 'topic') {
-          siz[i] = 1.4 + Math.min(0.9, Math.log2((n.count||1) + 1) * 0.2);
-          glw[i] = 0.28;
+          siz[i] = 0.95 + Math.min(0.7, Math.log2((n.count||1) + 1) * 0.14);
+          glw[i] = 0.26;
           alp[i] = 0.95;
         } else if (n.type === 'sender') {
-          siz[i] = 0.72 + Math.min(0.5, Math.log2((n.count||1) + 1) * 0.1);
-          glw[i] = 0.14;
+          siz[i] = 0.5 + Math.min(0.35, Math.log2((n.count||1) + 1) * 0.08);
+          glw[i] = 0.12;
           alp[i] = 0.85;
         } else {
-          siz[i] = 0.34;
-          glw[i] = 0.06;
+          siz[i] = 0.22;
+          glw[i] = 0.05;
           alp[i] = 0.8;
         }
       });
@@ -7578,15 +7578,21 @@ ${emailList}` }]
       // ── Interaction: orbit / zoom-to-cursor / pan / hover / click
       const raycaster = new THREE.Raycaster();
       // Tight threshold so hover hits the actual node under the cursor
-      // rather than a fat halo around it.
-      raycaster.params.Points.threshold = 0.018;
+      // rather than a fat halo around it — scaled to match the smaller
+      // nodes so you can precisely click individual emails.
+      raycaster.params.Points.threshold = 0.012;
       const mouse = new THREE.Vector2();
 
       let isPanning = false;
       let rotX = 0, rotY = 0;
       let panX = 0, panY = 0;
       let hoveredIdx = -1;
-      let userInteracted = false;
+      // Track the last time the user touched the universe. Idle spin
+       // resumes after IDLE_MS of no interaction so the Dashboard scene
+       // doesn't freeze permanently after a single click.
+      let lastInteractAt = 0;
+      const IDLE_MS = 2500;
+      function markInteracted() { lastInteractAt = performance.now(); }
 
       function getMouseNDC(e) {
         const r = renderer.domElement.getBoundingClientRect();
@@ -7622,7 +7628,7 @@ ${emailList}` }]
         mouseDown = true;
         isPanning = e.shiftKey || e.button === 1 || e.button === 2;
         mX = e.clientX; mY = e.clientY;
-        userInteracted = true;
+        markInteracted();
         clearHover();
       });
       window.addEventListener('mouseup', () => { mouseDown = false; isPanning = false; });
@@ -7697,7 +7703,7 @@ ${emailList}` }]
 
       renderer.domElement.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        userInteracted = true;
+        markInteracted();
         clearHover();
         if (e.touches.length === 1) {
           touchMode = 'orbit';
@@ -7814,14 +7820,14 @@ ${emailList}` }]
         const dz = oldZ - camera.position.z;
         panX += mx * dz * halfFovTan * (camera.aspect || 1);
         panY += my * dz * halfFovTan;
-        userInteracted = true;
+        markInteracted();
         e.preventDefault();
       }, { passive: false });
 
       // Double-click resets view
       renderer.domElement.addEventListener('dblclick', () => {
         panX = 0; panY = 0; rotX = 0; rotY = 0; camera.position.z = 3.0;
-        userInteracted = false;
+        lastInteractAt = 0;
       });
 
       // ── Animation loop ──────────────────────────────────────────
@@ -7834,7 +7840,9 @@ ${emailList}` }]
         requestAnimationFrame(frame);
         t += 0.016;
 
-        if (!mouseDown && !touchMode && !userInteracted) rotY += 0.0008; // gentle idle spin
+        // Idle spin — resumes after IDLE_MS of inactivity so the scene
+        // stays alive even after the user has clicked around.
+        if (!mouseDown && !touchMode && (performance.now() - lastInteractAt) > IDLE_MS) rotY += 0.0008;
         points.rotation.x = rotX; points.rotation.y = rotY;
         lines.rotation.x  = rotX; lines.rotation.y  = rotY;
 
